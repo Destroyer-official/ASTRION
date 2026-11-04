@@ -68,6 +68,29 @@ export class GalacticPotential {
     return (G_GALACTIC * M * R * R) / denom;
   }
 
+  /**
+   * Circular rotation speed (km/s) of a test particle at cylindrical radius R
+   * (kpc) in the midplane. Same components the Sun's integrated orbit feels,
+   * so the rendered star field and the Sun co-move by construction.
+   */
+  circularSpeedKms(R: number): number {
+    const r = Math.max(R, 1e-3);
+    const disk2 = this.circSpeed2MN(this.mDisk, this.aDisk, this.bDisk, r);
+    const bulge2 = this.circSpeed2MN(this.mBulge, this.aBulge, this.bBulge, r);
+    const halo2 = (this.v0Halo2 * r * r) / (r * r + this.rcHalo * this.rcHalo);
+    return Math.sqrt(Math.max(0, disk2 + bulge2 + halo2));
+  }
+
+  /**
+   * Signed angular rate (rad/Myr) at radius R. Negative: the Milky Way rotates
+   * clockwise seen from the north galactic pole, matching getInitialSunState
+   * (x=-r0, vy>0 gives dphi/dt<0). Renderers must use this sign.
+   */
+  angularRateRadPerMyr(R: number): number {
+    const r = Math.max(R, 1e-3);
+    return (-this.circularSpeedKms(r) * MYR_TO_TIME) / r;
+  }
+
   potential(x: number, y: number, z: number): number {
     const R2 = x * x + y * y;
     // Bulge MN

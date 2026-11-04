@@ -10,6 +10,15 @@ const a1 = -1.17767998417887,
 const a0 = 1 - 2 * (a1 + a2 + a3);
 const W6 = [a3, a2, a1, a0, a1, a2, a3];
 
+// Yoshida (1990), 8th-order triple composition of 6th order
+const c7 = Math.pow(2, 1 / 7);
+const w8_1 = 1 / (2 - c7);
+const w8_0 = 1 - 2 * w8_1;
+const W8: number[] = [];
+for (const w6 of W6) W8.push(w8_1 * w6);
+for (const w6 of W6) W8.push(w8_0 * w6);
+for (const w6 of W6) W8.push(w8_1 * w6);
+
 export class Composition implements Integrator {
   readonly name: string;
   private readonly base: Integrator;
@@ -26,3 +35,4 @@ export class Composition implements Integrator {
 
 export const yoshida4 = (base: Integrator) => new Composition('yoshida4', base, W4);
 export const yoshida6 = (base: Integrator) => new Composition('yoshida6', base, W6);
+export const yoshida8 = (base: Integrator) => new Composition('yoshida8', base, W8);
