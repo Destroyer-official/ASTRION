@@ -1,0 +1,22 @@
+{
+  "id": "hygiea",
+  "name": "Hygiea",
+  "gmKm3S2": 5.625147645385229,
+  "radiusKm": 225.0,
+  "color": "#8d8578",
+  "source": "JPL Horizons COMMAND=DES=2000010;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; GM: gm_de440.tpc",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.290572993549908,
+      2.183849399761852,
+      -0.1158512786070138
+    ],
+    "velocity": [
+      -0.005852767341978999,
+      -0.007628061369503617,
+      -0.0004973297761204746
+    ]
+  }
+}

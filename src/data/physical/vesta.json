@@ -1,0 +1,19 @@
+{
+  "rotation": {
+    "poleRaDeg": 305.65,
+    "poleDecDeg": 41.44,
+    "w0Deg": 292.3,
+    "wRateDegPerDay": 1617.332776
+  },
+  "flattening": 0.2204,
+  "facts": {
+    "Classification": "Asteroid (V-type, Main Belt)",
+    "Mass": "2.5908 × 10²⁰ kg",
+    "Equatorial Radius": "286.3 km",
+    "Polar Radius": "223.2 km",
+    "Mean Volumetric Radius": "262.7 km",
+    "Flattening": "0.2204 (22.0%)",
+    "Sidereal Rotation": "5.342 hours",
+    "Discovery": "Heinrich Wilhelm Olbers (1807)"
+  }
+}

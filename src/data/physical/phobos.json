@@ -1,9 +1,34 @@
 {
   "rotation": {
-    "poleRaDeg": 317.68,
-    "poleDecDeg": 52.90,
-    "w0Deg": 35.06,
-    "wRateDegPerDay": 1128.844585
+    "poleRaDeg": 317.67071657,
+    "poleDecDeg": 52.88627266,
+    "w0Deg": 35.1877444,
+    "wRateDegPerDay": 1128.84475928,
+    "poleRaRateDegPerCy": -0.10844326,
+    "poleDecRateDegPerCy": -0.06134706,
+    "wAccelDegPerDay2": 9.536137031212154e-9,
+    "nutation": {
+      "systemId": 4,
+      "raAmpDeg": [
+        -1.78428399,
+        0.02212824,
+        -0.01028251,
+        -0.00475595
+      ],
+      "decAmpDeg": [
+        -1.07516537,
+        0.00668626,
+        -0.0064874,
+        0.00281576
+      ],
+      "wAmpDeg": [
+        1.42421769,
+        -0.02273783,
+        0.00410711,
+        0.00631964,
+        -1.143
+      ]
+    }
   },
   "flattening": 0.31,
   "texture": "/textures/phobos.jpg",

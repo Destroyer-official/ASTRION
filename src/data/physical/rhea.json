@@ -1,9 +1,44 @@
 {
   "rotation": {
-    "poleRaDeg": 40.59,
-    "poleDecDeg": 83.54,
-    "w0Deg": 310.0,
-    "wRateDegPerDay": 79.6900478
+    "poleRaDeg": 40.38,
+    "poleDecDeg": 83.55,
+    "w0Deg": 235.16,
+    "wRateDegPerDay": 79.6900478,
+    "poleRaRateDegPerCy": -0.036,
+    "poleDecRateDegPerCy": -0.004,
+    "nutation": {
+      "systemId": 6,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3.1,
+        0,
+        0
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -0.35,
+        0,
+        0
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -3.08,
+        0,
+        0
+      ]
+    }
   },
   "flattening": 0.001,
   "texture": "/textures/rhea.jpg",

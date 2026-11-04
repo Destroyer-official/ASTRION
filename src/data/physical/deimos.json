@@ -1,9 +1,50 @@
 {
   "rotation": {
-    "poleRaDeg": 316.65,
-    "poleDecDeg": 53.52,
-    "w0Deg": 79.41,
-    "wRateDegPerDay": 285.161897
+    "poleRaDeg": 316.65705808,
+    "poleDecDeg": 53.50992033,
+    "w0Deg": 79.39932954,
+    "wRateDegPerDay": 285.16188899,
+    "poleRaRateDegPerCy": -0.10518014,
+    "poleDecRateDegPerCy": -0.05979094,
+    "nutation": {
+      "systemId": 4,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        3.09217726,
+        0.22980637,
+        0.06418655,
+        0.02533537,
+        0.00778695
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        1.83936004,
+        0.1432532,
+        0.01911409,
+        -0.0148259,
+        0.0019243
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        -2.73954829,
+        -0.39968606,
+        -0.06563259,
+        -0.0291294,
+        0.0169916
+      ]
+    }
   },
   "flattening": 0.25,
   "texture": "/textures/deimos.jpg",

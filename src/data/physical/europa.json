@@ -3,7 +3,39 @@
     "poleRaDeg": 268.08,
     "poleDecDeg": 64.51,
     "w0Deg": 36.022,
-    "wRateDegPerDay": 101.3747235
+    "wRateDegPerDay": 101.3747235,
+    "poleRaRateDegPerCy": -0.009,
+    "poleDecRateDegPerCy": 0.003,
+    "nutation": {
+      "systemId": 5,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        1.086,
+        0.06,
+        0.015,
+        0.009
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0.468,
+        0.026,
+        0.007,
+        0.002
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        -0.98,
+        -0.054,
+        -0.014,
+        -0.008
+      ]
+    }
   },
   "flattening": 0.001,
   "texture": "/textures/europa.jpg",

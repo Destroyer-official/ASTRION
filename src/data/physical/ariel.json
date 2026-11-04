@@ -1,9 +1,59 @@
 {
   "rotation": {
-    "poleRaDeg": 257.31,
-    "poleDecDeg": -15.18,
-    "w0Deg": 39.5,
-    "wRateDegPerDay": -142.8356681
+    "poleRaDeg": 257.43,
+    "poleDecDeg": -15.1,
+    "w0Deg": 156.22,
+    "wRateDegPerDay": -142.8356681,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0,
+    "nutation": {
+      "systemId": 7,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.29
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.28
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.05,
+        0.08
+      ]
+    }
   },
   "flattening": 0.005,
   "texture": "/textures/ariel.jpg",

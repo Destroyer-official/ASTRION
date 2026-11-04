@@ -3,9 +3,44 @@
     "poleRaDeg": 268.72,
     "poleDecDeg": 64.83,
     "w0Deg": 259.51,
-    "wRateDegPerDay": 21.5710715
+    "wRateDegPerDay": 21.5710715,
+    "poleRaRateDegPerCy": -0.009,
+    "poleDecRateDegPerCy": 0.003,
+    "nutation": {
+      "systemId": 5,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        -0.068,
+        0.59,
+        0,
+        0.01
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        -0.029,
+        0.254,
+        0,
+        -0.004
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0.061,
+        -0.533,
+        0,
+        -0.009
+      ]
+    }
   },
-  "flattening": 0.0,
+  "flattening": 0,
   "texture": "/textures/callisto.jpg",
   "facts": {
     "Host Body": "Jupiter",

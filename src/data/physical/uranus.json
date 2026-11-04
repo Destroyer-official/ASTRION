@@ -3,10 +3,12 @@
     "poleRaDeg": 257.311,
     "poleDecDeg": -15.175,
     "w0Deg": 203.81,
-    "wRateDegPerDay": -501.1600928
+    "wRateDegPerDay": -501.1600928,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0
   },
   "flattening": 0.02293,
-  "j2": 3.343e-3,
+  "j2": 0.003343,
   "texture": "/textures/uranus.jpg",
   "facts": {
     "Mass": "8.681 × 10²⁵ kg",

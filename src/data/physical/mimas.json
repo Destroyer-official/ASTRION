@@ -1,9 +1,44 @@
 {
   "rotation": {
-    "poleRaDeg": 40.59,
-    "poleDecDeg": 83.54,
-    "w0Deg": 336.5,
-    "wRateDegPerDay": 381.994555
+    "poleRaDeg": 40.66,
+    "poleDecDeg": 83.52,
+    "w0Deg": 333.46,
+    "wRateDegPerDay": 381.994555,
+    "poleRaRateDegPerCy": -0.036,
+    "poleDecRateDegPerCy": -0.004,
+    "nutation": {
+      "systemId": 6,
+      "raAmpDeg": [
+        0,
+        0,
+        13.56,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        -1.53,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        -13.48,
+        0,
+        -44.85,
+        0,
+        0,
+        0
+      ]
+    }
   },
   "flattening": 0.08,
   "texture": "/textures/mimas.jpg",

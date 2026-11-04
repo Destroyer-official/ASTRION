@@ -1,9 +1,11 @@
 {
   "rotation": {
-    "poleRaDeg": 39.48,
-    "poleDecDeg": 83.43,
-    "w0Deg": 186.58,
-    "wRateDegPerDay": 22.5769768
+    "poleRaDeg": 39.4827,
+    "poleDecDeg": 83.4279,
+    "w0Deg": 186.5855,
+    "wRateDegPerDay": 22.5769768,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0
   },
   "flattening": 0.0001,
   "texture": "/textures/titan.jpg",

@@ -1,9 +1,62 @@
 {
   "rotation": {
-    "poleRaDeg": 257.31,
-    "poleDecDeg": -15.18,
-    "w0Deg": 10.2,
-    "wRateDegPerDay": -86.8688923
+    "poleRaDeg": 257.43,
+    "poleDecDeg": -15.1,
+    "w0Deg": 108.05,
+    "wRateDegPerDay": -86.8688923,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0,
+    "nutation": {
+      "systemId": 7,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.21
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0.2
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -0.09,
+        0,
+        0.06
+      ]
+    }
   },
   "flattening": 0.005,
   "texture": "/textures/umbriel.jpg",

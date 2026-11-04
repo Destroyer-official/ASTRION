@@ -3,9 +3,11 @@
     "poleRaDeg": 272.76,
     "poleDecDeg": 67.16,
     "w0Deg": 160.2,
-    "wRateDegPerDay": -1.4813688
+    "wRateDegPerDay": -1.4813688,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0
   },
-  "flattening": 0.0,
+  "flattening": 0,
   "texture": "/textures/venus.jpg",
   "facts": {
     "Mass": "4.867 × 10²⁴ kg",

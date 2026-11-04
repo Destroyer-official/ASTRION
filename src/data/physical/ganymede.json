@@ -1,9 +1,38 @@
 {
   "rotation": {
-    "poleRaDeg": 268.20,
+    "poleRaDeg": 268.2,
     "poleDecDeg": 64.57,
     "w0Deg": 44.064,
-    "wRateDegPerDay": 50.3176081
+    "wRateDegPerDay": 50.3176081,
+    "poleRaRateDegPerCy": -0.009,
+    "poleDecRateDegPerCy": 0.003,
+    "nutation": {
+      "systemId": 5,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        -0.037,
+        0.431,
+        0.091
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        -0.016,
+        0.186,
+        0.039
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        0.033,
+        -0.389,
+        -0.082
+      ]
+    }
   },
   "flattening": 0.001,
   "texture": "/textures/ganymede.jpg",

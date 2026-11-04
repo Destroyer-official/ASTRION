@@ -32,6 +32,14 @@ export const SUN_J2 = 2.2e-7;
 /** Solar equatorial radius in km */
 export const SUN_RADIUS_KM = 695_700;
 
-/** Treats JD as UTC. Real TDB-UTC is ~69 s in 2026, irrelevant for display. */
-export const jdToDate = (jd: number): Date => new Date((jd - JD_UNIX_EPOCH) * DAY_S * 1000);
-export const dateToJd = (d: Date): number => d.getTime() / (DAY_S * 1000) + JD_UNIX_EPOCH;
+/** TDB minus UTC in seconds. No leap seconds since 2016, so TT-UTC = 69.184 s
+ * exactly; TDB-TT oscillates +/-0.0016 s (sub-meter, ignored). Revisit only
+ * if the IERS announces a new leap second. */
+export const TDB_MINUS_UTC_S = 69.184;
+
+/** JD(TDB) -> Date(UTC): removes the offset so readouts show true UTC. */
+export const jdToDate = (jd: number): Date =>
+  new Date((jd - TDB_MINUS_UTC_S / DAY_S - JD_UNIX_EPOCH) * DAY_S * 1000);
+/** Date(UTC) -> JD(TDB): adds the offset so Horizons queries use true TDB. */
+export const dateToJd = (d: Date): number =>
+  d.getTime() / (DAY_S * 1000) + JD_UNIX_EPOCH + TDB_MINUS_UTC_S / DAY_S;

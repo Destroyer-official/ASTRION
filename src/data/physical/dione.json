@@ -1,9 +1,11 @@
 {
   "rotation": {
-    "poleRaDeg": 40.59,
-    "poleDecDeg": 83.54,
+    "poleRaDeg": 40.66,
+    "poleDecDeg": 83.52,
     "w0Deg": 357.6,
-    "wRateDegPerDay": 131.5349316
+    "wRateDegPerDay": 131.5349316,
+    "poleRaRateDegPerCy": -0.036,
+    "poleDecRateDegPerCy": -0.004
   },
   "flattening": 0.005,
   "texture": "/textures/dione.jpg",

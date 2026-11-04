@@ -2,7 +2,7 @@
   "id": "moon",
   "name": "Moon",
   "parent": "earth",
-  "gmKm3S2": 4902.800066,
+  "gmKm3S2": 4902.800118,
   "radiusKm": 1737.4,
   "color": "#c0c0c0",
   "initial": {

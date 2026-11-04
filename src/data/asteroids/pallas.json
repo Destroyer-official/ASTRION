@@ -1,0 +1,22 @@
+{
+  "id": "pallas",
+  "name": "Pallas",
+  "gmKm3S2": 13.665878145967422,
+  "radiusKm": 275.0,
+  "color": "#a89e97",
+  "source": "JPL Horizons COMMAND=DES=2000002;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; GM: gm_de440.tpc",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      2.656871943076181,
+      0.6162542789058744,
+      -0.6604958200434347
+    ],
+    "velocity": [
+      -0.005339751257298259,
+      0.007343755752646979,
+      -0.004626075121916294
+    ]
+  }
+}

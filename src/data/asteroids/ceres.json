@@ -1,0 +1,22 @@
+{
+  "id": "ceres",
+  "name": "Ceres",
+  "gmKm3S2": 62.62888864440993,
+  "radiusKm": 482.6,
+  "color": "#9aa0a6",
+  "source": "JPL Horizons COMMAND=DES=2000001;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; GM: gm_de440.tpc",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      0.2275450544386739,
+      2.654297226940566,
+      0.04214360903488085
+    ],
+    "velocity": [
+      -0.01052601405930773,
+      0.0001059599749582107,
+      0.001943310856552584
+    ]
+  }
+}

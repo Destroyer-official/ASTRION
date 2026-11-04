@@ -1,0 +1,19 @@
+{
+  "rotation": {
+    "poleRaDeg": 318.0,
+    "poleDecDeg": -41.0,
+    "w0Deg": 138.0,
+    "wRateDegPerDay": 624.928
+  },
+  "flattening": 0.0578,
+  "facts": {
+    "Classification": "Asteroid (C-type, Main Belt)",
+    "Mass": "8.4 × 10¹⁹ kg",
+    "Equatorial Radius": "225.0 km",
+    "Polar Radius": "212.0 km",
+    "Mean Volumetric Radius": "217.1 km",
+    "Flattening": "0.0578 (5.8%)",
+    "Sidereal Rotation": "13.826 hours",
+    "Discovery": "Annibale de Gasparis (1849)"
+  }
+}

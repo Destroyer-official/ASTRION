@@ -3,7 +3,9 @@
     "poleRaDeg": 286.13,
     "poleDecDeg": 63.87,
     "w0Deg": 84.176,
-    "wRateDegPerDay": 14.1844
+    "wRateDegPerDay": 14.1844,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0
   },
   "flattening": 0.00005,
   "j2": 2.2e-7,

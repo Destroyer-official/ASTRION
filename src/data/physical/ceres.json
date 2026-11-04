@@ -1,0 +1,19 @@
+{
+  "rotation": {
+    "poleRaDeg": 291.418,
+    "poleDecDeg": 66.764,
+    "w0Deg": 170.65,
+    "wRateDegPerDay": 952.1532
+  },
+  "flattening": 0.07667,
+  "facts": {
+    "Classification": "Dwarf planet / Asteroid (Main Belt)",
+    "Mass": "9.3835 × 10²⁰ kg",
+    "Equatorial Radius": "482.6 km",
+    "Polar Radius": "445.6 km",
+    "Mean Volumetric Radius": "469.7 km",
+    "Flattening": "0.0767 (7.7%)",
+    "Sidereal Rotation": "9.074 hours",
+    "Discovery": "Giuseppe Piazzi (1801)"
+  }
+}

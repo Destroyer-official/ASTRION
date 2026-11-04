@@ -1,9 +1,32 @@
 {
   "rotation": {
     "poleRaDeg": 268.05,
-    "poleDecDeg": 64.50,
+    "poleDecDeg": 64.5,
     "w0Deg": 200.39,
-    "wRateDegPerDay": 203.4889538
+    "wRateDegPerDay": 203.4889538,
+    "poleRaRateDegPerCy": -0.009,
+    "poleDecRateDegPerCy": 0.003,
+    "nutation": {
+      "systemId": 5,
+      "raAmpDeg": [
+        0,
+        0,
+        0.094,
+        0.024
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0.04,
+        0.011
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        -0.085,
+        -0.022
+      ]
+    }
   },
   "flattening": 0.001,
   "texture": "/textures/io.jpg",

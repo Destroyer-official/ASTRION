@@ -1,9 +1,44 @@
 {
   "rotation": {
-    "poleRaDeg": 40.59,
-    "poleDecDeg": 83.54,
-    "w0Deg": 8.96,
-    "wRateDegPerDay": 190.6979085
+    "poleRaDeg": 40.66,
+    "poleDecDeg": 83.52,
+    "w0Deg": 8.95,
+    "wRateDegPerDay": 190.6979085,
+    "poleRaRateDegPerCy": -0.036,
+    "poleDecRateDegPerCy": -0.004,
+    "nutation": {
+      "systemId": 6,
+      "raAmpDeg": [
+        0,
+        0,
+        0,
+        9.66,
+        0,
+        0,
+        0,
+        0
+      ],
+      "decAmpDeg": [
+        0,
+        0,
+        0,
+        -1.09,
+        0,
+        0,
+        0,
+        0
+      ],
+      "wAmpDeg": [
+        0,
+        0,
+        0,
+        -9.6,
+        2.23,
+        0,
+        0,
+        0
+      ]
+    }
   },
   "flattening": 0.02,
   "texture": "/textures/tethys.jpg",

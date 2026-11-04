@@ -1,0 +1,22 @@
+{
+  "id": "vesta",
+  "name": "Vesta",
+  "gmKm3S2": 17.288232879171513,
+  "radiusKm": 286.3,
+  "color": "#b0a696",
+  "source": "JPL Horizons COMMAND=DES=2000004;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; GM: gm_de440.tpc",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      2.325158939860491,
+      0.7393614440613147,
+      -0.3052843590138093
+    ],
+    "velocity": [
+      -0.002434650288505705,
+      0.01044968883036405,
+      -0.0000130354630253751
+    ]
+  }
+}

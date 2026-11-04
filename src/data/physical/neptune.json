@@ -3,10 +3,45 @@
     "poleRaDeg": 299.36,
     "poleDecDeg": 43.46,
     "w0Deg": 249.978,
-    "wRateDegPerDay": 541.1397757
+    "wRateDegPerDay": 541.1397757,
+    "poleRaRateDegPerCy": 0,
+    "poleDecRateDegPerCy": 0,
+    "nutation": {
+      "systemId": 8,
+      "raAmpDeg": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "decAmpDeg": [
+        -0.51,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "wAmpDeg": [
+        -0.48,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
   },
   "flattening": 0.01708,
-  "j2": 3.411e-3,
+  "j2": 0.003411,
   "texture": "/textures/neptune.jpg",
   "facts": {
     "Mass": "1.024 × 10²⁶ kg",

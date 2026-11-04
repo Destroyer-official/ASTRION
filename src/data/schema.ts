@@ -6,6 +6,20 @@ export type InitialState =
   /** Barycentric (SSB) or parent-relative, J2000 ecliptic axes, AU and AU/day, at epochJd (TDB). */
   | { type: 'vectors'; epochJd: number; position: Triple; velocity: Triple; about?: 'parent' | 'ssb' };
 
+export interface NutationJson {
+  /** Parent planet's phase-angle system id (3=Earth … 8=Neptune): selects SYSTEM_PHASES. */
+  systemId: number;
+  /**
+   * Per-angle amplitudes in degrees, paired element-wise with the system's
+   * phase polynomials (first min(len) pairs). RA and W terms multiply
+   * sin(phase); Dec terms multiply cos(phase) — NAIF PCK convention, see the
+   * worked Jupiter/Io example in src/data/spice/pck00011.tpc.
+   */
+  raAmpDeg: number[];
+  decAmpDeg: number[];
+  wAmpDeg: number[];
+}
+
 export interface RotationJson {
   poleRaDeg: number;
   poleDecDeg: number;
@@ -13,6 +27,8 @@ export interface RotationJson {
   poleDecRateDegPerCy?: number;
   w0Deg: number; // prime meridian angle at J2000
   wRateDegPerDay: number; // negative = retrograde
+  wAccelDegPerDay2?: number; // prime-meridian quadratic term (x days^2); e.g. Phobos
+  nutation?: NutationJson; // periodic IAU nutation-precession terms (PCK)
 }
 
 export interface PhysicalJson {
