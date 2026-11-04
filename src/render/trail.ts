@@ -13,7 +13,12 @@ export class Trail {
     geom.setAttribute('position', this.attr);
     this.line = new THREE.Line(
       geom,
-      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6 }),
+      new THREE.LineBasicMaterial({
+        color,
+        transparent: false,
+        depthTest: true,
+        depthWrite: true,
+      }),
     );
     this.line.frustumCulled = false;
   }

@@ -1,6 +1,161 @@
 import * as THREE from 'three';
 import type { GalacticOrbitState } from '@/physics/galacticPotential';
 
+/** 1 km/s = 1/977.79222 kpc/Myr (same time unit the galactic orbit uses). */
+const KMS_TO_KPC_PER_MYR = 1 / 977.79222;
+/**
+ * Galactic bar (StarChild: the Milky Way is a BARRED spiral; Sofue review §2:
+ * axisymmetric bulge + non-axisymmetric bar). A bar is a rigid density pattern,
+ * so unlike disk stars it rotates at one pattern speed, not differentially.
+ */
+const BAR_STRETCH = 1.5; // major/minor axis ratio of the bar
+const BAR_ANGLE_DEG = 27; // bar major axis vs Sun–GC line (Wegg & Gerhard 2013)
+const BAR_PATTERN_KMS_KPC = 39; // pattern speed (Portail et al. 2017)
+const BAR_PATTERN_RAD_PER_MYR = -(BAR_PATTERN_KMS_KPC / 977.79222); // clockwise, like the disk
+
+/** Orbit-path recent-journey highlight: gold ramp, gaussian arc, proximity gate. */
+const ORBIT_GOLD: readonly [number, number, number] = [1.0, 0.84, 0.2];
+const ORBIT_SIGMA = 8; // path vertices (0.5 Myr each): ±10 Myr glowing wake
+const ORBIT_PROX_KPC = 1.5; // sun farther than this from the charted path: no highlight
+
+/**
+ * Index of the charted orbit-path vertex nearest the Sun (galactic XY, kpc).
+ * Pure function (unit-tested).
+ */
+export function nearestPathIndex(
+  path: Float32Array,
+  x: number,
+  y: number,
+): { index: number; distKpc: number } {
+  let best = 0,
+    bd = Infinity;
+  const n = Math.floor(path.length / 3);
+  for (let i = 0; i < n; i++) {
+    const dx = path[3 * i]! - x,
+      dy = path[3 * i + 1]! - y;
+    const d = dx * dx + dy * dy;
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  }
+  return { index: best, distKpc: Math.sqrt(bd) };
+}
+
+/**
+ * Curved voyage wake for the Sun: the charted orbit-path arc trailing behind
+ * the live marker (galaxy-local kpc). Unlike the linear drift used for planet
+ * wakes (exact over days), this follows the true integrated rosette over
+ * millions of years — the visible "rounding the galaxy". Returns vertex
+ * count, 0 when the sun is off the charted path (same gate as the highlight).
+ */
+export const SUN_WAKE_VERTICES = 160;
+
+export function sunWakeVertices(
+  path: Float32Array,
+  sunX: number,
+  sunY: number,
+  out: Float32Array,
+  maxVertices: number,
+): number {
+  const { index, distKpc } = nearestPathIndex(path, sunX, sunY);
+  if (distKpc >= ORBIT_PROX_KPC) return 0;
+  const n = Math.min(SUN_WAKE_VERTICES, maxVertices, index + 1);
+  const start = index - n + 1;
+  for (let j = 0; j < n; j++) {
+    out[3 * j] = path[3 * (start + j)]!;
+    out[3 * j + 1] = path[3 * (start + j) + 1]!;
+    out[3 * j + 2] = path[3 * (start + j) + 2]!;
+  }
+  return n;
+}
+
+/** Four logarithmic major arms (NASA/JPL-Caltech R. Hurt face-on map). */
+export const SPIRAL_ARMS = 4;
+export const SPIRAL_B = 0.22; // pitch parameter for r = a * exp(b * theta)
+/**
+ * Pattern phase: puts the Sun (angle PI at 8.2 kpc) mid-gap between arms, in
+ * the Orion spur gap — not on top of an arm. Verified by spiralArmAngle test.
+ */
+export const SPIRAL_PHASE = 0.65;
+
+/** Centerline angle of arm k at radius r (kpc). Pure function (unit-tested). */
+export function spiralArmAngle(rKpc: number, armIdx: number): number {
+  return Math.log(Math.max(rKpc, 1e-3)) / SPIRAL_B + armIdx * ((2 * Math.PI) / SPIRAL_ARMS) + SPIRAL_PHASE;
+}
+
+export interface SwirlUniforms {
+  uT: { value: number };
+  uSize: { value: number };
+  uOpacity: { value: number };
+  uLogDepthBufFC: { value: number };
+}
+
+/** Must equal 2 / log2(camera.far + 1); camera.far is 5e6 in viewer.ts. */
+const LOG_DEPTH_BUF_FC = 2 / Math.log2(5e6 + 1);
+
+/**
+ * GPU differential-rotation point material. Each star carries birth angle
+ * (aTheta), radius (aR) and signed angular rate (aOm); the vertex shader
+ * evaluates theta(t) = theta0 + om*t, so rotation costs zero CPU and zero
+ * buffer uploads per frame. Matches the old PointsMaterial look (soft sprite,
+ * vertex colors, additive) including tone mapping.
+ *
+ * NOTE: three.js does not enable its logarithmic-depth chunks for custom
+ * ShaderMaterial, and with near=1e-6/far=5e6 plain depth saturates to 1.0 and
+ * culls every distant point. So this shader writes log depth manually.
+ */
+export function createSwirlMaterial(
+  starTex: THREE.Texture,
+  uniforms: SwirlUniforms,
+): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uT: uniforms.uT,
+      uSize: uniforms.uSize,
+      uOpacity: uniforms.uOpacity,
+      uLogDepthBufFC: uniforms.uLogDepthBufFC,
+      map: { value: starTex },
+    },
+    vertexColors: true,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    vertexShader: /* glsl */ `
+      attribute float aTheta;
+      attribute float aR;
+      attribute float aOm;
+      uniform float uT;
+      uniform float uSize;
+      varying vec3 vColor;
+      varying float vLogDepth;
+      void main() {
+        float th = aTheta + aOm * uT;
+        vec3 p = vec3(aR * cos(th), aR * sin(th), position.z);
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(p, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = uSize;
+        vLogDepth = 1.0 + gl_Position.w;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      uniform float uOpacity;
+      uniform float uLogDepthBufFC;
+      varying vec3 vColor;
+      varying float vLogDepth;
+      void main() {
+        gl_FragDepth = log2(vLogDepth) * uLogDepthBufFC * 0.5;
+        vec4 tex = texture2D(map, gl_PointCoord);
+        gl_FragColor = vec4(vColor * uOpacity, 1.0) * tex;
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+}
+
 export interface GalaxyVisualConfig {
   numStars?: number;
   diskRadiusKpc?: number;
@@ -19,8 +174,13 @@ export class GalaxyVisual {
   private readonly globularPoints: THREE.Points;
   private readonly dmBoundary: THREE.Group;
 
-  private readonly orbitLine: THREE.Line;
+  readonly orbitLine: THREE.Line;
   private readonly orbitGeom: THREE.BufferGeometry;
+  private orbitPath: Float32Array | null = null;
+  private rawOrbitPath: Float32Array | null = null;
+  private readonly wakeTmp = new Float32Array(3 * SUN_WAKE_VERTICES);
+
+
   private readonly sunMarker: THREE.Group;
   private readonly sgrAMarker: THREE.Group;
   private readonly gridGroup: THREE.Group;
@@ -30,12 +190,34 @@ export class GalaxyVisual {
   private zExaggeration = 1.0;
   private readonly starPositions: Float32Array;
   private readonly baseStarZ: Float32Array;
+  // Cylindrical birth coordinates + signed angular rate (rad/Myr) per star.
+  // Negative = clockwise from +z, matching the integrated solar orbit.
+  private readonly starR: Float32Array;
+  private readonly starTheta0: Float32Array;
+  private readonly starOm: Float32Array;
   private readonly bulgePositions: Float32Array;
   private readonly baseBulgeZ: Float32Array;
+  private readonly bulgeR: Float32Array;
+  private readonly bulgeTheta0: Float32Array;
+  private readonly bulgeOm: Float32Array;
   private readonly haloPositions: Float32Array;
   private readonly baseHaloZ: Float32Array;
   private readonly globularPositions: Float32Array;
   private readonly baseGlobularZ: Float32Array;
+  private rotationCurve: (rKpc: number) => number = () => 220;
+  /** Shared uniform objects (mutated in place by setUnifiedMode/update). */
+  private readonly starsU = {
+    uT: { value: 0 },
+    uSize: { value: 3.5 },
+    uOpacity: { value: 0.95 },
+    uLogDepthBufFC: { value: LOG_DEPTH_BUF_FC },
+  };
+  private readonly bulgeU = {
+    uT: { value: 0 },
+    uSize: { value: 6.0 },
+    uOpacity: { value: 0.95 },
+    uLogDepthBufFC: { value: LOG_DEPTH_BUF_FC },
+  };
 
   constructor(config: GalaxyVisualConfig = {}) {
     const numStars = config.numStars ?? 60_000;
@@ -49,44 +231,60 @@ export class GalaxyVisual {
     const starGeom = new THREE.BufferGeometry();
     this.starPositions = new Float32Array(numStars * 3);
     this.baseStarZ = new Float32Array(numStars);
+    this.starR = new Float32Array(numStars);
+    this.starTheta0 = new Float32Array(numStars);
+    this.starOm = new Float32Array(numStars);
     const starColors = new Float32Array(numStars * 3);
 
-    const arms = 4;
-    const armOffset = (2 * Math.PI) / arms;
-    const b = 0.22; // pitch angle parameter for r = a * exp(b * theta)
+    const arms = SPIRAL_ARMS;
+    const sunR0 = 8.2; // Sun galactocentric radius in kpc
 
     for (let i = 0; i < numStars; i++) {
       const idx = i * 3;
-      // Exponential radial distribution
-      const u = Math.random();
-      const r = 1.0 + Math.sqrt(u) * (diskRadius - 1.0);
+      let x = 0, y = 0, z = 0, r = 0, theta = 0;
+      let isArm = false;
 
-      // Choose arm (or inter-arm)
-      const armIdx = Math.floor(Math.random() * arms);
-      const isArm = Math.random() < 0.75;
-      let theta = Math.log(r / 1.0) / b + armIdx * armOffset;
+      // Resample if candidate falls within the Local Bubble (0.75 kpc = 45 AU in scene units)
+      // to guarantee zero 3D galactic star points ever clip through planetary orbits
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const u = Math.random();
+        r = 1.0 + Math.sqrt(u) * (diskRadius - 1.0);
 
-      if (isArm) {
-        // Arm dispersion
-        const spread = 0.25 + 0.15 * (r / diskRadius);
-        theta += (Math.random() - 0.5) * spread * 2;
-      } else {
-        // Inter-arm diffuse stars
-        theta = Math.random() * 2 * Math.PI;
+        // Choose arm (or inter-arm)
+        const armIdx = Math.floor(Math.random() * arms);
+        isArm = Math.random() < 0.75;
+        theta = spiralArmAngle(r, armIdx);
+
+        if (isArm) {
+          // Arm dispersion
+          const spread = 0.25 + 0.15 * (r / diskRadius);
+          theta += (Math.random() - 0.5) * spread * 2;
+        } else {
+          // Inter-arm diffuse stars
+          theta = Math.random() * 2 * Math.PI;
+        }
+
+        // Vertical exponential scale height (~0.3 kpc)
+        const zScale = 0.3 * (1 + 0.5 * (r / diskRadius));
+        const zSign = Math.random() < 0.5 ? 1 : -1;
+        z = zSign * -Math.log(1 - Math.random() * 0.99) * zScale * 0.5;
+
+        x = r * Math.cos(theta);
+        y = r * Math.sin(theta);
+
+        // Distance in kpc from Sun's coordinates (-8.2, 0, 0.0208)
+        const dSunKpc = Math.hypot(x - (-sunR0), y, z - 0.0208);
+        if (dSunKpc >= 0.75 || attempt === 11) {
+          break;
+        }
       }
-
-      // Vertical exponential scale height (~0.3 kpc)
-      const zScale = 0.3 * (1 + 0.5 * (r / diskRadius));
-      const zSign = Math.random() < 0.5 ? 1 : -1;
-      const z = zSign * -Math.log(1 - Math.random() * 0.99) * zScale * 0.5;
-
-      const x = r * Math.cos(theta);
-      const y = r * Math.sin(theta);
 
       this.starPositions[idx] = x;
       this.starPositions[idx + 1] = y;
       this.starPositions[idx + 2] = z;
       this.baseStarZ[i] = z;
+      this.starR[i] = r;
+      this.starTheta0[i] = Math.atan2(y, x);
 
       // Color based on location and type
       const color = new THREE.Color();
@@ -106,17 +304,11 @@ export class GalaxyVisual {
 
     starGeom.setAttribute('position', new THREE.BufferAttribute(this.starPositions, 3));
     starGeom.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    starGeom.setAttribute('aTheta', new THREE.BufferAttribute(this.starTheta0, 1));
+    starGeom.setAttribute('aR', new THREE.BufferAttribute(this.starR, 1));
+    starGeom.setAttribute('aOm', new THREE.BufferAttribute(this.starOm, 1));
 
-    const starMat = new THREE.PointsMaterial({
-      size: 3.5,
-      sizeAttenuation: false,
-      vertexColors: true,
-      map: starTex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.95,
-    });
+    const starMat = createSwirlMaterial(starTex, this.starsU);
     this.starsPoints = new THREE.Points(starGeom, starMat);
     this.starsPoints.frustumCulled = false;
     this.group.add(this.starsPoints);
@@ -126,6 +318,9 @@ export class GalaxyVisual {
     const bulgeGeom = new THREE.BufferGeometry();
     this.bulgePositions = new Float32Array(numBulge * 3);
     this.baseBulgeZ = new Float32Array(numBulge);
+    this.bulgeR = new Float32Array(numBulge);
+    this.bulgeTheta0 = new Float32Array(numBulge);
+    this.bulgeOm = new Float32Array(numBulge);
     const bulgeColors = new Float32Array(numBulge * 3);
 
     for (let i = 0; i < numBulge; i++) {
@@ -135,14 +330,20 @@ export class GalaxyVisual {
       const costheta = 2 * Math.random() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
-      const x = r * sintheta * Math.cos(phi);
-      const y = r * sintheta * Math.sin(phi);
+      // Elongate into the bar, then fix its position angle vs the Sun–GC line.
+      const pa = (BAR_ANGLE_DEG * Math.PI) / 180;
+      const bx = r * sintheta * Math.cos(phi) * BAR_STRETCH;
+      const by = r * sintheta * Math.sin(phi);
+      const x = bx * Math.cos(pa) - by * Math.sin(pa);
+      const y = bx * Math.sin(pa) + by * Math.cos(pa);
       const z = r * costheta * 0.6; // slightly flattened
 
       this.bulgePositions[idx] = x;
       this.bulgePositions[idx + 1] = y;
       this.bulgePositions[idx + 2] = z;
       this.baseBulgeZ[i] = z;
+      this.bulgeR[i] = Math.hypot(x, y);
+      this.bulgeTheta0[i] = Math.atan2(y, x);
 
       const color = new THREE.Color();
       color.setHSL(0.1 + Math.random() * 0.05, 0.8, 0.75 + Math.random() * 0.25);
@@ -153,17 +354,11 @@ export class GalaxyVisual {
 
     bulgeGeom.setAttribute('position', new THREE.BufferAttribute(this.bulgePositions, 3));
     bulgeGeom.setAttribute('color', new THREE.BufferAttribute(bulgeColors, 3));
+    bulgeGeom.setAttribute('aTheta', new THREE.BufferAttribute(this.bulgeTheta0, 1));
+    bulgeGeom.setAttribute('aR', new THREE.BufferAttribute(this.bulgeR, 1));
+    bulgeGeom.setAttribute('aOm', new THREE.BufferAttribute(this.bulgeOm, 1));
 
-    const bulgeMat = new THREE.PointsMaterial({
-      size: 6.0,
-      sizeAttenuation: false,
-      vertexColors: true,
-      map: starTex,
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      opacity: 0.95,
-    });
+    const bulgeMat = createSwirlMaterial(starTex, this.bulgeU);
     this.bulgePoints = new THREE.Points(bulgeGeom, bulgeMat);
     this.bulgePoints.frustumCulled = false;
     this.group.add(this.bulgePoints);
@@ -294,18 +489,27 @@ export class GalaxyVisual {
     const accRing = new THREE.Mesh(accGeom, accMat);
     accRing.rotation.x = Math.PI * 0.15;
     this.sgrAMarker.add(accRing);
+
+    // Sgr A* 3D Billboard Label
+    const sgrALabel = this.createGalacticLabelSprite('🕳️ Sagittarius A*', '#ffaa33', 'Galactic Center · 4.15×10⁶ M☉');
+    sgrALabel.position.set(0, 0.45, 0.3);
+    this.sgrAMarker.add(sgrALabel);
+
     this.group.add(this.sgrAMarker);
 
     // 7. Sun's Orbit Path (Rosette + Bobbing Trajectory)
     this.orbitGeom = new THREE.BufferGeometry();
     const orbitMat = new THREE.LineBasicMaterial({
-      color: 0xffd700,
+      color: 0xffffff,
+      vertexColors: true,
       linewidth: 2,
       transparent: true,
       opacity: 0.85,
     });
     this.orbitLine = new THREE.Line(this.orbitGeom, orbitMat);
+    this.orbitLine.frustumCulled = false;
     this.group.add(this.orbitLine);
+
 
     // 8. Sun / Solar System Marker
     this.sunMarker = new THREE.Group();
@@ -346,6 +550,11 @@ export class GalaxyVisual {
     );
     this.sunMarker.add(this.velArrow);
 
+    // Sun / Solar System 3D Billboard Label
+    const sunLabel = this.createGalacticLabelSprite('☀️ Solar System (Our Sun)', '#ffd700', 'R: 8.2 kpc · Orion Spur (230 km/s)');
+    sunLabel.position.set(0, 0.42, 0.28);
+    this.sunMarker.add(sunLabel);
+
     this.group.add(this.sunMarker);
 
     // 9. Galactic Reference Guides
@@ -353,6 +562,58 @@ export class GalaxyVisual {
     this.group.add(this.gridGroup);
 
     this.group.visible = true;
+    this.refreshOmegas();
+  }
+
+  private createGalacticLabelSprite(text: string, color: string, subtext?: string): THREE.Sprite {
+    if (typeof document === 'undefined') return new THREE.Sprite(new THREE.SpriteMaterial());
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = subtext ? 128 : 64;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new THREE.Sprite(new THREE.SpriteMaterial());
+
+    const pillH = subtext ? 84 : 48;
+    const pillW = 460;
+    const px = (canvas.width - pillW) / 2;
+    const py = (canvas.height - pillH) / 2;
+
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(px, py, pillW, pillH, 16);
+    } else {
+      ctx.rect(px, py, pillW, pillH);
+    }
+    ctx.fillStyle = 'rgba(7, 11, 22, 0.88)';
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = subtext ? 'top' : 'middle';
+    ctx.fillText(text, canvas.width / 2, subtext ? py + 12 : canvas.height / 2);
+
+    if (subtext) {
+      ctx.fillStyle = color;
+      ctx.font = '500 17px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(subtext, canvas.width / 2, py + 48);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({
+      map: tex,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(subtext ? 1.5 : 1.1, subtext ? 0.38 : 0.20, 1);
+    return sprite;
   }
 
   private createStarTexture(): THREE.Texture {
@@ -414,7 +675,7 @@ export class GalaxyVisual {
 
   private createGalacticGuides(): THREE.Group {
     const group = new THREE.Group();
-    const ringRadii = [4.0, 8.2, 12.0, 16.0]; // kpc
+    const ringRadii = [4.0, 8.0, 12.0, 16.0]; // kpc concentric galactic distance guides
 
     for (const r of ringRadii) {
       const segs = 128;
@@ -424,11 +685,11 @@ export class GalaxyVisual {
         pts.push(new THREE.Vector3(r * Math.cos(theta), r * Math.sin(theta), 0));
       }
       const geom = new THREE.BufferGeometry().setFromPoints(pts);
-      const isSolarCircle = Math.abs(r - 8.2) < 0.1;
+      // Uniform subtle galactic grid material (no competing gold rings)
       const mat = new THREE.LineBasicMaterial({
-        color: isSolarCircle ? 0xffaa00 : 0x334466,
+        color: 0x334466,
         transparent: true,
-        opacity: isSolarCircle ? 0.45 : 0.2,
+        opacity: 0.18,
       });
       group.add(new THREE.Line(geom, mat));
     }
@@ -447,7 +708,24 @@ export class GalaxyVisual {
     });
     group.add(new THREE.LineSegments(axisGeom, axisMat));
 
+    // Major spiral arm guides & orientation markers
+    const armsMeta = [
+      { name: 'Perseus Arm', r: 10.5, th: 1.8, color: '#60a5fa' },
+      { name: 'Local (Orion) Spur', r: 8.2, th: 2.2, color: '#facc15' },
+      { name: 'Sagittarius Arm', r: 6.5, th: 1.0, color: '#f472b6' },
+      { name: 'Scutum-Centaurus Arm', r: 4.8, th: 4.2, color: '#34d399' },
+    ];
+    for (const a of armsMeta) {
+      const armSprite = this.createGalacticLabelSprite(a.name, a.color);
+      armSprite.position.set(a.r * Math.cos(a.th), a.r * Math.sin(a.th), 0.2);
+      group.add(armSprite);
+    }
+
     return group;
+  }
+
+  getVerticalExaggeration(): number {
+    return this.zExaggeration;
   }
 
   setVerticalExaggeration(factor: number): void {
@@ -481,9 +759,24 @@ export class GalaxyVisual {
       gPos[i * 3 + 2] = this.baseGlobularZ[i]! * factor;
     }
     this.globularPoints.geometry.attributes['position']!.needsUpdate = true;
+
+    // Synchronize orbit line geometry with vertical factor
+    if (this.rawOrbitPath) {
+      const raw = this.rawOrbitPath;
+      const exaggerated = new Float32Array(raw.length);
+      for (let i = 0; i < raw.length; i += 3) {
+        exaggerated[i] = raw[i]!;
+        exaggerated[i + 1] = raw[i + 1]!;
+        exaggerated[i + 2] = raw[i + 2]! * factor;
+      }
+      this.orbitGeom.setAttribute('position', new THREE.BufferAttribute(exaggerated, 3));
+      this.orbitGeom.attributes['position']!.needsUpdate = true;
+      this.orbitPath = exaggerated;
+    }
   }
 
   setOrbitPath(pathPoints: Float32Array): void {
+    this.rawOrbitPath = pathPoints;
     const exaggerated = new Float32Array(pathPoints.length);
     for (let i = 0; i < pathPoints.length; i += 3) {
       exaggerated[i] = pathPoints[i]!;
@@ -492,6 +785,76 @@ export class GalaxyVisual {
     }
     this.orbitGeom.setAttribute('position', new THREE.BufferAttribute(exaggerated, 3));
     this.orbitGeom.attributes['position']!.needsUpdate = true;
+    // Per-vertex gold ramp (dim base); highlightOrbit() brightens the live arc.
+    const n = Math.floor(exaggerated.length / 3);
+    const colors = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      colors[3 * i] = ORBIT_GOLD[0]! * 0.3;
+      colors[3 * i + 1] = ORBIT_GOLD[1]! * 0.3;
+      colors[3 * i + 2] = ORBIT_GOLD[2]! * 0.3;
+    }
+    this.orbitGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    this.orbitGeom.attributes['color']!.needsUpdate = true;
+    this.orbitPath = exaggerated;
+  }
+
+  /**
+   * Write the Sun's curved wake (charted path arc behind the live marker)
+   * through the world matrix into a trail buffer. Returns the vertex count,
+   * 0 when gated (then the caller keeps the linear wake instead).
+   */
+  writeSunWake(matWorld: ArrayLike<number>, out: Float32Array, maxVertices: number): number {
+    const path = this.orbitPath;
+    if (!path) return 0;
+    const n = sunWakeVertices(
+      path,
+      this.sunMarker.position.x,
+      this.sunMarker.position.y,
+      this.wakeTmp,
+      Math.min(maxVertices, SUN_WAKE_VERTICES),
+    );
+    for (let j = 0; j < n; j++) {
+      const x = this.wakeTmp[3 * j]!,
+        y = this.wakeTmp[3 * j + 1]!,
+        z = this.wakeTmp[3 * j + 2]!;
+      out[3 * j] = matWorld[0]! * x + matWorld[4]! * y + matWorld[8]! * z + matWorld[12]!;
+      out[3 * j + 1] = matWorld[1]! * x + matWorld[5]! * y + matWorld[9]! * z + matWorld[13]!;
+      out[3 * j + 2] = matWorld[2]! * x + matWorld[6]! * y + matWorld[10]! * z + matWorld[14]!;
+    }
+    return n;
+  }
+
+  /**
+   * Brighten the orbit-path arc around the Sun's current position (a glowing
+   * recent-journey wake ON the curved path). Falls back to uniform dim gold
+   * when the Sun is off the charted path (e.g. long reversed runs).
+   */
+  /**
+   * Brighten the orbit-path arc around the Sun's current position (a glowing
+   * recent-journey wake/tail ON the curved path). Falls back to uniform dim gold
+   * when the Sun is off the charted path (e.g. long reversed runs).
+   */
+  highlightOrbit(sunX: number, sunY: number, _sunZ?: number): void {
+    const path = this.orbitPath;
+    if (!path) return;
+    const colorAttr = this.orbitGeom.attributes['color'];
+    if (!colorAttr) return;
+    const { index, distKpc } = nearestPathIndex(path, sunX, sunY);
+
+    const n = Math.floor(path.length / 3);
+    const arr = (colorAttr as THREE.BufferAttribute).array as Float32Array;
+    for (let i = 0; i < n; i++) {
+      let glow = 0;
+      if (distKpc < ORBIT_PROX_KPC) {
+        const d = Math.abs(i - index);
+        glow = Math.exp(-((d * d) / (2 * ORBIT_SIGMA * ORBIT_SIGMA)));
+      }
+      const b = 0.3 + 0.7 * glow;
+      arr[3 * i] = ORBIT_GOLD[0]! * b;
+      arr[3 * i + 1] = ORBIT_GOLD[1]! * b;
+      arr[3 * i + 2] = ORBIT_GOLD[2]! * b;
+    }
+    colorAttr.needsUpdate = true;
   }
 
   update(state: GalacticOrbitState): void {
@@ -502,13 +865,34 @@ export class GalaxyVisual {
     const dir = new THREE.Vector3(state.vx / vLen, state.vy / vLen, (state.vz * this.zExaggeration) / vLen);
     this.velArrow.setDirection(dir.normalize());
 
-    // Rotate Milky Way spiral arms and bulge around Sagittarius A*
-    // Based on IAU & Gaia DR3 rotation curve at R0 = 8.2 kpc (V0 ≈ 230 km/s):
-    // Omega_0 = V0 / R0 ≈ 28.05 km/s/kpc = 0.028688 rad/Myr (~219 Myr revolution period)
-    const omega = 0.028688; // rad / Myr
-    const galAngle = state.tMyr * omega;
-    this.starsPoints.rotation.z = galAngle;
-    this.bulgePoints.rotation.z = galAngle;
+    // Differential rotation runs on the GPU (uT): zero CPU work and zero
+    // buffer uploads per frame no matter how fast galaxy time flows.
+    this.starsU.uT.value = state.tMyr;
+    this.bulgeU.uT.value = state.tMyr;
+    // Recent-journey glow rides the curved path with the sun marker and anchors the vertex.
+    this.highlightOrbit(state.x, state.y, sunZ);
+  }
+
+
+  /**
+   * Install the live rotation curve Vc(R) in km/s. Signed angular rates are
+   * derived here (clockwise from +z, matching the integrated solar orbit).
+   */
+  setRotationCurve(vcKms: (rKpc: number) => number): void {
+    this.rotationCurve = vcKms;
+    this.refreshOmegas();
+  }
+
+  private refreshOmegas(): void {
+    for (let i = 0; i < this.starR.length; i++) {
+      const r = Math.max(this.starR[i]!, 1e-3);
+      this.starOm[i] = (-this.rotationCurve(r) * KMS_TO_KPC_PER_MYR) / r;
+    }
+    // Bar = rigid pattern: every bar star shares one angular rate.
+    for (let i = 0; i < this.bulgeOm.length; i++) {
+      this.bulgeOm[i] = BAR_PATTERN_RAD_PER_MYR;
+    }
+    // No upload needed: the GPU reads these arrays through the live attributes.
   }
 
   getSunPosition(target: THREE.Vector3): THREE.Vector3 {
@@ -519,27 +903,33 @@ export class GalaxyVisual {
     return target.copy(this.group.position);
   }
 
-  setUnifiedMode(cameraDistAu: number, showHalo = true): void {
+  setUnifiedMode(cameraDistAu: number, showHalo = true, showOrbit = true): void {
     // The 3D Milky Way disc, spiral arms, bulge, and halo remain visible across all scales
     // so the galaxy is clearly rendered whether zoomed out to deep space or viewing the solar system.
     this.starsPoints.visible = true;
     this.bulgePoints.visible = true;
     this.haloGroup.visible = showHalo;
 
-    // Deep space helper markers (cyan solar ring, velocity vector, rosette orbit path, Sagittarius A* core, kpc grid)
-    // are displayed when zoomed out (> 250 AU) so they don't occlude close planetary orbits
-    const isDeepSpace = cameraDistAu >= 250;
-    this.sunMarker.visible = isDeepSpace;
-    this.orbitLine.visible = isDeepSpace;
-    this.sgrAMarker.visible = isDeepSpace;
-    this.gridGroup.visible = isDeepSpace;
+    // Deep space helper markers: Sun marker billboard yields when zoomed in close (< 80 AU)
+    // so real 3D planet & Sun meshes take over without being swallowed by the marker billboard.
+    // The Sun's 500-Myr Rosette galactic orbit path and glowing tail remain visible across zoom!
+    this.sunMarker.visible = cameraDistAu >= 80;
+    this.orbitLine.visible = showOrbit;
+    this.sgrAMarker.visible = true;
+    this.gridGroup.visible = cameraDistAu >= 1500;
 
-    const starMat = this.starsPoints.material as THREE.PointsMaterial;
-    const bulgeMat = this.bulgePoints.material as THREE.PointsMaterial;
-    starMat.size = 3.5;
-    bulgeMat.size = 6.0;
-    starMat.opacity = 0.95;
-    bulgeMat.opacity = 0.95;
+    // Far (galactic overview): 60k additive points would saturate to a white blob.
+    // Shrink + dim them with distance so spiral arms and dust lanes stay visible.
+    const far = cameraDistAu > 300;
+    const near = cameraDistAu < 80;
+    this.starsU.uSize.value = far ? 1.8 : near ? 1.8 : 2.5;
+    this.bulgeU.uSize.value = far ? 2.5 : near ? 2.2 : 4.0;
+    this.starsU.uOpacity.value = far ? 0.85 : near ? 0.45 : 0.65;
+    this.bulgeU.uOpacity.value = far ? 0.9 : near ? 0.5 : 0.75;
+  }
+
+  setOrbitLineVisible(visible: boolean): void {
+    this.orbitLine.visible = visible;
   }
 
   setSolarMode(isSolar: boolean): void {
@@ -548,6 +938,23 @@ export class GalaxyVisual {
 
   setHaloVisible(visible: boolean): void {
     this.haloGroup.visible = visible;
+  }
+
+  /** Zoom handoff: hide the kpc-scale sun marker/glow/ecliptic so the real
+   * sun mesh takes over up close (it would otherwise swallow the camera). */
+  setSunMarkerVisible(visible: boolean): void {
+    this.sunMarker.visible = visible;
+  }
+
+  setGuidesVisible(visible: boolean): void {
+    this.gridGroup.visible = visible;
+  }
+
+  /** Adaptive quality: render only the first fraction of disk/bulge stars. */
+  setStarFraction(f: number): void {
+    const frac = Math.max(0.05, Math.min(1, f));
+    this.starsPoints.geometry.setDrawRange(0, Math.floor(this.starR.length * frac));
+    this.bulgePoints.geometry.setDrawRange(0, Math.floor(this.bulgeR.length * frac));
   }
 
   setVisible(visible: boolean): void {

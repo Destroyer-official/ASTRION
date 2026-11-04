@@ -2,8 +2,59 @@ import * as THREE from 'three';
 import { AU_KM } from '@/data/constants';
 import type { PhysicalJson } from '@/data/schema';
 import { bodyToEcliptic } from '@/physics/orientation';
-import { PLANET_TEXTURE_GETTERS } from './textures';
+import { PLANET_TEXTURE_GETTERS, hasRealTexture, loadRealTexture } from './textures';
 import { createPlanetaryRing } from './rings';
+
+/** Must equal 2 / log2(camera.far + 1); camera.far is 5e6 in viewer.ts. */
+const LOG_DEPTH_BUF_FC = 2 / Math.log2(5e6 + 1);
+
+/**
+ * Sun surface material: photosphere map with view-dependent limb darkening
+ * I(mu)/I(0) = 1 - u*(1-mu), u = 0.6 (visible-light standard). Baked gradients
+ * cannot do this (limb angle depends on the camera), which is why flat-shaded
+ * suns look wrong up close. Includes tone mapping + manual log depth.
+ */
+function createSunMaterial(tex: THREE.Texture | undefined): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: tex ?? null },
+      uHasMap: { value: tex ? 1 : 0 },
+      uLogDepthBufFC: { value: LOG_DEPTH_BUF_FC },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormalV;
+      varying vec3 vViewPosition;
+      varying float vLogDepth;
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vNormalV = normalize(normalMatrix * normal);
+        vViewPosition = -mvPosition.xyz;
+        gl_Position = projectionMatrix * mvPosition;
+        vLogDepth = 1.0 + gl_Position.w;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      uniform int uHasMap;
+      uniform float uLogDepthBufFC;
+      varying vec2 vUv;
+      varying vec3 vNormalV;
+      varying vec3 vViewPosition;
+      varying float vLogDepth;
+      void main() {
+        gl_FragDepth = log2(vLogDepth) * uLogDepthBufFC * 0.5;
+        vec3 base = uHasMap == 1 ? texture2D(map, vUv).rgb : vec3(1.0, 0.8, 0.2);
+        float mu = max(dot(normalize(vNormalV), normalize(vViewPosition)), 0.0);
+        float limb = 1.0 - 0.6 * (1.0 - mu);
+        gl_FragColor = vec4(base * limb, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+}
 
 export type ScaleMode = 'true' | 'pixels' | 'exaggerated';
 
@@ -15,7 +66,13 @@ export interface BodyVisualOptions {
   physical?: PhysicalJson;
   isMoon?: boolean;
   parentId?: string;
+  /** Renderer max anisotropy (crisp close-ups); capped at 8. */
+  anisotropy?: number;
 }
+
+// Shared scratch (single-threaded render loop): avoids per-body-per-frame allocation.
+const _orientMat4 = new THREE.Matrix4();
+const _orientRes = new Array<number>(9).fill(0);
 
 function createTextSprite(text: string, color: string, isMoon: boolean): THREE.Sprite {
   if (typeof document === 'undefined') {
@@ -118,13 +175,11 @@ export class BodyVisual {
     if (tex) {
       tex.colorSpace = THREE.SRGBColorSpace;
     }
+    const maxAniso = Math.max(1, Math.min(8, Math.round(opts.anisotropy ?? 4)));
+    if (tex) tex.anisotropy = maxAniso;
 
     if (opts.id === 'sun') {
-      const sunOpts: THREE.MeshBasicMaterialParameters = {
-        color: 0xffffff,
-      };
-      if (tex) sunOpts.map = tex;
-      mat = new THREE.MeshBasicMaterial(sunOpts);
+      mat = createSunMaterial(tex);
     } else {
       const stdOpts: THREE.MeshStandardMaterialParameters = {
         color: tex ? 0xffffff : opts.color,
@@ -136,21 +191,46 @@ export class BodyVisual {
     }
 
     this.mesh = new THREE.Mesh(geom, mat);
+    // Upgrade to the real surface map once it arrives (procedural stays as fallback).
+    if (hasRealTexture(opts.id)) {
+      const target = mat as THREE.MeshStandardMaterial | THREE.MeshBasicMaterial;
+      loadRealTexture(opts.id, maxAniso).then((real) => {
+        if (real && 'map' in target) {
+          const old = target.map;
+          target.map = real;
+          target.needsUpdate = true;
+          old?.dispose();
+        }
+      });
+    }
     // Oblateness along the pole (+z)
     this.mesh.scale.z = 1 - this.flattening;
     this.group.add(this.mesh);
 
-    // Atmospheric coronal outer glow - scales strictly with the Sun's mesh disc
+    // Coronal glow shells (SDO/AIA look: bright inner corona + faint extended halo).
+    // Childed to the mesh so they scale strictly with the Sun's disc.
     if (opts.id === 'sun') {
-      const glowGeom = new THREE.SphereGeometry(1.2, 32, 16);
-      const glowMat = new THREE.MeshBasicMaterial({
-        color: 0xffaa22,
-        transparent: true,
-        opacity: 0.25,
-        side: THREE.BackSide,
-      });
-      const glow = new THREE.Mesh(glowGeom, glowMat);
-      this.mesh.add(glow);
+      const inner = new THREE.Mesh(
+        new THREE.SphereGeometry(1.18, 32, 16),
+        new THREE.MeshBasicMaterial({
+          color: 0xffb833,
+          transparent: true,
+          opacity: 0.28,
+          side: THREE.BackSide,
+          depthWrite: false,
+        }),
+      );
+      const outer = new THREE.Mesh(
+        new THREE.SphereGeometry(1.5, 32, 16),
+        new THREE.MeshBasicMaterial({
+          color: 0xff8c1a,
+          transparent: true,
+          opacity: 0.1,
+          side: THREE.BackSide,
+          depthWrite: false,
+        }),
+      );
+      this.mesh.add(inner, outer);
     }
 
     // Floating text label sprite
@@ -159,8 +239,13 @@ export class BodyVisual {
 
     // Planetary ring (Saturn, etc.)
     if (opts.physical?.ring) {
-      const { innerKm, outerKm } = opts.physical.ring;
-      const g = new THREE.RingGeometry(innerKm / opts.radiusKm, outerKm / opts.radiusKm, 192);
+      const ringData = opts.physical.ring as { innerKm?: number; outerKm?: number; innerRadiusKm?: number; outerRadiusKm?: number };
+      const innerKm = ringData.innerKm ?? ringData.innerRadiusKm ?? 74500;
+      const outerKm = ringData.outerKm ?? ringData.outerRadiusKm ?? 140220;
+      const rKm = (opts.radiusKm && opts.radiusKm > 0) ? opts.radiusKm : (opts.id === 'saturn' ? 60268 : opts.id === 'uranus' ? 25559 : 24764);
+      const innerNorm = innerKm / rKm;
+      const outerNorm = outerKm / rKm;
+      const g = new THREE.RingGeometry(innerNorm, outerNorm, 192);
       const posAttr = g.attributes.position!;
       const uvAttr = g.attributes.uv!;
       const v = new THREE.Vector3();
@@ -194,6 +279,12 @@ export class BodyVisual {
         this.group.add(this.ringMesh);
       }
     }
+
+    // Tag for Raycaster picking
+    this.group.userData = { bodyId: opts.id };
+    this.mesh.userData = { bodyId: opts.id };
+    this.labelSprite.userData = { bodyId: opts.id };
+    if (this.ringMesh) this.ringMesh.userData = { bodyId: opts.id };
   }
 
   /**
@@ -207,50 +298,56 @@ export class BodyVisual {
     const rot = this.physical?.rotation;
     if (!rot) return;
 
-    let m = bodyToEcliptic(rot, daysSinceJ2000);
+    const m = bodyToEcliptic(rot, daysSinceJ2000);
 
     // If active reference frame has an orientation matrix, compose: axes * M
     if (frameAxes) {
-      const res = new Array(9).fill(0) as [
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-        number,
-      ];
       for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
           let sum = 0;
           for (let k = 0; k < 3; k++) sum += frameAxes[3 * i + k]! * m[3 * k + j]!;
-          res[3 * i + j] = sum;
+          _orientRes[3 * i + j] = sum;
         }
       }
-      m = res;
+      _orientMat4.set(
+        _orientRes[0]!,
+        _orientRes[1]!,
+        _orientRes[2]!,
+        0,
+        _orientRes[3]!,
+        _orientRes[4]!,
+        _orientRes[5]!,
+        0,
+        _orientRes[6]!,
+        _orientRes[7]!,
+        _orientRes[8]!,
+        0,
+        0,
+        0,
+        0,
+        1,
+      );
+    } else {
+      _orientMat4.set(
+        m[0]!,
+        m[1]!,
+        m[2]!,
+        0,
+        m[3]!,
+        m[4]!,
+        m[5]!,
+        0,
+        m[6]!,
+        m[7]!,
+        m[8]!,
+        0,
+        0,
+        0,
+        0,
+        1,
+      );
     }
-
-    const mat4 = new THREE.Matrix4().set(
-      m[0]!,
-      m[1]!,
-      m[2]!,
-      0,
-      m[3]!,
-      m[4]!,
-      m[5]!,
-      0,
-      m[6]!,
-      m[7]!,
-      m[8]!,
-      0,
-      0,
-      0,
-      0,
-      1,
-    );
-    this.group.quaternion.setFromRotationMatrix(mat4);
+    this.group.quaternion.setFromRotationMatrix(_orientMat4);
   }
 
   computeScale(
@@ -265,8 +362,19 @@ export class BodyVisual {
     if (scaleMode === 'exaggerated') {
       return this.radiusAu * Math.max(1, exaggerationFactor);
     }
-    // 'pixels' mode: clamp to min pixel radius
-    const minRadiusAu = cameraDistAu * pixelFactor;
+
+    // 'pixels' mode: Physically proportional minimum visibility threshold.
+    // Instead of forcing every body (Sun, Jupiter, Mercury, Phobos) to the identical flat pixel size,
+    // preserve true physical hierarchy using Earth's equatorial radius (6,378.137 km) as the 1.0 baseline.
+    const R_EARTH_KM = 6378.137;
+    const rRatio = Math.max(0.0001, this.radiusKm / R_EARTH_KM);
+    // Smooth power-law scaling preserves clear visual distinction:
+    // Sun (~7.15x Earth min pixels, ~28.6px), Jupiter (~2.76x, ~11.0px), Saturn (~2.53x, ~10.1px),
+    // Uranus/Neptune (~1.8x, ~7.1px), Earth/Venus (1x, ~4.0px), Mars (~0.77x, ~3.1px),
+    // Mercury (~0.67x, ~2.7px), Pluto/Moon (~0.49x, ~1.9px), Phobos/Deimos (~0.08x, ~0.3px).
+    const propFactor = Math.pow(rRatio, 0.42);
+    const minRadiusAu = cameraDistAu * pixelFactor * propFactor;
+
     return Math.max(this.radiusAu, minRadiusAu);
   }
 
@@ -311,4 +419,5 @@ export class BodyVisual {
     this.labelSprite.center.set(0.5, 0.5 - offsetPx / targetHeightPx);
   }
 }
+
 

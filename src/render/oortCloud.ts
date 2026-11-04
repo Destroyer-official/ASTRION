@@ -1,33 +1,86 @@
 import * as THREE from 'three';
 
 export interface OortCloudConfig {
+  numAsteroids?: number;
   numKuiper?: number;
   numHills?: number;
   numOuter?: number;
 }
 
 /**
- * Visual representation of the non-flat outer Solar System:
- * 1. Kuiper Belt & Scattered Disc: 30 - 60 AU (moderately flat disc, i ~ 10°-25°)
- * 2. Inner Oort Cloud (Hills Cloud): 2,000 - 20,000 AU (thick flattened torus)
- * 3. Outer Oort Cloud: 20,000 - 100,000 AU (isotropic spherical shell of icy cometary planetesimals)
+ * Visual representation of the complete non-flat Solar System belts and cometary reservoirs:
+ * 1. Main Asteroid Belt: 2.1 - 3.3 AU (between Mars and Jupiter, with Kirkwood resonance gaps)
+ * 2. Kuiper Belt & Scattered Disc: 30 - 65 AU (moderately flat disc, i ~ 10°-25°)
+ * 3. Inner Oort Cloud (Hills Cloud): 2,000 - 20,000 AU (thick flattened torus)
+ * 4. Outer Oort Cloud: 20,000 - 100,000 AU (isotropic spherical shell of icy cometary planetesimals)
  */
 export class OortCloudVisual {
   readonly group = new THREE.Group();
 
+  private readonly asteroidPoints: THREE.Points;
   private readonly kuiperPoints: THREE.Points;
   private readonly hillsPoints: THREE.Points;
   private readonly outerPoints: THREE.Points;
   private readonly boundaryShells: THREE.Group;
 
   constructor(config: OortCloudConfig = {}) {
-    const numKuiper = config.numKuiper ?? 2500;
+    const numAsteroids = config.numAsteroids ?? 3500;
+    const numKuiper = config.numKuiper ?? 2800;
     const numHills = config.numHills ?? 3500;
     const numOuter = config.numOuter ?? 7000;
 
     const particleTex = this.createParticleTexture();
 
-    // 1. Kuiper Belt & Scattered Disc (30 to 65 AU)
+    // 1. Main Asteroid Belt (2.1 to 3.3 AU, between Mars ~1.5 AU and Jupiter ~5.2 AU)
+    const astGeom = new THREE.BufferGeometry();
+    const astPos = new Float32Array(numAsteroids * 3);
+    const astCol = new Float32Array(numAsteroids * 3);
+
+    for (let i = 0; i < numAsteroids; i++) {
+      const idx = i * 3;
+      // Main belt semi-major axis distribution between 2.1 and 3.3 AU
+      let r = 2.1 + Math.random() * 1.2;
+      // Real Kirkwood resonance gaps: 3:1 (2.50 AU), 5:2 (2.82 AU), 7:3 (2.95 AU), 2:1 (3.27 AU)
+      if (
+        Math.abs(r - 2.50) < 0.03 ||
+        Math.abs(r - 2.82) < 0.025 ||
+        Math.abs(r - 2.95) < 0.02 ||
+        Math.abs(r - 3.27) < 0.03
+      ) {
+        r += Math.random() > 0.5 ? 0.05 : -0.05;
+      }
+      const phi = Math.random() * 2 * Math.PI;
+      // Typical asteroid inclination sigma ~ 7° to 9°
+      const inc = (Math.random() - 0.5 + (Math.random() - 0.5)) * 0.16;
+      const z = r * Math.sin(inc);
+      const rProj = r * Math.cos(inc);
+
+      astPos[idx] = rProj * Math.cos(phi);
+      astPos[idx + 1] = rProj * Math.sin(phi);
+      astPos[idx + 2] = z;
+
+      // Rocky warm silica / carbonaceous gray tones (C-type, S-type asteroids)
+      const tone = 0.65 + Math.random() * 0.35;
+      astCol[idx] = tone * 0.95;
+      astCol[idx + 1] = tone * 0.88;
+      astCol[idx + 2] = tone * 0.78;
+    }
+    astGeom.setAttribute('position', new THREE.BufferAttribute(astPos, 3));
+    astGeom.setAttribute('color', new THREE.BufferAttribute(astCol, 3));
+
+    const astMat = new THREE.PointsMaterial({
+      size: 1.5,
+      sizeAttenuation: false,
+      vertexColors: true,
+      map: particleTex,
+      transparent: true,
+      opacity: 0.8,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    this.asteroidPoints = new THREE.Points(astGeom, astMat);
+
+    // 2. Kuiper Belt & Scattered Disc (30 to 65 AU)
     const kuiperGeom = new THREE.BufferGeometry();
     const kuiperPos = new Float32Array(numKuiper * 3);
     const kuiperCol = new Float32Array(numKuiper * 3);
@@ -54,7 +107,8 @@ export class OortCloudVisual {
     kuiperGeom.setAttribute('color', new THREE.BufferAttribute(kuiperCol, 3));
 
     const kuiperMat = new THREE.PointsMaterial({
-      size: 1.5,
+      size: 1.8,
+      sizeAttenuation: false,
       vertexColors: true,
       map: particleTex,
       transparent: true,
@@ -65,7 +119,7 @@ export class OortCloudVisual {
     this.kuiperPoints = new THREE.Points(kuiperGeom, kuiperMat);
     this.group.add(this.kuiperPoints);
 
-    // 2. Inner Hills Cloud (2,000 to 20,000 AU)
+    // 3. Inner Hills Cloud (2,000 to 20,000 AU)
     const hillsGeom = new THREE.BufferGeometry();
     const hillsPos = new Float32Array(numHills * 3);
     const hillsCol = new Float32Array(numHills * 3);
@@ -94,7 +148,8 @@ export class OortCloudVisual {
     hillsGeom.setAttribute('color', new THREE.BufferAttribute(hillsCol, 3));
 
     const hillsMat = new THREE.PointsMaterial({
-      size: 40.0,
+      size: 2.2,
+      sizeAttenuation: false,
       vertexColors: true,
       map: particleTex,
       transparent: true,
@@ -105,7 +160,7 @@ export class OortCloudVisual {
     this.hillsPoints = new THREE.Points(hillsGeom, hillsMat);
     this.group.add(this.hillsPoints);
 
-    // 3. Outer Spherical Oort Cloud (20,000 to 100,000 AU)
+    // 4. Outer Spherical Oort Cloud (20,000 to 100,000 AU)
     const outerGeom = new THREE.BufferGeometry();
     const outerPos = new Float32Array(numOuter * 3);
     const outerCol = new Float32Array(numOuter * 3);
@@ -132,7 +187,8 @@ export class OortCloudVisual {
     outerGeom.setAttribute('color', new THREE.BufferAttribute(outerCol, 3));
 
     const outerMat = new THREE.PointsMaterial({
-      size: 250.0,
+      size: 2.5,
+      sizeAttenuation: false,
       vertexColors: true,
       map: particleTex,
       transparent: true,
@@ -142,8 +198,9 @@ export class OortCloudVisual {
     });
     this.outerPoints = new THREE.Points(outerGeom, outerMat);
     this.group.add(this.outerPoints);
+    this.group.add(this.asteroidPoints);
 
-    // 4. Boundary Shell Indicators (Kuiper 50 AU, Hills 10,000 AU, Oort 100,000 AU)
+    // 5. Boundary Shell Indicators (Kuiper 50 AU, Hills 10,000 AU, Oort 100,000 AU)
     this.boundaryShells = this.createBoundaryShells();
     this.group.add(this.boundaryShells);
 
@@ -209,6 +266,31 @@ export class OortCloudVisual {
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(merPts), ringMat));
 
     return group;
+  }
+
+  /**
+   * Update visibility of belts and clouds dynamically based on camera distance to Sun.
+   */
+  update(camDistToSun: number, showOort = true): void {
+    if (camDistToSun < 1.0) {
+      // Too close to planet surface / Sun: hide all particle clouds
+      this.group.visible = false;
+      return;
+    }
+
+    this.group.visible = true;
+
+    // Main Asteroid Belt (2.1 to 3.3 AU): visible when viewing inner/whole solar system
+    this.asteroidPoints.visible = camDistToSun >= 1.2 && camDistToSun <= 160;
+
+    // Kuiper Belt (30 to 65 AU): visible when viewing outer planets and dwarf planets
+    this.kuiperPoints.visible = camDistToSun >= 12 && camDistToSun <= 600;
+
+    // Inner Hills Cloud & Outer Oort Cloud: visible when zoomed out to cosmic scales
+    const showCosmic = showOort && camDistToSun >= 100;
+    this.hillsPoints.visible = showCosmic;
+    this.outerPoints.visible = showCosmic && camDistToSun >= 350;
+    this.boundaryShells.visible = showCosmic && camDistToSun >= 80;
   }
 
   setVisible(visible: boolean): void {
