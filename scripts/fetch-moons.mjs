@@ -5,7 +5,7 @@ const API = 'https://ssd.jpl.nasa.gov/api/horizons.api';
 
 const MOONS = [
   // Earth
-  { id: 'moon', name: 'Moon', cmd: '301', center: '500@399', parent: 'earth', radiusKm: 1737.4, color: '#c0c0c0', knownGm: 4902.800066 },
+  { id: 'moon', name: 'Moon', cmd: '301', center: '500@399', parent: 'earth', radiusKm: 1737.4, color: '#c0c0c0', knownGm: 4902.800118 },
   // Mars
   { id: 'phobos', name: 'Phobos', cmd: '401', center: '500@499', parent: 'mars', radiusKm: 11.27, color: '#9e9185', knownGm: 0.0007087 },
   { id: 'deimos', name: 'Deimos', cmd: '402', center: '500@499', parent: 'mars', radiusKm: 6.2, color: '#a89f91', knownGm: 0.0000962 },

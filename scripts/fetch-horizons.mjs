@@ -9,6 +9,7 @@ const GM_URL = 'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/gm_de440.
 
 // cmd = Horizons COMMAND. 1-8 are planetary SYSTEM barycenters, 10 is the Sun.
 // naif = index in gm_de440.tpc (BODY<n>_GM): same numbering.
+// dir = output subdirectory under src/data (planets vs asteroids).
 const BODIES = [
   { id: 'sun', name: 'Sun', cmd: '10', naif: 10, radiusKm: 695700, color: '#ffcc33' },
   { id: 'mercury', name: 'Mercury', cmd: '1', naif: 1, radiusKm: 2440.53, color: '#a8a29e' },
@@ -37,6 +38,19 @@ const BODIES = [
     id: 'neptune', name: 'Neptune', cmd: '8', naif: 8, radiusKm: 24764, color: '#4b70dd',
     note: 'Neptune system barycenter (with moons).',
   },
+];
+
+// The four most massive main-belt asteroids (~60% of belt mass after Ceres'
+// ~1/3 share): their pull moves Mars by ~10 km/decade and Jupiter by ~20 km.
+// Same SSB ecliptic/ICRF vectors as planets; no reference-sample anchors
+// (like moons, they freeze at epoch in ephemeris display mode).
+// Small bodies need DES=<id>; lookup syntax (bare SPK ids only resolve for
+// Ceres-class major entries).
+const ASTEROIDS = [
+  { id: 'ceres', name: 'Ceres', cmd: 'DES=2000001;', naif: 2000001, radiusKm: 469.7, color: '#9aa0a6' },
+  { id: 'pallas', name: 'Pallas', cmd: 'DES=2000002;', naif: 2000002, radiusKm: 273, color: '#a89e97' },
+  { id: 'vesta', name: 'Vesta', cmd: 'DES=2000004;', naif: 2000004, radiusKm: 262.7, color: '#b0a696' },
+  { id: 'hygiea', name: 'Hygiea', cmd: 'DES=2000010;', naif: 2000010, radiusKm: 217, color: '#8d8578' },
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -85,15 +99,22 @@ async function loadGm() {
   for (const m of text.matchAll(/BODY(\d+)_GM\b\s*=\s*\(\s*([-+0-9.EeDd]+)\s*\)/g)) {
     gm.set(Number(m[1]), Number(m[2].replace(/D/gi, 'E')));
   }
-  for (const b of BODIES) if (!gm.has(b.naif)) throw new Error(`GM for NAIF ${b.naif} (${b.id}) not found`);
+  for (const b of [...BODIES, ...ASTEROIDS]) if (!gm.has(b.naif)) throw new Error(`GM for NAIF ${b.naif} (${b.id}) not found`);
   return gm;
 }
 
 const gm = await loadGm();
 await mkdir('src/data/bodies', { recursive: true });
+await mkdir('src/data/asteroids', { recursive: true });
 await mkdir('tests/fixtures', { recursive: true });
 
-for (const b of BODIES) {
+const ONLY = process.env.ONLY; // e.g. ONLY=asteroids npm run fetch:horizons
+const doPlanets = !ONLY || ONLY === 'planets';
+const doAsteroids = !ONLY || ONLY === 'asteroids';
+
+for (const b of [...BODIES.map((x) => ({ ...x, dir: 'bodies' })), ...ASTEROIDS.map((x) => ({ ...x, dir: 'asteroids' }))]) {
+  if (b.dir === 'bodies' && !doPlanets) continue;
+  if (b.dir === 'asteroids' && !doAsteroids) continue;
   const { position, velocity } = await getVectors(b.cmd, EPOCH_JD);
   const json = {
     id: b.id,
@@ -105,9 +126,18 @@ for (const b of BODIES) {
     source: `JPL Horizons COMMAND=${b.cmd}, CENTER=500@0, ecliptic/ICRF, JD ${EPOCH_JD} TDB; GM: gm_de440.tpc`,
     initial: { type: 'vectors', epochJd: EPOCH_JD, position, velocity },
   };
-  await writeFile(`src/data/bodies/${b.id}.json`, JSON.stringify(json, null, 2) + '\n');
+  // NOTE: planet files carry hand-added fields (notes, gmIsSystem) that a full
+  // re-fetch would strip; asteroid files are fully generated (no extras).
+  // Prefer ONLY=asteroids for routine asteroid refreshes.
+  const dest = `src/data/${b.dir}/${b.id}.json`;
+  await writeFile(dest, JSON.stringify(json, null, 2) + '\n');
   console.log('wrote', b.id);
   await sleep(1200);
+}
+
+if (!doPlanets) {
+  console.log('done (asteroids only; reference samples untouched)');
+  process.exit(0);
 }
 
 const samples = [];
