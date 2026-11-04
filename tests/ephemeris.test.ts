@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { AU_KM } from '@/data/constants';
 import { EphemerisProvider } from '@/sim/ephemeris';
 import { loadSystem } from '@/sim/registry';
+
+const denseUrl = (f: string) => fileURLToPath(new URL(`../src/data/${f}`, import.meta.url));
 
 describe('Dual Mode: JPL Horizons DE440 Ephemeris Provider', () => {
   const model = loadSystem();
@@ -46,5 +51,111 @@ describe('Dual Mode: JPL Horizons DE440 Ephemeris Provider', () => {
     const reseeded = ephem.reseed(0, clone);
     expect(reseeded).toBe(true);
     expect(clone.pos[0]!).toBeCloseTo(model.state.pos[0]!, 8);
+  });
+
+  it('window() spans the anchor table and interpolate() clamps outside it', () => {
+    const w = ephem.window();
+    expect(w.min).toBeLessThan(0);
+    expect(w.max).toBeGreaterThan(3652.5);
+    const pos = new Float64Array(model.state.n * 3);
+    expect(ephem.interpolate(w.max + 10_000, pos)).toBe(false); // clamped, flagged
+    expect(ephem.interpolate(w.min - 10_000, pos)).toBe(false);
+    expect(ephem.interpolate(100, pos)).toBe(true);
+  });
+
+  it('dense anchors + velocity Hermite kill inner-planet aliasing (leave-one-out)', () => {
+    // Hold out every other dense node (3d effective gaps = production gaps
+    // for the 36h inner table), interpolate the held-out nodes from their
+    // neighbours with and without endpoint velocities, and compare to truth.
+    // Measured 2026-10-09: Hermite beats velocity-free smoothstep by 190-37000x.
+    const dense = JSON.parse(readFileSync(denseUrl('dense-reference.json'), 'utf8')) as {
+      samples: Array<{ jd: number; bodies: Record<string, { p: number[]; v: number[] }> }>;
+    };
+    const hermite = (p0: number[], v0: number[], p1: number[], v1: number[], dt: number, u: number) => {
+      const h00 = 2 * u ** 3 - 3 * u ** 2 + 1;
+      const h10 = u ** 3 - 2 * u ** 2 + u;
+      const h01 = -2 * u ** 3 + 3 * u ** 2;
+      const h11 = u ** 3 - u ** 2;
+      return [0, 1, 2].map((k) => h00 * p0[k]! + h10 * dt * v0[k]! + h01 * p1[k]! + h11 * dt * v1[k]!);
+    };
+    const smooth = (p0: number[], p1: number[], u: number) => {
+      const h00 = 2 * u ** 3 - 3 * u ** 2 + 1;
+      const h01 = -2 * u ** 3 + 3 * u ** 2;
+      return [0, 1, 2].map((k) => h00 * p0[k]! + h01 * p1[k]!);
+    };
+    // Absolute worst-case caps (km) at 3d gaps; measured: 1613 / 15 / 3 / 1 / 398.
+    const caps: Record<string, number> = { mercury: 2500, venus: 30, earth: 10, mars: 5, moon: 600 };
+    for (const [id, cap] of Object.entries(caps)) {
+      const rows = dense.samples.filter((s) => s.bodies[id]).map((s) => ({ jd: s.jd, ...s.bodies[id]! }));
+      expect(rows.length).toBeGreaterThan(700);
+      let worstH = 0;
+      let worstS = 0;
+      for (let i = 2; i < rows.length - 2; i += 2) {
+        const a = rows[i - 1]!;
+        const b = rows[i + 1]!;
+        const truth = rows[i]!.p;
+        const dt = b.jd - a.jd;
+        const u = (rows[i]!.jd - a.jd) / dt;
+        const eH = Math.hypot(...hermite(a.p, a.v, b.p, b.v, dt, u).map((x, k) => x - truth[k]!)) * AU_KM;
+        const eS = Math.hypot(...smooth(a.p, b.p, u).map((x, k) => x - truth[k]!)) * AU_KM;
+        worstH = Math.max(worstH, eH);
+        worstS = Math.max(worstS, eS);
+      }
+      console.log(`${id}: leave-one-out worst Hermite ${worstH.toFixed(1)} km vs smoothstep ${worstS.toFixed(0)} km`);
+      expect(worstH, `${id} Hermite cap`).toBeLessThan(cap);
+      expect(worstS / worstH, `${id} Hermite gain`).toBeGreaterThan(20);
+    }
+  });
+
+  it('provider interpolate() follows the Hermite math on dense intervals', () => {
+    // Offset 100.75d sits mid-interval between dense Earth nodes: the provider
+    // must reproduce an independent hand evaluation of the same Hermite form.
+    const dense = JSON.parse(readFileSync(denseUrl('dense-reference.json'), 'utf8')) as {
+      samples: Array<{ jd: number; bodies: Record<string, { p: number[]; v: number[] }> }>;
+    };
+    const off = (jd: number) => jd - model.epochJd;
+    const nodes = dense.samples.filter((s) => s.bodies['earth']).map((s) => ({ t: off(s.jd), ...s.bodies['earth']! }));
+    const i1 = nodes.findIndex((n) => n.t > 100.75);
+    const a = nodes[i1 - 1]!;
+    const b = nodes[i1]!;
+    const dt = b.t - a.t;
+    const u = (100.75 - a.t) / dt;
+    const h00 = 2 * u ** 3 - 3 * u ** 2 + 1;
+    const h10 = u ** 3 - 2 * u ** 2 + u;
+    const h01 = -2 * u ** 3 + 3 * u ** 2;
+    const h11 = u ** 3 - u ** 2;
+    const pos = new Float64Array(model.state.n * 3);
+    expect(ephem.interpolate(100.75, pos)).toBe(true);
+    const e = model.ids.indexOf('earth');
+    for (let k = 0; k < 3; k++) {
+      const want = h00 * a.p[k]! + h10 * dt * a.v[k]! + h01 * b.p[k]! + h11 * dt * b.v[k]!;
+      expect(pos[3 * e + k]!).toBeCloseTo(want, 9);
+    }
+  });
+
+  it('provider interpolate() derives exact analytical velocities matching DE440 truth', () => {
+    const pos = new Float64Array(model.state.n * 3);
+    const vel = new Float64Array(model.state.n * 3);
+
+    // At t = 0 (exact anchor), velocities match model initial state bit-for-bit
+    expect(ephem.interpolate(0, pos, vel)).toBe(true);
+    for (let i = 0; i < model.state.n * 3; i++) {
+      expect(vel[i]!).toBeCloseTo(model.state.vel[i]!, 9);
+    }
+
+    // Mid-interval at t = 100.75d: analytical Earth speed is physical (~29.8 km/s)
+    expect(ephem.interpolate(100.75, pos, vel)).toBe(true);
+    const e = model.ids.indexOf('earth');
+    const vEarthAuDay = Math.hypot(vel[3 * e]!, vel[3 * e + 1]!, vel[3 * e + 2]!);
+    const vEarthKms = (vEarthAuDay * AU_KM) / 86400;
+    expect(vEarthKms).toBeGreaterThan(29.0);
+    expect(vEarthKms).toBeLessThan(30.6);
+
+    // Sun barycentric wobble speed is physical (~11-14 m/s = ~0.011-0.014 km/s)
+    const sunIdx = model.ids.indexOf('sun');
+    const vSunAuDay = Math.hypot(vel[3 * sunIdx]!, vel[3 * sunIdx + 1]!, vel[3 * sunIdx + 2]!);
+    const vSunKms = (vSunAuDay * AU_KM) / 86400;
+    expect(vSunKms).toBeGreaterThan(0.005);
+    expect(vSunKms).toBeLessThan(0.025);
   });
 });

@@ -15,9 +15,9 @@ it('Sun is first (heaviest) and is NOT at the origin', () => {
   expect(Math.hypot(m.state.pos[0]!, m.state.pos[1]!, m.state.pos[2]!)).toBeGreaterThan(1e-3);
 });
 
-it('loads ALL_BODIES including dwarf planets and all moons', () => {
+it('loads ALL_BODIES including dwarf planets, all moons and 4 asteroids', () => {
   const m = loadSystem(ALL_BODIES);
-  expect(m.ids.length).toBe(32);
+  expect(m.ids.length).toBe(36);
   expect(m.ids).toContain('moon');
   expect(m.ids).toContain('io');
   expect(m.ids).toContain('europa');

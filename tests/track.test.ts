@@ -83,3 +83,25 @@ it('trail window limits the history used', () => {
   expect(oneYear).toBeLessThan(all / 5);
   expect(oneYear).toBeGreaterThan(60); // ~73 samples
 });
+
+it('a time gap restarts the trail: no segment ever spans a date jump', () => {
+  // Continuous run, then a teleported sample (date jump / reseed / mode switch).
+  const h = new History(s.n, CAP, 5);
+  const c = cloneState(model.state);
+  h.sample(c);
+  const step = new Leapfrog();
+  for (let i = 0; i < 200; i++) {
+    step.step(c, [newtonianGravity], 1);
+    h.sample(c);
+  }
+  // Jump: same state shape, +1000 days with nothing in between.
+  const jumped = cloneState(c);
+  jumped.t += 1000;
+  h.pushRaw(jumped.t, jumped.pos, 0);
+
+  const outs = mkOuts();
+  const count = buildTracks(h, jumped, F('body:sun'), S, 1e9, outs);
+  // Only the post-jump sample + the live point: the 200 pre-jump samples
+  // must not connect across the gap (that connection was the cross-screen streak).
+  expect(count).toBe(2);
+});

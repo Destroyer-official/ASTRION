@@ -84,8 +84,7 @@ describe('Moons Dynamics (Phase 5)', () => {
     expect(maxKm).toBeLessThan(410_000);
   });
 
-  it('Phobos period from osculating elements matches known 0.3189 days', () => {
-    const sub = ALL_BODIES.filter((b) => ['mars', 'phobos'].includes(b.id));
+  it('Phobos period from osculating elements matches known 0.3189 days', () => {    const sub = ALL_BODIES.filter((b) => ['mars', 'phobos'].includes(b.id));
     const model = buildModel(sub, PHYSICAL_MAP);
     const marsSys = model.localSystems.find((s) => s.hostId === 'mars')!;
     const ls = marsSys.initialState;
@@ -96,6 +95,61 @@ describe('Moons Dynamics (Phase 5)', () => {
 
     console.log(`Phobos osculating period: ${el.period.toFixed(4)} days`);
     expect(Math.abs(el.period - 0.3189) / 0.3189).toBeLessThan(0.003); // Within 0.3%
+  });
+
+  it('osculating semi-major axes match JPL mean elements within 1%', () => {
+    // JPL Solar System Dynamics satellite mean semi-major axes (km).
+    const KNOWN_A_KM: Record<string, { parent: string; aKm: number }> = {
+      moon: { parent: 'earth', aKm: 384400 },
+      phobos: { parent: 'mars', aKm: 9376 },
+      deimos: { parent: 'mars', aKm: 23463 },
+      io: { parent: 'jupiter', aKm: 421700 },
+      europa: { parent: 'jupiter', aKm: 671034 },
+      ganymede: { parent: 'jupiter', aKm: 1070412 },
+      callisto: { parent: 'jupiter', aKm: 1882709 },
+      mimas: { parent: 'saturn', aKm: 185539 },
+      enceladus: { parent: 'saturn', aKm: 237948 },
+      tethys: { parent: 'saturn', aKm: 294619 },
+      dione: { parent: 'saturn', aKm: 377396 },
+      rhea: { parent: 'saturn', aKm: 527108 },
+      titan: { parent: 'saturn', aKm: 1221870 },
+      iapetus: { parent: 'saturn', aKm: 3560820 },
+      miranda: { parent: 'uranus', aKm: 129900 },
+      ariel: { parent: 'uranus', aKm: 191020 },
+      umbriel: { parent: 'uranus', aKm: 266000 },
+      titania: { parent: 'uranus', aKm: 436300 },
+      oberon: { parent: 'uranus', aKm: 583520 },
+      triton: { parent: 'neptune', aKm: 354759 },
+    };
+    // Group by parent so each system is built once.
+    const byParent = new Map<string, string[]>();
+    for (const [moonId, { parent }] of Object.entries(KNOWN_A_KM)) {
+      if (!byParent.has(parent)) byParent.set(parent, []);
+      byParent.get(parent)!.push(moonId);
+    }
+    for (const [parent, moonIds] of byParent) {
+      const sub = ALL_BODIES.filter((b) => b.id === parent || moonIds.includes(b.id));
+      const model = buildModel(sub, PHYSICAL_MAP);
+      const sys = model.localSystems.find((s) => s.hostId === parent)!;
+      const ls = sys.initialState;
+      moonIds.forEach((moonId) => {
+        const j = sys.bodyIds.indexOf(moonId);
+        const r: Vec3 = [
+          ls.pos[3 * j]! - ls.pos[0]!,
+          ls.pos[3 * j + 1]! - ls.pos[1]!,
+          ls.pos[3 * j + 2]! - ls.pos[2]!,
+        ];
+        const v: Vec3 = [
+          ls.vel[3 * j]! - ls.vel[0]!,
+          ls.vel[3 * j + 1]! - ls.vel[1]!,
+          ls.vel[3 * j + 2]! - ls.vel[2]!,
+        ];
+        const mu = ls.gm[0]! + ls.gm[j]!;
+        const aKm = stateToElements(mu, r, v).a * AU_KM;
+        const want = KNOWN_A_KM[moonId]!.aKm;
+        expect(Math.abs(aKm - want) / want, `${moonId} semi-major axis`).toBeLessThan(0.01);
+      });
+    }
   });
 
   it.each(Object.entries(KNOWN_PERIODS))(

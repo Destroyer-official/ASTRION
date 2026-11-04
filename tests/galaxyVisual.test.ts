@@ -48,9 +48,11 @@ describe('Galaxy Visual and Transform Validation', () => {
     for (const points of pointsChildren) {
       expect(points.visible).toBe(true);
       expect(points.frustumCulled).toBe(false);
-      const mat = points.material as THREE.PointsMaterial;
-      expect(mat.size).toBeGreaterThanOrEqual(3.0);
-      expect(mat.opacity).toBeGreaterThanOrEqual(0.9);
+      const mat = points.material as THREE.ShaderMaterial & {
+        uniforms: { uSize: { value: number }; uOpacity: { value: number } };
+      };
+      expect(mat.uniforms.uSize.value).toBeGreaterThanOrEqual(3.0);
+      expect(mat.uniforms.uOpacity.value).toBeGreaterThanOrEqual(0.9);
     }
   });
 
@@ -63,11 +65,18 @@ describe('Galaxy Visual and Transform Validation', () => {
     for (const p of points) {
       expect(p.visible).toBe(true);
     }
+    // Galactic orbit path line remains visible on zoom
+    expect(gv.orbitLine.visible).toBe(true);
 
     // Cosmological scale (> 1000 AU)
     gv.setUnifiedMode(2800, true);
     for (const p of points) {
       expect(p.visible).toBe(true);
     }
+    expect(gv.orbitLine.visible).toBe(true);
+
+    // Gated by showOrbit
+    gv.setUnifiedMode(55, true, false);
+    expect(gv.orbitLine.visible).toBe(false);
   });
 });

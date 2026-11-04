@@ -99,4 +99,18 @@ $$EOE
     expect(eyesUrl).toContain('https://eyes.nasa.gov/apps/solar-system/#/earth');
     expect(eyesUrl).toContain('time=2026-10-07T12%3A00%3A00');
   });
+
+  it('implements circuit breaker to fail-fast during offline cooldown', async () => {
+    expect(horizonsClient.isOffline()).toBe(false);
+    horizonsClient.markOffline(5000);
+    expect(horizonsClient.isOffline()).toBe(true);
+    // When offline, immediately returns null/empty without network fetch
+    const vec = await horizonsClient.fetchVector('earth', new Date());
+    expect(vec).toBeNull();
+    const sys = await horizonsClient.fetchSystem(['earth', 'mars'], new Date());
+    expect(Object.keys(sys).length).toBe(0);
+    // Reset offline cooldown
+    horizonsClient.markOffline(0);
+    expect(horizonsClient.isOffline()).toBe(false);
+  });
 });

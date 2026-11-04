@@ -55,10 +55,21 @@ describe('SimCore', () => {
   });
 
   it('seek lands on the target time and does not flood history', () => {
+    // Seeks arrive in bounded hops; the client chains messages until arrival.
     const { core } = start();
-    const f = core.handle({ type: 'seek', gen: 1, t: 12_000 })!;
+    let f = core.handle({ type: 'seek', gen: 1, t: 12_000 })!;
+    for (let i = 0; i < 50 && Math.abs(f.t - 12_000) >= 1e-6; i++) {
+      f = core.handle({ type: 'seek', gen: 1, t: 12_000 })!;
+    }
     expect(f.t).toBeCloseTo(12_000, 6);
     expect(f.samples.length / f.stride).toBe(1);
+  });
+
+  it('one seek message advances at most maxSteps*dt days (bounded hop)', () => {
+    const { core } = start();
+    const f = core.handle({ type: 'seek', gen: 1, t: 12_000 })!;
+    expect(f.t).toBeGreaterThan(0);
+    expect(f.t).toBeLessThanOrEqual(5000 * 1 + 1); // maxSteps * dt
   });
 
   it('a new generation restarts recording from the current state', () => {
