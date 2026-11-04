@@ -1,0 +1,53 @@
+name: "Astrodynamic Validation / Numerical Discrepancy"
+description: "Report a discrepancy between simulated state vectors and JPL Horizons DE440/DE441, NAIF SPICE, or IAU standards."
+labels: ["astrodynamics", "validation", "numerical"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting a physical or numerical validation report. ASTRION adheres strictly to peer-reviewed ephemeris and cartographic standards.
+  - type: input
+    id: body-target
+    attributes:
+      label: Target Celestial Body / System
+      description: Which planet, moon, asteroid, or system is exhibiting the discrepancy?
+      placeholder: "e.g. Mercury, Moon, Io, Vesta"
+    validations:
+      required: true
+  - type: input
+    id: epoch-tdb
+    attributes:
+      label: Simulation Epoch (TDB / UTC / Julian Date)
+      description: At what date or Julian Date does this discrepancy manifest?
+      placeholder: "e.g. 2026-10-19T12:00:00 TDB (JD 2461333.0)"
+    validations:
+      required: true
+  - type: dropdown
+    id: dynamics-mode
+    attributes:
+      label: Dynamics Engine Mode
+      options:
+        - "Yoshida-4 Symplectic N-Body"
+        - "JPL DE440/DE441 Hermite Spline"
+        - "Galactic Trajectory (Sofue 2016)"
+    validations:
+      required: true
+  - type: textarea
+    id: observed-vs-truth
+    attributes:
+      label: Observed State vs. Authoritative Truth Vector
+      description: Provide the observed position/velocity vector alongside the expected JPL Horizons or SPICE reference vector.
+      placeholder: |
+        Observed Vector: [x, y, z] AU, [vx, vy, vz] AU/day
+        JPL Horizons Reference: [x, y, z] AU, [vx, vy, vz] AU/day
+        Delta: [dx, dy, dz] km
+    validations:
+      required: true
+  - type: textarea
+    id: citation
+    attributes:
+      label: Ephemeris Source / Reference
+      description: State the source of truth (e.g. JPL Horizons API, NAIF PCK pck00011.tpc, Park et al. 2021).
+      placeholder: "e.g. NASA JPL Horizons API telnet/REST, DE440 ephemeris table"
+    validations:
+      required: false
