@@ -1,3 +1,24 @@
+/* ==========================================================================
+   Cosmic Universe Simulator — Professional Mission-Control Design System
+   Coherent NASA-operations dark theme: deep space blacks, aerospace blues,
+   mission telemetry typography, and glassmorphic instrument panels.
+   ========================================================================== */
+
+:root {
+  --bg-glass: rgba(8, 11, 20, 0.9);
+  --border-glass: rgba(148, 178, 220, 0.14);
+  --accent: #58b8ff;
+  --accent-strong: #7dd3fc;
+  --accent-dim: rgba(88, 184, 255, 0.35);
+  --text-primary: #eef3fa;
+  --text-secondary: #93a4bb;
+  --text-muted: #64748b;
+  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    'Inter', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', ui-monospace,
+    'SF Mono', Consolas, monospace;
+}
+
 html,
 body {
   margin: 0;
@@ -6,8 +27,10 @@ body {
   height: 100%;
   overflow: hidden;
   background: #000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: #e0e6ed;
+  font-family: var(--font-ui);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #app {
@@ -28,35 +51,51 @@ body {
   height: 100% !important;
 }
 
+/* ------------------------------------------------------------------ */
+/* Instrument Panel Canvas                                             */
+/* ------------------------------------------------------------------ */
+
 #panel {
-  width: 360px;
-  max-width: 360px;
+  width: 366px;
+  max-width: calc(100vw - 28px);
   position: fixed;
   top: 14px;
   left: 14px;
   max-height: calc(100vh - 28px);
   overflow-y: auto;
+  overflow-x: hidden;
   z-index: 100;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(88, 184, 255, 0.4) transparent;
 }
 
 #panel::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
+}
+#panel::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
 }
 #panel::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(88, 184, 255, 0.35), rgba(168, 85, 247, 0.25));
   border-radius: 4px;
+}
+#panel::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(88, 184, 255, 0.6), rgba(168, 85, 247, 0.45));
 }
 
 .panel, .panel-inner {
-  width: 360px;
-  max-width: 360px;
-  background: rgba(10, 14, 26, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-  padding: 14px;
-  border-radius: 12px;
+  width: 100%;
+  max-width: 100%;
+  background: var(--bg-glass);
+  backdrop-filter: blur(22px) saturate(1.15);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  border: 1px solid var(--border-glass);
+  box-shadow:
+    0 16px 48px rgba(0, 0, 0, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 15px 15px 16px;
+  border-radius: 14px;
   display: grid;
   gap: 10px;
   box-sizing: border-box;
@@ -70,17 +109,22 @@ body {
 
 .panel h1 {
   font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-weight: 650;
+  letter-spacing: 0.3px;
   margin: 0;
   color: #fff;
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  text-shadow: 0 0 14px rgba(125, 211, 252, 0.25);
 }
+
+/* ------------------------------------------------------------------ */
+/* Mode Tabs, Buttons & Inputs                                         */
+/* ------------------------------------------------------------------ */
 
 .mode-tabs {
   display: flex;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 9px;
   padding: 3px;
   gap: 4px;
 }
@@ -93,20 +137,20 @@ body {
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #9ab;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.18s ease;
 }
 
 .tab-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .tab-btn.active {
-  background: #2563eb;
+  background: linear-gradient(180deg, #2f6fe0, #245bd6);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 2px 10px rgba(47, 111, 224, 0.45);
 }
 
 .row {
@@ -117,25 +161,38 @@ body {
 }
 
 button {
-  background: rgba(30, 41, 59, 0.85);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.9), rgba(22, 30, 45, 0.9));
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 178, 220, 0.16);
+  border-radius: 7px;
   padding: 5px 10px;
   font-size: 12px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.06s ease;
 }
 
 button:hover {
-  background: rgba(51, 65, 85, 0.95);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(180deg, rgba(48, 66, 96, 0.95), rgba(34, 46, 68, 0.95));
+  border-color: var(--accent-dim);
   color: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
 }
 
 button:active {
   transform: translateY(1px);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 label {
@@ -143,7 +200,7 @@ label {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .row label {
@@ -152,48 +209,70 @@ label {
   gap: 6px;
 }
 
+input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
 select,
-input[type='date'] {
-  background: rgba(15, 23, 42, 0.9);
-  color: #f1f5f9;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 6px;
+input[type='date'],
+input[type='text'] {
+  background: rgba(12, 17, 30, 0.92);
+  color: var(--text-primary);
+  border: 1px solid rgba(148, 178, 220, 0.2);
+  border-radius: 7px;
   padding: 5px 8px;
   font-size: 12px;
+  font-family: inherit;
   outline: none;
-  transition: border-color 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 select:focus,
-input[type='date']:focus {
-  border-color: #38bdf8;
+input[type='date']:focus,
+input[type='text']:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(88, 184, 255, 0.18);
 }
 
 input[type='range'] {
-  accent-color: #38bdf8;
+  accent-color: var(--accent);
   cursor: pointer;
+  height: 18px;
 }
 
 pre {
   margin: 0;
-  font: 11.5px/1.45 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-  background: rgba(5, 8, 18, 0.7);
+  font: 11.5px/1.5 var(--font-mono);
+  background: rgba(3, 6, 14, 0.75);
   padding: 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: #93c5fd;
+  border-radius: 9px;
+  border: 1px solid rgba(148, 178, 220, 0.1);
+  color: #8fc6ff;
   white-space: pre-wrap;
   word-break: break-word;
+  text-shadow: 0 0 6px rgba(103, 178, 255, 0.16);
 }
 
+/* ------------------------------------------------------------------ */
+/* Facts / Telemetry Cards                                             */
+/* ------------------------------------------------------------------ */
+
 .facts-box {
-  background: rgba(15, 23, 42, 0.92);
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  border-radius: 8px;
-  padding: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
-  max-height: 280px;
+  background: rgba(13, 19, 34, 0.94);
+  border: 1px solid var(--accent-dim);
+  border-radius: 10px;
+  padding: 11px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  max-height: 270px;
   overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  scrollbar-width: thin;
 }
 
 .facts-box::-webkit-scrollbar {
@@ -201,18 +280,18 @@ pre {
 }
 
 .facts-box::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.3);
+  background: rgba(88, 184, 255, 0.35);
   border-radius: 4px;
 }
 
 .galaxy-info {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(255, 215, 0, 0.2);
-  border-radius: 8px;
+  background: rgba(13, 19, 34, 0.75);
+  border: 1px solid rgba(255, 215, 0, 0.22);
+  border-radius: 9px;
   padding: 8px 10px;
   font-size: 11.5px;
-  line-height: 1.4;
-  color: #cbd5e1;
+  line-height: 1.45;
+  color: #c7d3e2;
 }
 
 .galaxy-info strong {
@@ -220,9 +299,9 @@ pre {
 }
 
 .dynamics-bar {
-  background: rgba(15, 23, 42, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  border-radius: 8px;
+  background: rgba(13, 19, 34, 0.72);
+  border: 1px solid var(--accent-dim);
+  border-radius: 9px;
   padding: 8px;
   display: grid;
   gap: 6px;
@@ -230,21 +309,44 @@ pre {
 
 .status-badge {
   font-size: 11px;
-  font-weight: 600;
-  color: #38bdf8;
+  font-weight: 650;
+  color: var(--accent-strong);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  letter-spacing: 0.2px;
 }
 
-.status-badge.ephem {
+.badge-sim::before {
+  content: '●';
+  color: var(--accent);
+  font-size: 9px;
+  text-shadow: 0 0 6px rgba(88, 184, 255, 0.9);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+.badge-eph::before {
+  content: '●';
   color: #34d399;
+  font-size: 9px;
+  text-shadow: 0 0 6px rgba(52, 211, 153, 0.9);
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .reality-inspector {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(168, 85, 247, 0.35);
-  border-radius: 8px;
+  background: rgba(15, 12, 32, 0.85);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  border-radius: 9px;
   padding: 8px 10px;
   font-size: 11px;
   display: grid;
@@ -264,6 +366,7 @@ pre {
   padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
+  letter-spacing: 0.4px;
 }
 
 .tag-true {
@@ -285,9 +388,9 @@ pre {
 }
 
 .val-table-container {
-  background: rgba(5, 8, 18, 0.9);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 8px;
+  background: rgba(3, 6, 14, 0.9);
+  border: 1px solid var(--accent-dim);
+  border-radius: 9px;
   padding: 8px;
   font-size: 11px;
   max-height: 220px;
@@ -303,7 +406,12 @@ pre {
 .val-table td {
   padding: 3px 5px;
   text-align: right;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.val-table th {
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
 .val-table th:first-child,
@@ -321,4 +429,53 @@ pre {
   font-size: 11px;
   padding: 4px 8px;
   flex: 1 1 auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Universal Cosmic Search & Breadcrumbs                               */
+/* ------------------------------------------------------------------ */
+
+.cosmic-search-container input:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 10px rgba(88, 184, 255, 0.35) !important;
+}
+
+.search-item {
+  padding: 6px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: 2px solid transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background 0.12s ease, border-left-color 0.12s ease;
+}
+
+.search-item:hover,
+.search-item.search-item-active {
+  background: rgba(88, 184, 255, 0.18) !important;
+  border-left-color: var(--accent);
+}
+
+.crumb-btn {
+  transition: color 0.12s ease;
+}
+
+.crumb-btn:hover {
+  color: var(--accent) !important;
+  text-decoration: underline;
+}
+
+/* Reduced-motion accessibility: calm all decorative animation. */
+@media (prefers-reduced-motion: reduce) {
+  .badge-sim::before,
+  .badge-eph::before {
+    animation: none;
+  }
+  .tab-btn,
+  button,
+  .search-item,
+  .crumb-btn {
+    transition: none;
+  }
 }
