@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software in academic research or technical simulations, please cite it as below."
+authors:
+  - name: "ASTRION Project Contributors"
+title: "ASTRION: Astronomical State & Trajectory Reconstruction for Interplanetary & Orbital Navigation"
+version: 1.0.0
+date-released: 2026-10-19
+url: "https://github.com/Destroyer-official/solar-system"
+repository-code: "https://github.com/Destroyer-official/solar-system"
+keywords:
+  - "astrodynamics"
+  - "celestial mechanics"
+  - "ephemeris"
+  - "n-body"
+  - "symplectic integrator"
+  - "general relativity"
+  - "milky way"
+  - "solar system"
+license: MIT
