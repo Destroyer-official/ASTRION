@@ -3,7 +3,7 @@ import { JD_J2000, gmToInternal, AU_KM } from '@/data/constants';
 import { newtonianGravity } from '@/physics/forces/gravity';
 import { oblateness } from '@/physics/forces/oblateness';
 import { Leapfrog } from '@/physics/integrators/leapfrog';
-import { yoshida4, yoshida6 } from '@/physics/integrators/yoshida';
+import { yoshida4, yoshida6, yoshida8 } from '@/physics/integrators/yoshida';
 import {
   HierarchicalLeapfrog,
   TidalForce,
@@ -49,6 +49,76 @@ export interface SolverData {
   forces: ForceModel[];
   integrator: Integrator;
   slots: Slot[];
+}
+
+/**
+ * Inverse of compose(): splits global SSB vectors into level-0 system
+ * barycenters plus barycentric local states, so an exact external state
+ * (e.g. JPL Horizons vectors at an arbitrary date) can be loaded into a live
+ * hierarchical solver. Masses come from model.global.gm (per-body values).
+ * compose(level0, slots, global) afterwards reproduces the input bit for bit.
+ */
+export function decomposeGlobal(
+  model: ModelData,
+  solver: SolverData,
+  t: number,
+  pos: Float64Array,
+  vel: Float64Array,
+): void {
+  const gid = new Map(model.ids.map((id, i) => [id, i]));
+  const covered = new Array<boolean>(model.level0Ids.length).fill(false);
+
+  for (const ls of solver.systems) {
+    let M = 0;
+    const B = [0, 0, 0],
+      Vb = [0, 0, 0];
+    const members = ls.bodyIds.map((id) => {
+      const gi = gid.get(id);
+      if (gi === undefined) throw new Error(`decomposeGlobal: unknown body "${id}"`);
+      return gi;
+    });
+    for (const gi of members) {
+      const m = model.global.gm[gi]!;
+      M += m;
+      for (let d = 0; d < 3; d++) {
+        B[d]! += m * pos[3 * gi + d]!;
+        Vb[d]! += m * vel[3 * gi + d]!;
+      }
+    }
+    if (!(M > 0)) throw new Error(`decomposeGlobal: non-positive mass for "${ls.hostId}"`);
+    for (let d = 0; d < 3; d++) {
+      B[d]! /= M;
+      Vb[d]! /= M;
+    }
+
+    const k = ls.host;
+    solver.level0.t = t;
+    for (let d = 0; d < 3; d++) {
+      solver.level0.pos[3 * k + d] = B[d]!;
+      solver.level0.vel[3 * k + d] = Vb[d]!;
+    }
+    covered[k] = true;
+
+    ls.state.t = t;
+    members.forEach((gi, j) => {
+      for (let d = 0; d < 3; d++) {
+        ls.state.pos[3 * j + d] = pos[3 * gi + d]! - B[d]!;
+        ls.state.vel[3 * j + d] = vel[3 * gi + d]! - Vb[d]!;
+      }
+    });
+  }
+
+  // Hostless level-0 bodies (Sun, Mercury, Venus, ...): copy straight across.
+  model.level0Ids.forEach((id, k) => {
+    if (covered[k]) return;
+    const gi = gid.get(id);
+    if (gi === undefined) throw new Error(`decomposeGlobal: unknown level-0 body "${id}"`);
+    for (let d = 0; d < 3; d++) {
+      solver.level0.pos[3 * k + d] = pos[3 * gi + d]!;
+      solver.level0.vel[3 * k + d] = vel[3 * gi + d]!;
+    }
+  });
+  solver.level0.t = t;
 }
 
 export function buildModel(
@@ -314,11 +384,13 @@ export function buildSolver(
   const level0Forces = buildForces(model.level0Ids, cfg);
   const hierarchicalBase = new HierarchicalLeapfrog(systems);
   const integrator =
-    cfg.integrator === 'yoshida6'
-      ? yoshida6(hierarchicalBase)
-      : cfg.integrator === 'yoshida4'
-        ? yoshida4(hierarchicalBase)
-        : hierarchicalBase;
+    cfg.integrator === 'yoshida8' || cfg.integrator === 'truth8'
+      ? yoshida8(hierarchicalBase)
+      : cfg.integrator === 'yoshida6'
+        ? yoshida6(hierarchicalBase)
+        : cfg.integrator === 'yoshida4'
+          ? yoshida4(hierarchicalBase)
+          : hierarchicalBase;
 
   return {
     level0: {

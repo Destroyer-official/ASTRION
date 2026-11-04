@@ -3,7 +3,7 @@ import { JD_J2000, gmToInternal } from '@/data/constants';
 import type { BodyDef, SystemState, Vec3 } from '@/physics/types';
 import { perihelionState } from '@/physics/orbit';
 import { createState, recenterToBarycenter } from '@/physics/system';
-export { buildModel, buildSolver, type ModelData, type SolverData } from './model';
+export { buildModel, buildSolver, decomposeGlobal, type ModelData, type SolverData } from './model';
 
 const bodyFiles = import.meta.glob<BodyJson>('/src/data/bodies/*.json', {
   eager: true,
@@ -20,10 +20,18 @@ const dwarfFiles = import.meta.glob<BodyJson>('/src/data/dwarf-planets/*.json', 
   import: 'default',
 });
 
+const asteroidFiles = import.meta.glob<BodyJson>('/src/data/asteroids/*.json', {
+  eager: true,
+  import: 'default',
+});
+
 export const PLANET_BODIES: BodyJson[] = Object.values(bodyFiles);
 export const MOON_BODIES: BodyJson[] = Object.values(moonFiles);
 export const DWARF_BODIES: BodyJson[] = Object.values(dwarfFiles);
-export const ALL_BODIES: BodyJson[] = [...PLANET_BODIES, ...DWARF_BODIES, ...MOON_BODIES];
+export const ASTEROID_BODIES: BodyJson[] = Object.values(asteroidFiles);
+// The four most massive main-belt asteroids ride along in production N-body:
+// their pull moves Mars ~10 km/decade and Jupiter ~20 km/decade (measured).
+export const ALL_BODIES: BodyJson[] = [...PLANET_BODIES, ...DWARF_BODIES, ...MOON_BODIES, ...ASTEROID_BODIES];
 
 const physicalFiles = import.meta.glob<PhysicalJson>('/src/data/physical/*.json', {
   eager: true,

@@ -7,6 +7,10 @@ import type { SystemModel } from './registry';
 export interface ComputedFacts {
   id: string;
   name: string;
+  radiusKm: number;
+  polarRadiusKm: number;
+  volumetricRadiusKm: number;
+  flattening: number;
   distSunAu: number;
   lightMinutes: number;
   speedKms: number;
@@ -60,6 +64,10 @@ export function computeBodyFacts(
     return {
       id: 'sun',
       name: 'Sun (Sol) - 3 Unified Motions',
+      radiusKm: sunRadiusKm,
+      polarRadiusKm: sunRadiusKm,
+      volumetricRadiusKm: sunRadiusKm,
+      flattening: 0,
       distSunAu: distBaryAu, // Shows distance to Solar System Barycenter
       lightMinutes: distBaryAu * (AU_KM / 299792.458 / 60),
       speedKms,
@@ -185,9 +193,18 @@ export function computeBodyFacts(
     subsolarLonDeg = (Math.atan2(by, bx) * 180) / Math.PI;
   }
 
+  const radiusKm = model.radiusKm[i]!;
+  const flattening = physical?.flattening ?? 0;
+  const polarRadiusKm = radiusKm * (1 - flattening);
+  const volumetricRadiusKm = Math.cbrt(radiusKm * radiusKm * polarRadiusKm);
+
   return {
     id,
     name: model.names[i]!,
+    radiusKm,
+    polarRadiusKm,
+    volumetricRadiusKm,
+    flattening,
     distSunAu,
     lightMinutes,
     speedKms,

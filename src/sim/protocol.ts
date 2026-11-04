@@ -15,22 +15,35 @@ export type ToWorker =
       maxDt?: number;
       maxSteps?: number;
       historyIntervalDays: number;
-      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6';
+      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
       relativity?: boolean;
+      eihRelativity?: boolean;
       quadrupole?: boolean;
+      harmonics?: boolean;
+      srp?: boolean;
       fixedDt?: number;
     }
   | {
       type: 'setPhysics';
       config?: PhysicsConfig;
-      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6';
+      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
       relativity?: boolean;
+      eihRelativity?: boolean;
       quadrupole?: boolean;
+      harmonics?: boolean;
+      srp?: boolean;
       fixedDt?: number;
     }
   | { type: 'advance'; gen: number; days: number }
   | { type: 'seek'; gen: number; t: number } // jump to absolute sim time (days from epoch)
-  | { type: 'reset'; gen: number };
+  | { type: 'reset'; gen: number }
+  | {
+      type: 'load';
+      gen: number;
+      t: number;
+      pos: Float64Array;
+      vel: Float64Array;
+    }; // replace state with exact external vectors (global SSB order)
 
 export interface Frame {
   type: 'frame';

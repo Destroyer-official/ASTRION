@@ -29,9 +29,20 @@ export function buildTracks(
   else mapPoint(ax, o, 0, 0, 0, f); // the simulation is barycentric, so the barycenter is the sim origin
 
   let start = h.count;
+  // Walk back from the newest sample while it is inside the window AND
+  // continuous with its successor. A time gap means a date jump / reseed /
+  // mode switch happened: everything before the gap belongs to a different
+  // arc and must never be connected to the live point (no cross-screen streaks).
+  const gapTol = Math.max(4 * h.intervalDays, 1e-9);
   for (let k = h.count - 1; k >= 0; k--) {
     if (Math.abs(live.t - h.timeAt(k)) > windowDays) break;
+    if (k < h.count - 1 && Math.abs(h.timeAt(k + 1) - h.timeAt(k)) > gapTol) break;
     start = k;
+  }
+
+  // Same guard for the tail: a stale newest sample never connects to the live point.
+  if (start < h.count && Math.abs(live.t - h.timeAt(h.count - 1)) > gapTol) {
+    start = h.count;
   }
 
   let v = 0;

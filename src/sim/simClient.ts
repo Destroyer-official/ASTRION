@@ -12,10 +12,21 @@ export interface ClientOptions {
   historyCap: number;
   historyIntervalDays: number;
   config?: PhysicsConfig;
-  integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6';
+  integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
   relativity?: boolean;
+  eihRelativity?: boolean;
   quadrupole?: boolean;
+  harmonics?: boolean;
+  srp?: boolean;
   fixedDt?: number;
+  /**
+   * Max simulated days per worker message. A hierarchical GR step costs
+   * milliseconds, so an uncapped message (e.g. 2000 days = 10k steps) freezes
+   * the worker for minutes and the UI shows BUSY forever. Small bites stream.
+   */
+  chunkDays?: number;
+  /** Max queued demand; excess is dropped so a fast slider slows the sim instead of freezing it. */
+  maxBacklogDays?: number;
 }
 
 export class SimClient {
@@ -38,19 +49,41 @@ export class SimClient {
   inFlightDays = 0;
   dir = 1;
 
-  private readonly worker: Worker;
-  private readonly maxPending: number;
+  private worker: Worker;
+  private readonly model: SystemModel;
+  private readonly opts: ClientOptions;
+  private readonly chunkDays: number;
+  private readonly maxBacklogDays: number;
   private gen = 0;
   private outstanding = 0; // messages sent minus replies received
   private pending = 0; // requested days not yet sent
   private seeking = false;
+  private seekTarget: number | null = null; // chained seeks: worker hops per message
+  private fetching = false; // remote truth fetch in flight (travel)
+  private failures = 0; // consecutive worker faults (reset by real work, not init)
+  private healthIgnore = 0; // admin replies outstanding after a respawn: not proof of health
+  private lastPhysics: {
+    config?: PhysicsConfig;
+    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+    relativity?: boolean;
+    eihRelativity?: boolean;
+    quadrupole?: boolean;
+    harmonics?: boolean;
+    srp?: boolean;
+    fixedDt?: number;
+  } | null = null;
+  /** True after repeated worker crashes: the sim is parked, reload to recover. */
+  workerDead = false;
 
   constructor(model: SystemModel, o: ClientOptions) {
+    this.model = model;
+    this.opts = o;
     this.state = cloneState(model.state);
     this.display = cloneState(model.state);
     this.baryDist = new Float64Array(this.state.n);
     this.history = new History(this.state.n, o.historyCap, o.historyIntervalDays);
-    this.maxPending = o.maxSteps * (o.fixedDt ?? o.maxDt);
+    this.chunkDays = Math.max(1e-9, o.chunkDays ?? 12);
+    this.maxBacklogDays = Math.max(this.chunkDays, o.maxBacklogDays ?? 120);
 
     this.config = o.config ?? {
       ...DEFAULT_CONFIG,
@@ -67,22 +100,31 @@ export class SimClient {
     this.p1 = new Float64Array(this.state.pos);
     this.v1 = new Float64Array(this.state.vel);
 
-    this.worker = new Worker(new URL('../workers/physics.worker.ts', import.meta.url), {
+    this.worker = this.spawnWorker();
+    this.sendInit(this.state.t, this.state.pos, this.state.vel);
+  }
+
+  private spawnWorker(): Worker {
+    const w = new Worker(new URL('../workers/physics.worker.ts', import.meta.url), {
       type: 'module',
     });
-    this.worker.onmessage = (e: MessageEvent<Frame>) => this.onFrame(e.data);
-    this.worker.onerror = (e) => console.error('physics worker error', e);
+    w.onmessage = (e: MessageEvent<Frame>) => this.onFrame(e.data);
+    w.onerror = (e) => this.handleWorkerError(e);
+    return w;
+  }
 
-    const s = model.state;
+  private sendInit(t: number, pos: Float64Array, vel: Float64Array): void {
+    const o = this.opts;
+    const s = this.model.state;
     this.send({
       type: 'init',
-      bodies: model.bodies ? [...model.bodies] : undefined,
-      physical: model.physicalMap,
-      ids: model.ids,
-      t: s.t,
+      bodies: this.model.bodies ? [...this.model.bodies] : undefined,
+      physical: this.model.physicalMap,
+      ids: this.model.ids,
+      t,
       gm: s.gm.slice(),
-      pos: s.pos.slice(),
-      vel: s.vel.slice(),
+      pos: pos.slice(),
+      vel: vel.slice(),
       maxDt: o.maxDt,
       maxSteps: o.maxSteps,
       historyIntervalDays: o.historyIntervalDays,
@@ -94,8 +136,53 @@ export class SimClient {
     });
   }
 
+  /**
+   * Self-healing: a crashed worker is terminated and rebuilt, then reseeded
+   * from the last good mirror state (never older than one message). An
+   * in-flight seek resumes automatically. After 3 consecutive crashes the
+   * worker is parked (workerDead) instead of respawn-looping.
+   */
+  private handleWorkerError(e: unknown): void {
+    console.error('physics worker error', e);
+    if (this.failures >= 3) {
+      this.workerDead = true;
+      this.seeking = false;
+      this.seekTarget = null;
+      return;
+    }
+    this.failures++;
+    const resumeSeek = this.seekTarget;
+    try {
+      this.worker.terminate();
+    } catch {
+      // Already dead; carry on with the rebuild.
+    }
+    this.bump();
+    this.gen = 0; // fresh worker starts its generation count over
+    this.ready = false;
+    this.worker = this.spawnWorker();
+    // Rebuild the solver, then reload the last good mirror state: a fresh
+    // init restores EPOCH bodies, which would silently rewind the sim.
+    this.sendInit(this.state.t, this.state.pos, this.state.vel);
+    this.send({
+      type: 'load',
+      gen: this.gen,
+      t: this.state.t,
+      pos: this.state.pos.slice(),
+      vel: this.state.vel.slice(),
+    });
+    if (this.lastPhysics) this.send({ type: 'setPhysics', ...this.lastPhysics });
+    // The replies to these admin messages don't prove worker health.
+    this.healthIgnore = 2 + (this.lastPhysics ? 1 : 0);
+    if (resumeSeek !== null) {
+      this.seeking = true;
+      this.seekTarget = resumeSeek;
+      this.send({ type: 'seek', gen: this.gen, t: resumeSeek });
+    }
+  }
+
   get busy(): boolean {
-    return this.seeking;
+    return this.seeking || this.fetching;
   }
 
   /** Update display buffer using cubic Hermite interpolation */
@@ -105,20 +192,22 @@ export class SimClient {
     const lo = Math.min(this.t0, this.t1);
     const hi = Math.max(this.t0, this.t1);
     const td = lo === hi ? lo : Math.max(lo, Math.min(hi, target - lag)); // clamp: stalls if physics falls behind
-    hermite(this.t0, this.p0, this.v0, this.t1, this.p1, this.v1, td, this.display.pos);
+    hermite(this.t0, this.p0, this.v0, this.t1, this.p1, this.v1, td, this.display.pos, this.display.vel);
     this.display.t = td;
-    this.display.vel.set(this.p1.length === this.display.vel.length ? this.v1 : this.state.vel);
+    // Velocity is analytically evaluated at td by hermite() above
   }
 
   /** Ask for `days` more simulated time (negative = backward). Call every animation frame. */
   request(days: number): void {
     if (!this.ready || this.seeking) return;
     this.dir = days >= 0 ? 1 : -1;
-    this.pending = Math.max(-this.maxPending, Math.min(this.maxPending, this.pending + days));
+    this.pending = Math.max(-this.maxBacklogDays, Math.min(this.maxBacklogDays, this.pending + days));
     if (this.outstanding > 0 || this.pending === 0) return;
-    this.inFlightDays = this.pending;
-    this.send({ type: 'advance', gen: this.gen, days: this.pending });
-    this.pending = 0;
+    // One bounded bite per message: the worker stays responsive and frames stream.
+    const chunk = Math.max(-this.chunkDays, Math.min(this.chunkDays, this.pending));
+    this.pending -= chunk;
+    this.inFlightDays = chunk;
+    this.send({ type: 'advance', gen: this.gen, days: chunk });
   }
 
   /** Time direction flipped: history is only valid one-way. */
@@ -131,26 +220,80 @@ export class SimClient {
     this.send({ type: 'reset', gen: this.gen });
   }
 
-  /** Jump to absolute simulation time (days from epoch). */
+  /** Jump to absolute simulation time (days from epoch). Chained: each worker
+   * reply advances one bounded hop toward the target, so even century-scale
+   * jumps show live progress and stay cancellable instead of hanging. */
   seek(t: number): void {
     this.bump();
     this.seeking = true;
+    this.seekTarget = t;
     this.send({ type: 'seek', gen: this.gen, t });
+  }
+
+  /**
+   * Instant exact travel: load external truth vectors straight into the worker
+   * (no step-by-step integration). Falls back to chained seek when fetch fails.
+   * `fetch` returns global SSB pos/vel arrays in model order, or null.
+   */
+  load(t: number, pos: Float64Array, vel: Float64Array): void {
+    this.bump();
+    this.seeking = true;
+    this.seekTarget = t;
+    // Copies: the transfer neuters the sent buffers, never the caller's.
+    this.send({ type: 'load', gen: this.gen, t, pos: pos.slice(), vel: vel.slice() });
+  }
+
+  /** Snap the Hermite display endpoints to an exact state (post-travel). */
+  snapDisplay(t: number, pos: Float64Array, vel: Float64Array): void {
+    this.display.t = t;
+    this.display.pos.set(pos);
+    this.display.vel.set(vel);
+    this.t0 = this.t1 = t;
+    this.p0.set(pos);
+    this.p1.set(pos);
+    this.v0.set(vel);
+    this.v1.set(vel);
+    this.carry = 0;
+    this.inFlightDays = 0;
+  }
+
+  /** Travel with remote truth when available, chained integration otherwise. */
+  async travelTo(
+    t: number,
+    fetch: (t: number) => Promise<{ pos: Float64Array; vel: Float64Array } | null>,
+  ): Promise<boolean> {
+    this.fetching = true;
+    try {
+      const got = await fetch(t);
+      if (!got) return false;
+      this.load(t, got.pos, got.vel);
+      this.snapDisplay(t, got.pos, got.vel);
+      return true;
+    } finally {
+      this.fetching = false;
+    }
   }
 
   /** Dynamically configure physics models and integrators in the worker. */
   setPhysics(opts: {
     config?: PhysicsConfig;
-    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6';
+    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
     relativity?: boolean;
+    eihRelativity?: boolean;
     quadrupole?: boolean;
+    harmonics?: boolean;
+    srp?: boolean;
     fixedDt?: number;
   }): void {
     if (opts.config) this.config = { ...opts.config };
     if (opts.integrator) this.config.integrator = opts.integrator;
     if (opts.relativity !== undefined) this.config.gr = opts.relativity;
+    if (opts.eihRelativity !== undefined) this.config.eihRelativity = opts.eihRelativity;
     if (opts.quadrupole !== undefined) this.config.sunJ2 = opts.quadrupole;
+    if (opts.harmonics !== undefined) this.config.harmonics = opts.harmonics;
+    if (opts.srp !== undefined) this.config.srp = opts.srp;
     if (opts.fixedDt !== undefined) this.config.dt = opts.fixedDt;
+    this.lastPhysics = { ...opts };
     this.send({ type: 'setPhysics', ...opts });
   }
 
@@ -163,10 +306,12 @@ export class SimClient {
     this.outstanding = 0;
     this.inFlightDays = 0;
     this.pending = 0;
+    this.seekTarget = null;
     this.history.clear();
   }
 
   private send(m: ToWorker): void {
+    if (this.workerDead) return;
     this.outstanding++;
     this.worker.postMessage(m);
   }
@@ -176,7 +321,9 @@ export class SimClient {
     this.outstanding = 0;
     this.inFlightDays = 0;
     this.ready = true;
-    this.seeking = false;
+    // Only real work proves health: admin replies after a respawn don't.
+    if (this.healthIgnore > 0) this.healthIgnore--;
+    else this.failures = 0;
 
     this.state.t = f.t;
     this.state.pos.set(f.pos);
@@ -195,6 +342,16 @@ export class SimClient {
     this.angMomDrift = f.angMomDrift;
     for (let o = 0; o + f.stride <= f.samples.length; o += f.stride) {
       this.history.pushRaw(f.samples[o]!, f.samples, o + 1);
+    }
+
+    if (this.seeking) {
+      // Chain the next hop toward the target (same generation, no bump).
+      if (this.seekTarget !== null && Math.abs(f.t - this.seekTarget) >= 1e-6) {
+        this.send({ type: 'seek', gen: this.gen, t: this.seekTarget });
+      } else {
+        this.seeking = false;
+        this.seekTarget = null;
+      }
     }
   }
 }

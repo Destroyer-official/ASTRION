@@ -127,11 +127,31 @@ export function buildHorizonsUrl(command: string, date: Date): string {
 
 export class HorizonsClient {
   private cache = new Map<string, HorizonsVectorResult>();
+  private readonly timeoutMs: number;
+  private readonly maxParallel: number;
+  private offlineUntil = 0;
+
+  constructor(timeoutMs = 15_000, maxParallel = 4) {
+    this.timeoutMs = timeoutMs;
+    this.maxParallel = maxParallel;
+  }
+
+  /** Checks if the client is currently in offline/unreachable cooldown */
+  isOffline(): boolean {
+    return Date.now() < this.offlineUntil;
+  }
+
+  /** Triggers a cooldown during which network calls are skipped in favor of local truth data */
+  markOffline(durationMs = 30_000): void {
+    this.offlineUntil = Date.now() + durationMs;
+  }
 
   /**
    * Fetches state vector directly from NASA JPL Horizons for a given body and date.
    */
   async fetchVector(bodyId: string, date: Date): Promise<HorizonsVectorResult | null> {
+    if (this.isOffline()) return null;
+
     const cmd = HORIZONS_COMMANDS[bodyId];
     if (!cmd) return null;
 
@@ -141,10 +161,22 @@ export class HorizonsClient {
       return this.cache.get(cacheKey)!;
     }
 
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
     try {
-      const url = buildHorizonsUrl(cmd, date);
-      const res = await fetch(url, { headers: { Accept: 'text/plain' } });
-      if (!res.ok) return null;
+      const fullUrl = buildHorizonsUrl(cmd, date);
+      const url =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+          ? fullUrl.replace('https://ssd.jpl.nasa.gov/api/horizons.api', '/api/horizons')
+          : fullUrl;
+      const res = await fetch(url, { headers: { Accept: 'text/plain' }, signal: ctrl.signal });
+      if (!res.ok) {
+        if (res.status === 503 || res.status === 502 || res.status === 504 || res.status === 429) {
+          this.markOffline(30_000);
+        }
+        return null;
+      }
 
       const text = await res.text();
       const parsed = parseHorizonsVectorText(text, bodyId);
@@ -153,23 +185,31 @@ export class HorizonsClient {
         return parsed;
       }
     } catch {
-      // Offline fallback: will be handled by local DE440 Hermite ephemeris table
+      // Offline fallback: mark cooldown so we do not flood the console with repeated network errors
+      this.markOffline(30_000);
+    } finally {
+      clearTimeout(timer);
     }
 
     return null;
   }
 
   /**
-   * Fetches live state vectors for all major bodies in parallel.
+   * Fetches live state vectors for all major bodies in parallel (bounded so the
+   * public JPL API is never hammered with dozens of simultaneous requests).
    */
   async fetchSystem(bodyIds: string[], date: Date): Promise<Record<string, HorizonsVectorResult>> {
+    if (this.isOffline()) return {};
     const results: Record<string, HorizonsVectorResult> = {};
-    const promises = bodyIds.map(async (id) => {
-      const vec = await this.fetchVector(id, date);
-      if (vec) results[id] = vec;
-    });
-
-    await Promise.allSettled(promises);
+    for (let i = 0; i < bodyIds.length; i += this.maxParallel) {
+      if (this.isOffline()) break;
+      const chunk = bodyIds.slice(i, i + this.maxParallel);
+      const settled = await Promise.allSettled(chunk.map((id) => this.fetchVector(id, date)));
+      settled.forEach((s, k) => {
+        if (s.status === 'fulfilled' && s.value) results[chunk[k]!] = s.value;
+      });
+      if (this.isOffline()) break;
+    }
     return results;
   }
 

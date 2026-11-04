@@ -1,5 +1,6 @@
 import { AU_KM, jdToDate } from '@/data/constants';
 import referenceData from '@/data/horizons-reference.json';
+import denseData from '@/data/dense-reference.json';
 import { cloneState } from '@/physics/system';
 import { Yoshida4 } from '@/physics/integrators/yoshida4';
 import { newtonianGravity } from '@/physics/forces/gravity';
@@ -21,6 +22,8 @@ export interface ValidationRow {
 interface AnchorSample {
   offsetDays: number;
   bodies: Record<string, number[]>;
+  /** Optional endpoint velocities in AU/day (dense anchors): enables cubic Hermite. */
+  vels?: Record<string, number[]>;
 }
 
 export class EphemerisProvider {
@@ -31,8 +34,9 @@ export class EphemerisProvider {
   constructor(model: SystemModel) {
     this.model = model;
 
-    // Anchor at t = 0 from initial model state
+    // Anchor at t = 0 from initial model state (positions AND velocities: exact)
     const t0Bodies: Record<string, number[]> = {};
+    const t0Vels: Record<string, number[]> = {};
     for (let i = 0; i < model.ids.length; i++) {
       const id = model.ids[i]!;
       t0Bodies[id] = [
@@ -40,20 +44,52 @@ export class EphemerisProvider {
         model.state.pos[3 * i + 1]!,
         model.state.pos[3 * i + 2]!,
       ];
+      t0Vels[id] = [
+        model.state.vel[3 * i]!,
+        model.state.vel[3 * i + 1]!,
+        model.state.vel[3 * i + 2]!,
+      ];
     }
 
     const rawSamples = referenceData.samples as AnchorSample[];
+    // Dense near-epoch anchors (3d inner / 9d outer, with Horizons velocities).
+    const denseSamples: AnchorSample[] = (
+      denseData as {
+        samples: Array<{ jd: number; bodies: Record<string, { p: number[]; v: number[] }> }>;
+      }
+    ).samples.map((s) => {
+      const bodies: Record<string, number[]> = {};
+      const vels: Record<string, number[]> = {};
+      for (const [id, pv] of Object.entries(s.bodies)) {
+        bodies[id] = pv.p;
+        vels[id] = pv.v;
+      }
+      return { offsetDays: s.jd - model.epochJd, bodies, vels };
+    });
     this.anchors = [
       ...rawSamples,
-      { offsetDays: 0, bodies: t0Bodies },
+      ...denseSamples,
+      { offsetDays: 0, bodies: t0Bodies, vels: t0Vels },
     ].sort((a, b) => a.offsetDays - b.offsetDays);
   }
 
   /**
-   * Evaluates DE440 ephemeris positions using smooth piecewise cubic Hermite interpolation.
+   * Supported time window [minDays, maxDays] relative to the epoch.
+   * Outside it, interpolate() clamps to the edge anchor.
+   */
+  window(): { min: number; max: number } {
+    return {
+      min: this.anchors[0]!.offsetDays,
+      max: this.anchors[this.anchors.length - 1]!.offsetDays,
+    };
+  }
+
+  /**
+   * Evaluates DE440 ephemeris positions (and analytical velocities) using smooth
+   * piecewise cubic Hermite interpolation.
    * Returns true if within the supported DE440 window [-10 yr, +50 yr], false otherwise.
    */
-  interpolate(offsetDays: number, outPos: Float64Array): boolean {
+  interpolate(offsetDays: number, outPos: Float64Array, outVel?: Float64Array): boolean {
     const minT = this.anchors[0]!.offsetDays;
     const maxT = this.anchors[this.anchors.length - 1]!.offsetDays;
     const clampedT = Math.max(minT, Math.min(maxT, offsetDays));
@@ -80,32 +116,79 @@ export class EphemerisProvider {
           outPos[3 * i + 1] = this.model.state.pos[3 * i + 1]!;
           outPos[3 * i + 2] = this.model.state.pos[3 * i + 2]!;
         }
+        if (outVel) {
+          const v = a0.vels?.[id];
+          if (v) {
+            outVel[3 * i] = v[0]!;
+            outVel[3 * i + 1] = v[1]!;
+            outVel[3 * i + 2] = v[2]!;
+          } else {
+            outVel[3 * i] = this.model.state.vel[3 * i]!;
+            outVel[3 * i + 1] = this.model.state.vel[3 * i + 1]!;
+            outVel[3 * i + 2] = this.model.state.vel[3 * i + 2]!;
+          }
+        }
       }
-      return true;
+      return inRange;
     }
 
     const a1 = this.anchors[idx + 1]!;
     const t0 = a0.offsetDays;
     const t1 = a1.offsetDays;
-    const u = (clampedT - t0) / (t1 - t0);
+    const dt = t1 - t0;
+    const invDt = 1 / dt;
+    const u = (clampedT - t0) * invDt;
 
-    // Smoothstep cubic interpolation between anchor nodes
+    // Cubic Hermite when both endpoints carry Horizons velocities (dense
+    // anchors + t0): exact positions AND tangents at nodes, C1 continuous.
+    // Otherwise the legacy smoothstep between sparse position-only anchors.
     const h00 = 2 * u * u * u - 3 * u * u + 1;
+    const h10 = u * u * u - 2 * u * u + u;
     const h01 = -2 * u * u * u + 3 * u * u;
+    const h11 = u * u * u - u * u;
+
+    // Time derivatives of Hermite basis functions:
+    // dh00/dt = (6u^2 - 6u) / dt
+    // dh10/dt * dt = 3u^2 - 4u + 1
+    // dh01/dt = (-6u^2 + 6u) / dt
+    // dh11/dt * dt = 3u^2 - 2u
+    const dh00_dt = (6 * u * u - 6 * u) * invDt;
+    const dh01_dt = (-6 * u * u + 6 * u) * invDt;
+    const dh10_scaled = 3 * u * u - 4 * u + 1;
+    const dh11_scaled = 3 * u * u - 2 * u;
 
     for (let i = 0; i < this.model.ids.length; i++) {
       const id = this.model.ids[i]!;
       const p0 = a0.bodies[id];
       const p1 = a1.bodies[id];
+      const v0 = a0.vels?.[id];
+      const v1 = a1.vels?.[id];
 
-      if (p0 && p1) {
+      if (p0 && p1 && v0 && v1) {
+        for (let k = 0; k < 3; k++) {
+          outPos[3 * i + k] = h00 * p0[k]! + h10 * dt * v0[k]! + h01 * p1[k]! + h11 * dt * v1[k]!;
+          if (outVel) {
+            outVel[3 * i + k] = dh00_dt * p0[k]! + dh01_dt * p1[k]! + dh10_scaled * v0[k]! + dh11_scaled * v1[k]!;
+          }
+        }
+      } else if (p0 && p1) {
         outPos[3 * i] = h00 * p0[0]! + h01 * p1[0]!;
         outPos[3 * i + 1] = h00 * p0[1]! + h01 * p1[1]!;
         outPos[3 * i + 2] = h00 * p0[2]! + h01 * p1[2]!;
+        if (outVel) {
+          outVel[3 * i] = dh00_dt * p0[0]! + dh01_dt * p1[0]!;
+          outVel[3 * i + 1] = dh00_dt * p0[1]! + dh01_dt * p1[1]!;
+          outVel[3 * i + 2] = dh00_dt * p0[2]! + dh01_dt * p1[2]!;
+        }
       } else {
         outPos[3 * i] = this.model.state.pos[3 * i]!;
         outPos[3 * i + 1] = this.model.state.pos[3 * i + 1]!;
         outPos[3 * i + 2] = this.model.state.pos[3 * i + 2]!;
+        if (outVel) {
+          outVel[3 * i] = this.model.state.vel[3 * i]!;
+          outVel[3 * i + 1] = this.model.state.vel[3 * i + 1]!;
+          outVel[3 * i + 2] = this.model.state.vel[3 * i + 2]!;
+        }
       }
     }
     return inRange;
@@ -134,11 +217,16 @@ export class EphemerisProvider {
         state.pos[3 * i + 1] = p[1]!;
         state.pos[3 * i + 2] = p[2]!;
       }
+      // Dense anchors carry exact Horizons velocities: reseed those too so
+      // the sim continues with the right tangent, not a stale velocity.
+      const v = bestAnchor.vels?.[id];
+      if (v) {
+        state.vel[3 * i] = v[0]!;
+        state.vel[3 * i + 1] = v[1]!;
+        state.vel[3 * i + 2] = v[2]!;
+      }
     }
 
-    if (bestAnchor.offsetDays === 0) {
-      state.vel.set(this.model.state.vel);
-    }
     state.t = bestAnchor.offsetDays;
     return true;
   }
@@ -156,6 +244,7 @@ export class EphemerisProvider {
       const keys = Object.keys(liveVectors);
       if (keys.length >= 8) {
         const newBodies: Record<string, number[]> = {};
+        const newVels: Record<string, number[]> = {};
         for (let i = 0; i < this.model.ids.length; i++) {
           const id = this.model.ids[i]!;
           const vec = liveVectors[id];
@@ -169,11 +258,12 @@ export class EphemerisProvider {
             state.vel[3 * i + 2] = vec.velocityAuDay[2];
 
             newBodies[id] = [...vec.positionAu];
+            newVels[id] = [...vec.velocityAuDay];
           }
         }
         state.t = targetDays;
 
-        this.anchors.push({ offsetDays: targetDays, bodies: newBodies });
+        this.anchors.push({ offsetDays: targetDays, bodies: newBodies, vels: newVels });
         this.anchors.sort((a, b) => a.offsetDays - b.offsetDays);
 
         return { live: true, source: liveVectors['sun']?.source ?? 'DE441' };

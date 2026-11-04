@@ -1,5 +1,6 @@
 import { newtonianGravity } from '@/physics/forces/gravity';
 import { sunGR } from '@/physics/forces/gr';
+import { EinsteinInfeldHoffmann } from '@/physics/forces/eih';
 import { oblateness } from '@/physics/forces/oblateness';
 import { poleEcliptic } from '@/physics/orientation';
 import { AU_KM } from '@/data/constants';
@@ -13,7 +14,16 @@ const SUN_POLE = poleEcliptic(286.13, 63.87);
 export function buildForces(ids: readonly string[], cfg: PhysicsConfig): ForceModel[] {
   const f: ForceModel[] = [newtonianGravity];
   const sun = ids.indexOf('sun');
-  if (sun >= 0 && cfg.gr) f.push(sunGR(sun));
-  if (sun >= 0 && cfg.sunJ2) f.push(oblateness(sun, SUN_J2, SUN_RADIUS_AU, () => SUN_POLE));
+
+  if (cfg.eihRelativity) {
+    f.push(new EinsteinInfeldHoffmann());
+  } else if (sun >= 0 && cfg.gr) {
+    f.push(sunGR(sun));
+  }
+
+  if (sun >= 0 && cfg.sunJ2) {
+    f.push(oblateness(sun, SUN_J2, SUN_RADIUS_AU, () => SUN_POLE));
+  }
+
   return f;
 }

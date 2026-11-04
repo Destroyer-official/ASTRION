@@ -10,6 +10,7 @@ export interface AppState {
   showOortCloud: boolean;
   showGalacticHalo: boolean;
   showLabels: boolean;
+  showOrbitPaths?: boolean;
   dynamicsMode: DynamicsMode;
   galaxyModelId: string;
   showRealityInspector: boolean;

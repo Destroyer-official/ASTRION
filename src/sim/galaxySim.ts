@@ -73,22 +73,46 @@ export class GalaxySim {
   /**
    * Generates a pre-computed 3D trajectory array [x0, y0, z0, x1, y1, z1, ...]
    * for Three.js rendering over a given duration.
+   * Includes historical trajectory (pastFraction) trailing behind the Sun and
+   * future trajectory ahead of the Sun so the Sun's galactic wake is populated at epoch.
    */
-  generateOrbitPath(durationMyr = 250, stepMyr = 0.5): Float32Array {
-    const s: GalacticOrbitState = this.pot.getInitialSunState();
-    const count = Math.ceil(durationMyr / stepMyr) + 1;
+  generateOrbitPath(durationMyr = 250, stepMyr = 0.5, pastFraction = 0): Float32Array {
+    const pastDuration = durationMyr * pastFraction;
+    const futureDuration = durationMyr * (1 - pastFraction);
+    const pastSteps = Math.ceil(pastDuration / stepMyr);
+    const futureSteps = Math.ceil(futureDuration / stepMyr);
+    const count = pastSteps + futureSteps + 1;
     const out = new Float32Array(count * 3);
 
-    out[0] = s.x;
-    out[1] = s.y;
-    out[2] = s.z;
+    // Integrate backward into the past
+    if (pastSteps > 0) {
+      const sPast = this.pot.getInitialSunState();
+      for (let i = 1; i <= pastSteps; i++) {
+        this.pot.step(sPast, -stepMyr);
+        const idx = (pastSteps - i) * 3;
+        out[idx] = sPast.x;
+        out[idx + 1] = sPast.y;
+        out[idx + 2] = sPast.z;
+      }
+    }
 
-    for (let i = 1; i < count; i++) {
-      this.pot.step(s, stepMyr);
-      const idx = i * 3;
-      out[idx] = s.x;
-      out[idx + 1] = s.y;
-      out[idx + 2] = s.z;
+    // Anchor at live epoch (t = 0)
+    const s0 = this.pot.getInitialSunState();
+    const idx0 = pastSteps * 3;
+    out[idx0] = s0.x;
+    out[idx0 + 1] = s0.y;
+    out[idx0 + 2] = s0.z;
+
+    // Integrate forward into the future
+    if (futureSteps > 0) {
+      const sFuture = this.pot.getInitialSunState();
+      for (let i = 1; i <= futureSteps; i++) {
+        this.pot.step(sFuture, stepMyr);
+        const idx = (pastSteps + i) * 3;
+        out[idx] = sFuture.x;
+        out[idx + 1] = sFuture.y;
+        out[idx + 2] = sFuture.z;
+      }
     }
     return out;
   }

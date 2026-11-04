@@ -18,8 +18,8 @@ export class Engine {
   forces: ForceModel[];
   integrator: Integrator;
   private readonly initial: SystemState;
-  private readonly e0: number;
-  private readonly l0: number;
+  private e0: number;
+  private l0: number;
   carry = 0; // target time minus state time; always in (-dt, dt)
 
   constructor(
@@ -72,6 +72,12 @@ export class Engine {
     this.state.pos.set(this.initial.pos);
     this.state.vel.set(this.initial.vel);
     this.carry = 0;
+  }
+
+  /** Re-baseline conservation diagnostics after loading an exact external state. */
+  rebase(): void {
+    this.e0 = totalEnergy(this.state);
+    this.l0 = Math.hypot(...angularMomentum(this.state));
   }
 
   diagnostics(): Diagnostics {

@@ -1,17 +1,18 @@
 import { newtonianGravity } from '@/physics/forces/gravity';
 import { Leapfrog } from '@/physics/integrators/leapfrog';
-import { yoshida4, yoshida6 } from '@/physics/integrators/yoshida';
+import { yoshida4, yoshida6, yoshida8 } from '@/physics/integrators/yoshida';
 import type { Integrator, SystemState, ForceModel } from '@/physics/types';
 import { Engine } from './engine';
 import type { Frame, ToWorker } from './protocol';
 import { Recorder } from './recorder';
 import { DEFAULT_CONFIG, type PhysicsConfig } from './config';
 import { buildForces } from './forces';
-import { loadSystem, buildModel, buildSolver, type ModelData, type SolverData, PHYSICAL_MAP } from './registry';
+import { loadSystem, buildModel, buildSolver, decomposeGlobal, type ModelData, type SolverData, PHYSICAL_MAP } from './registry';
 import { compose } from '@/physics/hierarchy';
 import { cloneState } from '@/physics/system';
 
-function buildIntegrator(name?: 'leapfrog' | 'yoshida4' | 'yoshida6'): Integrator {
+function buildIntegrator(name?: PhysicsConfig['integrator']): Integrator {
+  if (name === 'yoshida8' || name === 'truth8') return yoshida8(new Leapfrog());
   if (name === 'yoshida6') return yoshida6(new Leapfrog());
   if (name === 'yoshida4') return yoshida4(new Leapfrog());
   return new Leapfrog();
@@ -155,7 +156,10 @@ export class SimCore {
         if (msg.config) this.config = { ...msg.config };
         if (msg.integrator) this.config.integrator = msg.integrator;
         if (msg.relativity !== undefined) this.config.gr = msg.relativity;
+        if (msg.eihRelativity !== undefined) this.config.eihRelativity = msg.eihRelativity;
         if (msg.quadrupole !== undefined) this.config.sunJ2 = msg.quadrupole;
+        if (msg.harmonics !== undefined) this.config.harmonics = msg.harmonics;
+        if (msg.srp !== undefined) this.config.srp = msg.srp;
         if (msg.fixedDt !== undefined) {
           this.fixedDt = msg.fixedDt;
           this.config.dt = msg.fixedDt;
@@ -220,14 +224,14 @@ export class SimCore {
       case 'seek': {
         if (!Number.isFinite(msg.t)) return this.frame(0);
         syncGen(msg.gen);
-        const start = engine.state.t;
         this.recording = false;
+        // ONE bounded hop per message (engine caps steps internally): the client
+        // chains further hops until the target is reached. A century-scale jump
+        // done in one message would freeze the worker for many minutes.
+        const start = engine.state.t;
         const dt = this.fixedDt ?? this.config.dt;
-        for (let guard = 0; guard < 100_000; guard++) {
-          const remaining = msg.t - engine.state.t;
-          if (Math.abs(remaining) < 1e-9) break;
-          engine.advanceFixed(remaining, dt);
-        }
+        const remaining = msg.t - engine.state.t;
+        if (Math.abs(remaining) >= 1e-9) engine.advanceFixed(remaining, dt);
         this.recording = true;
         const finalP = this.globalState ? this.globalState.pos : engine.state.pos;
         const finalV = this.globalState ? this.globalState.vel : engine.state.vel;
@@ -240,6 +244,38 @@ export class SimCore {
         rec.reset();
         rec.sample(this.globalState ?? engine.state);
         return this.frame(engine.state.t - start);
+      }
+      case 'load': {
+        // Instant exact travel: replace the whole state with external truth
+        // vectors (e.g. JPL Horizons at the target date) instead of integrating
+        // there step by step. Hierarchical state is rebuilt by decomposition.
+        if (!Number.isFinite(msg.t)) return this.frame(0);
+        syncGen(msg.gen);
+        if (this.solverData && this.modelData && this.globalState) {
+          decomposeGlobal(this.modelData, this.solverData, msg.t, msg.pos, msg.vel);
+          compose(this.solverData.level0, this.solverData.slots, this.globalState);
+        } else {
+          engine.state.t = msg.t;
+          engine.state.pos.set(msg.pos);
+          engine.state.vel.set(msg.vel);
+        }
+        engine.carry = 0;
+        engine.rebase();
+        const gp = this.globalState;
+        this.cur.t = msg.t;
+        this.prev.t = msg.t;
+        if (gp) {
+          this.cur.pos.set(gp.pos);
+          this.cur.vel.set(gp.vel);
+        } else {
+          this.cur.pos.set(engine.state.pos);
+          this.cur.vel.set(engine.state.vel);
+        }
+        this.prev.pos.set(this.cur.pos);
+        this.prev.vel.set(this.cur.vel);
+        rec.reset();
+        rec.sample(gp ?? engine.state);
+        return this.frame(0);
       }
     }
   }
