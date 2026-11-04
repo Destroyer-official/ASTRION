@@ -297,6 +297,22 @@ npm run build
 
 Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for terms.
 
+### 7.1 Third-party assets
+
+The nine planet surface maps in [`public/textures/`](./public/textures/) are not
+MIT-licensed project output. They are the free texture set from
+**Solar System Scope** (`solarsystemscope.com`), distributed under
+**CC BY 4.0** ("You may use, adapt, and share these textures for any purpose,
+even commercially", as stated on their textures page, accessed 2026-11-04), and
+they are **artistically rendered maps, not measured spacecraft imagery** — no
+physical quantity is derived from their pixels. Full credit, the verification
+procedure and the modified/unmodified status are recorded in
+[`public/textures/ATTRIBUTION.md`](./public/textures/ATTRIBUTION.md); per-file
+source URLs and SHA-256 digests live in
+[`public/textures/manifest.json`](./public/textures/manifest.json) and are
+checked by `tests/textures-manifest.test.ts`. The Sun and all moons use ASTRION's
+own seeded procedural textures.
+
 If you utilize ASTRION in academic research, educational coursework, or aerospace simulations, cite the platform using the metadata provided in [`CITATION.cff`](./CITATION.cff):
 
 ```bibtex
