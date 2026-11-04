@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scratch UI screenshots — no code, test or doc references them, and they are
+# not used as compared visual baselines. Playwright baselines will live in
+# tests/e2e/__screenshots__/ instead (see docs/AUDIT.md AUDIT-40/AUDIT-43).
+tests/images/
