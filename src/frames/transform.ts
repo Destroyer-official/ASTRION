@@ -25,7 +25,10 @@ export function mapPoint(
   }
 }
 
-/** Whole live state into a frame (positions and velocities). */
+/**
+ * Whole live state into a frame (positions and velocities).
+ * For rotating frames, correctly accounts for apparent velocity (subtracts omega x r).
+ */
 export function transformState(
   frame: ReferenceFrame,
   s: SystemState,
@@ -36,9 +39,26 @@ export function transformState(
     ov = [0, 0, 0];
   frame.origin(s.t, s.gm, s.pos, 0, o);
   frame.originVelocity(s.t, s.gm, s.vel, 0, ov);
+  const omega = frame.angularVelocity ? frame.angularVelocity(s.t) : null;
+
   for (let i = 0; i < s.n; i++) {
-    mapPoint(frame.axes, o, s.pos[3 * i]!, s.pos[3 * i + 1]!, s.pos[3 * i + 2]!, outPos, 3 * i);
-    mapPoint(frame.axes, ov, s.vel[3 * i]!, s.vel[3 * i + 1]!, s.vel[3 * i + 2]!, outVel, 3 * i);
+    const px = s.pos[3 * i]!, py = s.pos[3 * i + 1]!, pz = s.pos[3 * i + 2]!;
+    mapPoint(frame.axes, o, px, py, pz, outPos, 3 * i);
+
+    if (omega) {
+      // Relative vector from origin
+      const dx = px - o[0]!, dy = py - o[1]!, dz = pz - o[2]!;
+      // Cross product omega x (p - o)
+      const wx = omega[1]! * dz - omega[2]! * dy;
+      const wy = omega[2]! * dx - omega[0]! * dz;
+      const wz = omega[0]! * dy - omega[1]! * dx;
+      const relVx = s.vel[3 * i]! - ov[0]! - wx;
+      const relVy = s.vel[3 * i + 1]! - ov[1]! - wy;
+      const relVz = s.vel[3 * i + 2]! - ov[2]! - wz;
+      mapPoint(frame.axes, [0, 0, 0], relVx, relVy, relVz, outVel, 3 * i);
+    } else {
+      mapPoint(frame.axes, ov, s.vel[3 * i]!, s.vel[3 * i + 1]!, s.vel[3 * i + 2]!, outVel, 3 * i);
+    }
   }
 }
 
@@ -63,4 +83,3 @@ export function squash(
   out[off + 1] = y + k * u[1]!;
   out[off + 2] = z + k * u[2]!;
 }
-
