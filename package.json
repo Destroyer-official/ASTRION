@@ -1,7 +1,8 @@
 {
-  "name": "solar-system",
+  "name": "astrion",
+  "description": "Astronomical State & Trajectory Reconstruction Engine for Interplanetary & Orbital Navigation",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +10,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify": "npm run typecheck && npm test",
+    "verify:prod": "npm run typecheck && npm test && npm run build",
     "fetch:horizons": "node scripts/fetch-horizons.mjs",
+    "fetch:spice": "node scripts/fetch-spice.mjs",
+    "fetch:textures": "node scripts/fetch-textures.mjs",
+    "verify:live": "node scripts/verify-live.mjs",
+    "verify:nutation": "node scripts/verify-nutation.mjs",
     "format": "prettier --write .",
     "preview": "vite preview"
   },
