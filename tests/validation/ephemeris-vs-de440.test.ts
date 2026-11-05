@@ -25,13 +25,15 @@ const TARGETS: Array<{ id: string; target: number }> = [
   { id: 'neptune', target: 8 },
 ];
 
-// Measured 2026-11-05 over -300..+300 days at 0.25-day steps: the worst body was
-// Mercury at 1.014e+2 km, every other planet and the Sun stayed under 1.0 km.
-// The dense anchor tables cover -365..+730 days, so this window is the region
-// where the provider has real anchor support on both sides.
+// Measured 2026-11-05 over -364..+724 days at 0.5-day steps: the worst body was
+// Mercury is the worst at 8.011e+1 km, every other planet and the Sun stay under
+// 1 km. That span is where the dense table actually covers every body (the outer
+// planets' nodes stop at +724 d); past it the error is OPEN-008's coverage problem,
+// not this test's.
 const MAX_ERROR_KM = 200;
-const WINDOW_DAYS = 300;
-const STEP_DAYS = 0.25;
+const WINDOW_FROM = -364;
+const WINDOW_TO = 724;
+const STEP_DAYS = 0.5;
 
 describe.skipIf(!hasKernel)(`runtime ephemeris against ${kernelName}`, () => {
   const model = loadSystem(ALL_BODIES);
@@ -54,7 +56,7 @@ describe.skipIf(!hasKernel)(`runtime ephemeris against ${kernelName}`, () => {
     let worstPosition = 0;
     let worstVelocity = 0;
     let worstDay = 0;
-    for (let day = -WINDOW_DAYS; day <= WINDOW_DAYS; day += STEP_DAYS) {
+    for (let day = WINDOW_FROM; day <= WINDOW_TO; day += STEP_DAYS) {
       provider.interpolate(day, pos, vel);
       const state = spk.evaluateEcliptic(target, 0, (model.epochJd + day - JD_J2000) * DAY_S);
       const positionErrorKm = Math.hypot(

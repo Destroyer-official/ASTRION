@@ -25,6 +25,8 @@ interface AnchorSample {
   bodies: Record<string, number[]>;
   /** Optional endpoint velocities in AU/day (dense anchors): enables cubic Hermite. */
   vels?: Record<string, number[]>;
+  /** True for the dense table and the epoch anchor, which sample every 1.5/9 d. */
+  fine?: boolean;
 }
 
 /** One body's own anchor series. The shipped tables mix densities (inner planets
@@ -89,46 +91,70 @@ export class EphemerisProvider {
         bodies[id] = pv.p;
         vels[id] = pv.v;
       }
-      return { offsetDays: s.jd - model.epochJd, bodies, vels };
+      return { offsetDays: s.jd - model.epochJd, bodies, vels, fine: true };
     });
     this.anchors = [
       ...rawSamples,
       ...denseSamples,
-      { offsetDays: 0, bodies: t0Bodies, vels: t0Vels },
+      { offsetDays: 0, bodies: t0Bodies, vels: t0Vels, fine: true },
     ].sort((a, b) => a.offsetDays - b.offsetDays);
     this.tracks = this.buildTracks();
   }
 
-  /** Collects, for each body id, only the anchors that actually carry it. */
+  /** Collects, for each body id, only the anchors that actually carry it.
+   *  Where the fine (dense) table covers a body's date range, coarse anchors
+   *  inside that range are dropped: they carry no velocity, so a lone coarse
+   *  node sitting between two fine nodes would replace a Hermite step with a
+   *  blended one (measured 3.1e5 km at +365 d against 2.6e-1 km without it). */
   private buildTracks(): Map<string, BodyTrack> {
-    const tracks = new Map<string, { t: number[]; p: number[][]; v: number[][]; hasV: number[] }>();
+    type Node = { t: number; p: readonly number[]; v: readonly number[]; hasV: boolean };
+    const collected = new Map<string, Node[]>();
+    const fineSpan = new Map<string, { min: number; max: number }>();
+
+    const add = (id: string, node: Node) => {
+      const nodes = collected.get(id);
+      if (nodes) nodes.push(node);
+      else collected.set(id, [node]);
+    };
+
     for (const anchor of this.anchors) {
+      if (!anchor.fine) continue;
       for (const [id, position] of Object.entries(anchor.bodies)) {
         const velocity = anchor.vels?.[id];
-        let track = tracks.get(id);
-        if (!track) {
-          track = { t: [], p: [], v: [], hasV: [] };
-          tracks.set(id, track);
+        add(id, { t: anchor.offsetDays, p: position, v: velocity ?? [0, 0, 0], hasV: Boolean(velocity) });
+        const span = fineSpan.get(id);
+        if (!span) fineSpan.set(id, { min: anchor.offsetDays, max: anchor.offsetDays });
+        else {
+          span.min = Math.min(span.min, anchor.offsetDays);
+          span.max = Math.max(span.max, anchor.offsetDays);
         }
-        track.t.push(anchor.offsetDays);
-        track.p.push(position);
-        track.v.push(velocity ?? [0, 0, 0]);
-        track.hasV.push(velocity ? 1 : 0);
+      }
+    }
+
+    for (const anchor of this.anchors) {
+      if (anchor.fine) continue;
+      for (const [id, position] of Object.entries(anchor.bodies)) {
+        const covered = fineSpan.get(id);
+        if (covered && anchor.offsetDays > covered.min && anchor.offsetDays < covered.max) continue;
+        const velocity = anchor.vels?.[id];
+        add(id, { t: anchor.offsetDays, p: position, v: velocity ?? [0, 0, 0], hasV: Boolean(velocity) });
       }
     }
 
     const built = new Map<string, BodyTrack>();
-    for (const [id, track] of tracks) {
-      const p = new Float64Array(track.p.length * 3);
-      const v = new Float64Array(track.v.length * 3);
-      track.p.forEach((node, i) => p.set(node, 3 * i));
-      track.v.forEach((node, i) => v.set(node, 3 * i));
-      built.set(id, {
-        t: Float64Array.from(track.t),
-        p,
-        v,
-        hasV: Uint8Array.from(track.hasV),
+    for (const [id, nodes] of collected) {
+      nodes.sort((a, b) => a.t - b.t);
+      const p = new Float64Array(nodes.length * 3);
+      const v = new Float64Array(nodes.length * 3);
+      const t = new Float64Array(nodes.length);
+      const hasV = new Uint8Array(nodes.length);
+      nodes.forEach((node, i) => {
+        t[i] = node.t;
+        p.set(node.p, 3 * i);
+        v.set(node.v, 3 * i);
+        hasV[i] = node.hasV ? 1 : 0;
       });
+      built.set(id, { t, p, v, hasV });
     }
     return built;
   }
