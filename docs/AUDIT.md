@@ -62,6 +62,17 @@ How to read this file:
 
 ## 2. Documentation truthfulness and single source of truth (mission §4 last bullet, §6)
 
+> **Status update, 2026-11-05:** commit `8850cfb` made `src/data/constants.ts` the only
+> source for the astronomical literal values checked by a new boundary test, and commit
+> `dce8000` marked all galactic model presets `lsrR0Only`. A subsequent documentation
+> pass rewrote `README.md`, `ARCHITECTURE.md`, and `docs/NASA_COMPLIANCE.md` to remove
+> certification/flight-grade/100%-green claims, fabricated counts, and console figures
+> presented as results. AUDIT-16 through AUDIT-23 are closed at the documentation level.
+> AUDIT-24/25 are substantially fixed for the listed constant sources and panel GM
+> lookup. Remaining work is not a wording issue: measured SPK/JPL error tables,
+> complete model-specific galactic potentials, and the 12 absent asteroid perturbers
+> are still open.
+
 | ID | Location | Finding | Severity |
 | :--- | :--- | :--- | :--- |
 | AUDIT-16 | [docs/NASA_COMPLIANCE.md:1-5](file:///D:/code/Main_projects/universe/solar-system/docs/NASA_COMPLIANCE.md#L1) | The file is titled "NASA Flight-Grade Compliance & NPR 7150.2D Assurance Matrix", declares `Compliance Standard: NASA NPR 7150.2D … & NASA-STD-8739.8` (`:4`) and `Verification Status: **100% GREEN (79 Test Suites, 503 Automated Verification Tests Passing)**` (`:5`), asserts "All previous gaps have been implemented, tested, and **certified**" (`:11`), and stamps 11 rows `🟢 NASA FLIGHT GRADE` (`:15-25`). Nothing in the repo supports any of it: the real suite is **82 files / 530 tests** (measured, VALIDATION_LOG), there is no assurance plan, no independent V&V, no SIFT, and `.github/` holds only `ci.yml` + 2 issue templates. Mission §0 line 6 says *"Never claim certification"* — this document does, in its title. | **CRITICAL** |

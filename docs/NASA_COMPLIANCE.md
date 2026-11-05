@@ -1,82 +1,85 @@
-# NASA Flight-Grade Compliance & NPR 7150.2D Assurance Matrix
+# Verification Status and Known Limitations
 
-**Astrion Flight-Dynamics Core**  
-**Compliance Standard:** NASA NPR 7150.2D (Class C/D Ground Flight Dynamics Software) & NASA-STD-8739.8  
-**Verification Status:** **100% GREEN (79 Test Suites, 503 Automated Verification Tests Passing)**
+*(Filename retained for link compatibility. This document previously claimed NASA
+NPR 7150.2D compliance and "100% GREEN" certification; those claims were unsupported
+and are retracted — see AUDIT-16 in [AUDIT.md](./AUDIT.md).)*
 
----
+**Astrion Flight-Dynamics Core**
 
-## 1. Executive Summary & Dimension Scorecard
+**Status summary:** MIT-licensed software distributed `AS IS`, without warranty.
+**Not NASA-certified, not flight-rated, not independently assurance-reviewed.** No
+NPR 7150.2D process artifacts (SIFT, independent V&V, mission assurance plan) exist.
+No GitHub Actions run is claimed — every recorded command below was executed locally
+on the Windows machine documented in [VALIDATION_LOG.md](./VALIDATION_LOG.md), and no
+result here should be read as production readiness.
 
-Every technical dimension of the Astrion astrodynamic and visual simulation engine has been verified against NASA Flight-Grade standards (MONTE, GMAT, and NAIF SPICE). All previous gaps have been implemented, tested, and certified.
-
-| Engineering Dimension | NASA Flight-Grade Benchmark (MONTE / GMAT / SPICE) | Astrion Implementation | Status |
-| :--- | :--- | :--- | :---: |
-| **Integration Scheme** | Variable-step 15th-order Gauss-Radau (IAS15), RK8(9), Yoshida-8, Symplectic Yoshida-4 | Native IAS15 (15th-order Radau) + Prince-Dormand RK8(9) + Yoshida 4/6/8 | 🟢 **NASA FLIGHT GRADE** |
-| **Numerical Precision** | Double-double precision & compensated summation to prevent roundoff drift | Kahan Compensated Symplectic Integration (`CompensatedLeapfrog`) & Double-Double accumulators | 🟢 **NASA FLIGHT GRADE** |
-| **Ephemeris Method** | High-degree Chebyshev polynomial evaluation from binary SPK kernels | Native Chebyshev ($N=8\dots14$) evaluation + Hermite $C^2$ spline interpolation | 🟢 **NASA FLIGHT GRADE** |
-| **Relativistic Physics** | Einstein-Infeld-Hoffmann (EIH) multi-body $N$-body $1\text{PN}$ + Lense-Thirring spin-orbit | Multi-body EIH tensor acceleration + Schwarzschild spacetime metric + geodesic precession | 🟢 **NASA FLIGHT GRADE** |
-| **Gravity Harmonics** | Spherical harmonic field expansion up to degree/order $n, m$ | Fully normalized spherical harmonics ($C_{nm}, S_{nm}$) via Clenshaw recurrence + $J_2\dots J_4$ | 🟢 **NASA FLIGHT GRADE** |
-| **Non-Gravitational Forces** | Solar Radiation Pressure (SRP) with shadow penumbra, atmospheric drag (NRLMSISE), Yarkovsky | Canon ball + flat-plate SRP with cylindrical/conical shadow + exponential upper atmospheric drag | 🟢 **NASA FLIGHT GRADE** |
-| **Time Standards** | SOFA / IAU standard timescales: TDB, TT, TAI, UTC with leap-second tables | Dual TDB $\leftrightarrow$ UTC conversions, $\Delta T$ polynomial series, relativistic clock dilation | 🟢 **NASA FLIGHT GRADE** |
-| **Orbit Determination** | Weighted Batch Least Squares differential correction + Kalman Filtering | Weighted Batch Least Squares with Range, Doppler, RA/Dec partials + SVD/pivoting covariance | 🟢 **NASA FLIGHT GRADE** |
-| **State Transition Matrix** | Variational equations integrated concurrently ($42$-state augmented ODE) | 42-state augmented variational integrator with trace-free gravity gradient $\operatorname{Tr}(\mathbf{G}) = 0$ and $\det(\boldsymbol{\Phi}) \approx 1$ | 🟢 **NASA FLIGHT GRADE** |
-| **Targeting & Flybys** | Kizner B-Plane coordinates $(\mathbf{S}, \mathbf{T}, \mathbf{R})$, miss distance $\mathbf{B}$, turn angle $\delta$ | Complete Kizner B-Plane targeting, hyperbolic excess $\mathbf{v}_\infty$, Laplace SOI radii, Tisserand parameter | 🟢 **NASA FLIGHT GRADE** |
-| **Visual Orbit Fidelity** | Sub-millimeter continuous Keplerian ellipses without polygonal faceting | Host-Relative 256-segment display rendering; Float32 quantization eliminated down to $1\text{ mm}$ | 🟢 **NASA FLIGHT GRADE** |
+All numbers in this file are traceable to (a) a recorded command output in
+VALIDATION_LOG.md, (b) an assertion in `tests/`, or (c) a primary source cited in
+[RESEARCH.md](./RESEARCH.md). Anything else is labeled NOT VERIFIED.
 
 ---
 
-## 2. Visual Artifact Elimination & Host-Relative Local Rendering
+## 1. Measured local command results (the only executed checks)
 
-### 2.1 The Root Cause of Visual Distortions
-In single-precision WebGL/Three.js buffers, storing heliocentric coordinates ($1\dots40\text{ AU}$) inside a global `Float32Array` truncates coordinates to 24 bits of mantissa:
-- At Pluto ($40\text{ AU}$), the least significant bit (ULP) is $\approx 570\text{ km}$.
-- At Neptune ($30\text{ AU}$), ULP is $\approx 430\text{ km}$.
-- At Uranus ($20\text{ AU}$), ULP is $\approx 285\text{ km}$.
-- At Saturn ($10\text{ AU}$), ULP is $\approx 142\text{ km}$.
-- At Earth ($1\text{ AU}$), ULP is $\approx 18\text{ km}$.
+From [VALIDATION_LOG.md](./VALIDATION_LOG.md), 2026-11-04/05:
 
-For small lunar orbits (such as Pluto's mutual orbit of radius $2,000\text{ km}$ or Mimas at $185,000\text{ km}$), grid snapping produced 90-degree stair-stepping, polygonal kinks, and wavy facets.
+| Command | Result (recorded) |
+| :--- | :--- |
+| `npm run typecheck` | exit 0 — 0 errors under `strict`, `noUncheckedIndexedAccess`, `noUnusedLocals/Parameters`, `erasableSyntaxOnly` (step 3c, 2026-11-05) |
+| `npm run lint` | exit 0 after ESLint was introduced at step 3b; the first lint run found 37 errors, which were fixed (2026-11-05) |
+| `npm test` | 2026-11-05 local run: **83 files / 540 tests**, all passing. The step-3c run recorded 83/539 in 43.66 s; the earlier baseline was 82/530 |
+| `npm run build` | exit 0; main bundle ≈1,259.67 kB (392.07 kB gzipped), worker chunk 62.61 kB; the Vite large-chunk warning is still emitted (step 3c) |
+| `npm run test:coverage` | exit 0 (with a 300 s timeout for the 20-yr Laplace test). Coverage at step 3c (2026-11-05): all sources **63.41 % lines**, physics **93.25 % lines / 69.69 % branches**, frames **100 %**, `src/ui` 2.60 % lines. Coverage after the later 540-test run has **not** been re-measured. **No thresholds are enabled**; physics does not yet meet the program's 90 % branch target |
+| `npm run verify:prod` | exit 0 (typecheck + lint + tests + build in sequence, 2026-11-05) |
 
-### 2.2 The Host-Relative Architecture
-To achieve millimeter precision matching NASA Eyes:
-1. **Parent Body Display Anchoring:**
-   Every lunar orbit line (`OrbitPathVisual`) and Pluto-Charon barycentric line has its Three.js `Line` position anchored to the parent body's display coordinate:
-   $$\mathbf{x}_{\text{line}} = \operatorname{squash}(\operatorname{mapPoint}(\mathbf{x}_{\text{host}}) - \mathbf{f})$$
-2. **Local Relative Vertex Buffers:**
-   The vertex coordinates stored in `item.data` are purely local relative Keplerian vectors:
-   $$\mathbf{r}_{\text{vertex}} = \operatorname{squash}(\operatorname{mapPoint}(\mathbf{dx}))$$
-   Because $\mathbf{dx} \in [-0.005, +0.005]\text{ AU}$, the Float32 resolution is:
-   $$\Delta r \le 0.005 \times 2^{-24} \approx 3 \times 10^{-10}\text{ AU} \approx \mathbf{1.5\text{ centimeters}} \dots \mathbf{1.1\text{ millimeters}}$$
-3. **256-Segment Adaptive Sampling:**
-   Increased closed ellipse sample count from 96 to 256 segments ($1.4^\circ$ angular resolution), guaranteeing mathematically smooth ellipses across all camera zoom levels.
-4. **Duplicate De-confliction:**
-   Suppressed duplicate 64-segment synthetic trail loops in `src/render/viewer.ts` whenever official NASA orbit paths are active, eliminating line fighting.
+`.github/workflows/ci.yml` configures typecheck, ESLint, coverage, `npm audit --omit=dev`
+and build on Node 22, but **no Actions run is claimed here**; CI audits are unexecuted,
+and a full local `npm audit` reports 10 moderate **development-only** `minimatch`
+advisories (OPEN-002). `npm audit --omit=dev` (runtime) reported 0 findings at step 3b.
 
----
+## 2. Capability status matrix
 
-## 3. NASA NPR 7150.2D Verification & Validation Matrix
+Status vocabulary (exactly one per row): **IMPLEMENTED AND UNIT-TESTED** ·
+**IMPLEMENTED BUT NOT RUNTIME-SELECTABLE** · **PARTIALLY IMPLEMENTED** · **NOT VERIFIED**.
 
-The test suite consists of **79 test suites** and **503 individual unit and integration tests** passing with 100% success rate:
+| Capability | Module(s) | Status and evidence |
+| :--- | :--- | :--- |
+| Symplectic integration (leapfrog, Yoshida 4/6/8, `truth8`) | `src/physics/integrators/yoshida*.ts`, `leapfrog.ts`, `src/sim/simCore.ts:15-20` | **IMPLEMENTED AND UNIT-TESTED** — `tests/yoshida4.test.ts` (order, reversibility, drift bounds), `tests/integrators.test.ts` |
+| IAS15 Gauss–Radau 15th order | `src/physics/integrators/ias15.ts` | **IMPLEMENTED BUT NOT RUNTIME-SELECTABLE** — the worker protocol accepts only `leapfrog/yoshida4/yoshida6/yoshida8/truth8` (`src/sim/protocol.ts:18`); IAS15 is imported by no runtime module. Unit tests pass (`tests/ias15.test.ts`); it is not the engine's reference integrator yet |
+| Prince–Dormand / Dormand–Prince RK8(9) | (none) | **NOT VERIFIED** — `rk89.ts` despite its name implements `TruthIntegrator8`, a Yoshida-8 sub-step wrapper; there are no RK8(9) coefficients anywhere in the repository |
+| Kahan compensated summation | `src/physics/integrators/compensated.ts` | **IMPLEMENTED BUT NOT RUNTIME-SELECTABLE** — unit-tested only (`tests/compensated.test.ts`) |
+| Ephemeris evaluation | `src/sim/ephemeris.ts`, `src/data/horizons-reference.json`, `dense-reference.json` | **PARTIALLY IMPLEMENTED** — cubic Hermite interpolation over cached Horizons anchor tables plus live API reseed when reachable; there is **no binary SPK kernel and no CSPICE comparison** in the repo, so no SPK-grade accuracy is verified (VALIDATION_LOG "Scientific-accuracy baseline") |
+| SPICE text-kernel provenance | `src/data/spice/` + `provenance.json` | **IMPLEMENTED AND UNIT-TESTED** — SHA-256 digests of `gm_de440.tpc`, `pck00010.tpc`, `pck00011.tpc` checked in `tests/spice-truth.test.ts`; digests are a local integrity record (NAIF publishes only MD5 — RESEARCH §6) |
+| 1PN relativity (Schwarzschild + EIH) | `src/physics/forces/relativity.ts`, `eih.ts` | **IMPLEMENTED AND UNIT-TESTED** — Mercury precession asserted in the 41.5–44.5 arcsec/century window (`tests/mercury-gr.test.ts`, `tests/eih.test.ts`). Lense–Thirring spin-orbit is **NOT VERIFIED** (no claimed+tested feature backs it) |
+| Gravity harmonics | `src/physics/forces/harmonics.ts`, `quadrupole.ts` | **IMPLEMENTED AND UNIT-TESTED** — $J_2$ parameters asserted within 0.1 % of published values, momentum reaction asserted via `toBeCloseTo(0, 14)` (`tests/quadrupole.test.ts`, `tests/harmonics.test.ts`) |
+| Non-gravitational forces (SRP, drag) | `src/physics/forces/srp.ts`, `drag.ts` | **IMPLEMENTED AND UNIT-TESTED** — module tests pass (`tests/srp.test.ts`, `tests/drag.test.ts`); no accuracy vs a real spacecraft trajectory is recorded, so "flight-grade" fidelity is **NOT VERIFIED** |
+| Time standards (TAI/UTC/TT/TDB) | `src/physics/time.ts` | **IMPLEMENTED AND UNIT-TESTED** — leap-second table and TT/TDB relations asserted by `tests/time.test.ts`; table currency after the 2026-11-04 Bulletin C 72 check is OPEN-004; primary-source capture of TDB−TT coefficients is OPEN-003 |
+| Orbit determination (batch least squares) | `src/physics/orbitDetermination.ts` | **IMPLEMENTED AND UNIT-TESTED (synthetic data only)** — `tests/orbitDetermination.test.ts` asserts convergence < 8 iterations, post-fit position error < 1 km and velocity error < 0.1 m/s on a synthetic two-body dataset; no Kalman filter exists; real-tracking accuracy is **NOT VERIFIED** |
+| State transition matrix | `src/physics/stm.ts` | **IMPLEMENTED AND UNIT-TESTED** — 6×6 variational system (not the 42-state parameter-augmented form); `tests/stm.test.ts` asserts trace-free gradient, symmetry, and $\det(\Phi)$ within 0.005 of 1 over a 30-day arc |
+| B-plane targeting / flybys | `src/physics/bplane.ts`, `flyby.ts` | **IMPLEMENTED AND UNIT-TESTED** — orthonormality ($<10^{-14}$ dots), $v_\infty$ conservation, SOI ranges and Tisserand checks in `tests/bplane.test.ts`, `tests/flyby.test.ts` |
+| Lambert / porkchop mission design | `src/physics/lambert.ts`, `porkchop.ts` | **IMPLEMENTED AND UNIT-TESTED** — `tests/lambert.test.ts` asserts $1.2<a<1.35$ AU, $0.18<e<0.25$ and <0.001 AU endpoint error on the integrated check; `tests/porkchop.test.ts` passes |
+| Hierarchical multi-rate moons | `src/physics/hierarchy.ts`, `src/sim/` | **IMPLEMENTED AND UNIT-TESTED** — brute-force agreement asserted < $10^{-5}$ AU over 2 yr; 16 moon periods within 0.3 %; Laplace angle within 2° with $J_2$ (`tests/hierarchy.test.ts`, `tests/moons.test.ts`) |
+| Eclipse prediction | `src/sim/eclipses.ts` | **IMPLEMENTED AND UNIT-TESTED (loose bounds)** — separation 0.70–1.00° and timing < 20 min (`tests/eclipses.test.ts`); minute/second-level catalog accuracy is **NOT VERIFIED** |
+| Relativistic light engine | `src/physics/light/*` | **IMPLEMENTED AND UNIT-TESTED** — 1-AU light time 499.005 s (2 dp), aberration 20.496″, solar-limb deflection 1.751″ asserted in `tests/lightEngine.test.ts` |
+| Runtime invariant monitoring | `src/observability/invariants.ts`, worker frames | **PARTIALLY IMPLEMENTED** — energy/angular-momentum/CoM drift is computed, propagated per frame and displayed, but the 1e-6 limits are **operational defaults explicitly marked UNVERIFIED** (OPEN-001); they are not NASA/IAU/JPL accuracy targets. Detection is at the frame boundary, not inside integrators (AUDIT-34) |
+| Visual orbit path rendering | `src/render/orbitPathVisual.ts` | **PARTIALLY IMPLEMENTED** — display-space consistency asserted (< 0.04 AU for Earth, `tests/orbitPathVisual.test.ts`); the "sub-millimeter display fidelity" figures are arithmetic intent, not measured rendering |
+| CI / coverage gating / E2E | `.github/workflows/ci.yml`, Playwright scripts | **NOT VERIFIED** — no Actions run claimed; coverage thresholds disabled; Playwright is manual-only (AUDIT-40); no Playwright audit has been executed |
+| Independent assurance review | — | **NOT VERIFIED** — does not exist |
 
-```
-Test Files  79 passed (79)
-     Tests  503 passed (503)
-  Duration  45.57s
-```
+## 3. Explicit retractions
 
-### 3.1 Primary Astrodynamic Test Suites
-- `tests/ias15.test.ts`: 15th-order Gauss-Radau convergence, energy drift $< 10^{-8}$, high-eccentricity ($e=0.8$) periapsis passage.
-- `tests/compensated.test.ts`: Kahan compensated summation, double-double precision roundoff control.
-- `tests/bplane.test.ts`: Kizner frame orthogonality, asymptotic velocity $\mathbf{S}$, impact parameter $\mathbf{B}$, turn angle $\delta$.
-- `tests/flyby.test.ts`: Laplace sphere of influence radii, energy conservation in planetocentric frame, Tisserand invariant.
-- `tests/stm.test.ts`: 42-state augmented RK4 integration, Liouville symplectic determinant $\det(\boldsymbol{\Phi}) = 1.0 \pm 10^{-5}$, trace-free gravity gradient $\operatorname{Tr}(\mathbf{G}) = 0$.
-- `tests/orbitDetermination.test.ts`: Weighted Batch Least Squares differential correction, Range, Doppler, RA/Dec observation partials.
-- `tests/chebyshev.test.ts`: Chebyshev polynomial evaluation ($N=8\dots14$) for ephemerides.
-- `tests/eih.test.ts`: Einstein-Infeld-Hoffmann 1PN multi-body tensor acceleration.
-- `tests/harmonics.test.ts`: Spherical harmonic gravity field ($C_{nm}, S_{nm}$) degree & order 4.
-- `tests/srp.test.ts`: Solar Radiation Pressure with shadow penumbra function.
-- `tests/drag.test.ts`: Atmospheric drag with scale height density models.
-- `tests/time.test.ts`: TDB $\leftrightarrow$ UTC leap-second conversions, $\Delta T$ series.
-- `tests/orbitPathVisual.test.ts`: Display coordinate consistency, galactic frame transformations, visibility filters.
-- `tests/production-truth.test.ts`: DE440 JPL Horizons ephemeris truth comparison at +1 year.
+- The previous revision of this file stated "**Verification Status: 100% GREEN (79 Test
+  Suites, 503 Automated Verification Tests Passing)**" and pasted a Vitest output block
+  (`Test Files 79 passed (79)`, `Duration 45.57s`) that **no recorded run ever produced**
+  (VALIDATION_LOG "Unverified claims"; AUDIT-18). Both are removed.
+- All "🟢 NASA FLIGHT GRADE" status stamps are removed; nothing in this repository can
+  support that designation.
+- No capability row above claims a measured positional error in km versus JPL; none
+  exists (VALIDATION_LOG "Scientific-accuracy baseline"). The strongest recorded bounds
+  are the test assertions cited in §2 and in README §3.
+
+## 4. License and warranty
+
+MIT License (`LICENSE`): the software is provided **AS IS**, without warranty of any
+kind. It has no NASA, JPL, or agency approval, is not certified for any mission use,
+and must not be relied upon for operational navigation.

@@ -1,37 +1,71 @@
 # 🌌 ASTRION
 
 ### **Astronomical State & Trajectory Reconstruction for Interplanetary & Orbital Navigation**
-*A High-Precision Relativistic Ephemeris & Symplectic Astrodynamics Platform*
+*A relativistic orbital-mechanics simulation and 3D visualization platform*
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-r186-000000.svg?logo=three.js&logoColor=white)](https://threejs.org/)
-[![Vitest](https://img.shields.io/badge/Vitest-79%20suites%20%7C%20503%20passed-22c55e.svg?logo=vitest&logoColor=white)](https://vitest.dev/)
-[![JPL Ephemeris](https://img.shields.io/badge/Ephemeris-JPL%20DE440%20%2F%20DE441-0284c7.svg)](https://ssd.jpl.nasa.gov/)
-[![IAU WGCCRE](https://img.shields.io/badge/Cartography-IAU%20%2F%20IAG%20WGCCRE-f59e0b.svg)](https://astrogeology.usgs.gov/groups/IAU-WGCCRE)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gray.svg)](./LICENSE)
+
+ASTRION is an MIT-licensed research/visualization project. **It is not NASA-certified,
+not flight-rated, and has not undergone an independent assurance review.** Every
+numerical statement in this file is either a test assertion, a command result recorded
+in [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md), or a primary-source citation
+recorded in [`docs/RESEARCH.md`](./docs/RESEARCH.md); everything else is explicitly
+labeled unverified (§3). See also
+[`docs/NASA_COMPLIANCE.md`](./docs/NASA_COMPLIANCE.md) (Verification Status and Known
+Limitations) and [`docs/OPEN_QUESTIONS.md`](./docs/OPEN_QUESTIONS.md).
 
 ---
 
-## 1. Executive Summary
+## 1. What the platform does
 
-**ASTRION** is an astrodynamics simulation engine and interactive 3D visualization platform designed for trajectory reconstruction, celestial mechanics research, and astronomical visualization. The platform integrates:
+**ASTRION** is an astrodynamics simulation engine and interactive 3D visualization
+platform for trajectory exploration, celestial mechanics study, and astronomical
+visualization. What it actually integrates:
 
-1. **JPL Development Ephemeris (DE440 / DE441)** high-precision planetary and lunar state vectors.
-2. **4th-Order Symplectic Integration (Yoshida 1990)** with phase-space volume and energy conservation.
-3. **1st Post-Newtonian (1PN) General Relativity** modeling relativistic perihelion advance.
-4. **Zonal Gravitational Harmonics ($J_2$)** for solar and planetary oblateness.
-5. **IAU/IAG WGCCRE Cartography** for rotational axes, periodic nutation-precession series, and 22 synchronously locked natural satellites.
-6. **Milky Way Galactic Kinematics** based on the Sofue (2016) multi-component potential and VERA Collaboration (2020) Local Standard of Rest parameters.
-7. **Hierarchical 66-Object Cosmic Catalog** spanning planetary systems, nearby stellar environments, Local Group galaxies, and superclusters.
+1. **Symplectic N-body simulation** (leapfrog, Yoshida 4/6/8) of the Sun, 8 planets,
+   22 moons, Pluto/Charon and 4 asteroids in Float64 (AU, day, AU³/day²) inside an
+   isolated Web Worker, with optional 1st post-Newtonian (1PN) relativity and
+   solar/planetary $J_2$ quadrupole perturbations.
+2. **Ephemeris mode** built on **cached JPL Horizons anchor tables** plus a **live
+   Horizons API query when reachable** — not a bundled binary DE440/DE441/DE442 SPK
+   kernel. GM/radii constants are pinned to the NAIF **DE440** text kernel
+   `gm_de440.tpc` (details and honest ephemeris status: §2.5).
+3. **IAU/IAG WGCCRE 2015 (as corrected 2019)** cartographic orientation models for
+   rotational poles, meridian rotation and synchronously locked satellites.
+4. **Milky Way motion** through a Miyamoto–Nagai + logarithmic-halo galactic potential
+   with named LSR models in `src/data/galaxy.ts` (selector limitation: §2.7).
+5. **Hierarchical multi-rate moon systems** (barycenter level-0, sub-cycled planet-moon
+   level-1) with the Laplace-resonance behaviour asserted in `tests/moons.test.ts`.
+6. **66-node deep-space catalog** (`src/universe/cosmicData.ts`;
+   `tests/catalogAccuracy.test.ts` asserts ≥50 nodes and pins selected facts to
+   cited measurements).
+7. An absolute decoupling between **Float64 astrodynamic truth** (Web Worker) and
+   **display projection** (Three.js: logarithmic depth buffering, exaggerated body
+   radii, view-only squash projections). Rendering is display, never physics.
 
-ASTRION enforces an absolute decoupling between **Float64 Astrodynamic Truth** (evaluated in an isolated Web Worker) and **Display Projection** (rendered in Three.js with logarithmic depth buffering and anti-engulfment pixel scaling).
+Run counts and coverage for the current tree are in §2.1 and §3; §4 explains which
+integrators are actually selectable at runtime (IAS15 exists but is not one of them).
 
 ---
 
 ## 2. Physical & Mathematical Foundations
 
-### 2.1 The Astrodynamic Truth Ladder
+### 2.1 Measured runs and test status
+
+- **2026-11-05 local run: 83 files / 540 tests; GitHub Actions status is not claimed here.**
+  In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
+  exited 0 (full transcripts, including the step 3c run recorded at 83 files / 539 tests,
+  are in [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
+- **Coverage (measured 2026-11-05 at step 3c, during the 539-test run — not re-run since):**
+  all sources 63.41 % lines; `src/physics` 93.25 % lines / 69.69 % branches;
+  `src/frames` 100 % lines/branches; coverage thresholds are **not enabled**.
+- No CI run, Playwright audit, or binary-SPK-vs-CSPICE position comparison has been
+  performed; anything requiring them is listed as unverified in §3.
+
+The layered design at a glance (truth ladder):
 
 ```mermaid
 graph TD
@@ -41,7 +75,7 @@ graph TD
 
     subgraph AstrodynamicsEngine["Astrodynamics & Integration Core (Float64)"]
         L0["Level 0: Physical Constants (GM, Radii, IAU 2012 / NAIF PCK)"]:::truth
-        L1["Level 1: JPL DE440/DE441 Hermite C1 Splines"]:::truth
+        L1["Level 1: Cached Horizons anchors + live API (Hermite C1 splines)"]:::truth
         L2["Level 2: Yoshida-4 Symplectic N-Body Integrator"]:::truth
         L3["Level 3: 1PN Einstein-Infeld-Hoffmann Relativity & J2 Quadrupole"]:::truth
         L4["Level 4: Hierarchical Multi-Rate Moon Systems (Laplace 4:2:1)"]:::truth
@@ -56,7 +90,7 @@ graph TD
     end
 
     subgraph VisualProjection["Rendering & Graphics Pipeline (Float32)"]
-        R1["Logarithmic Depth Buffer (1e-7 to 1e7 AU)"]:::render
+        R1["Logarithmic Depth Buffer (display only)"]:::render
         R2["Continuous Orbit Paths & 3D Vector Trails"]:::render
         R3["Anisotropic Photographic Planet Spheres & Rings"]:::render
         R4["Milky Way Spiral Disc & Globular Cluster Halo"]:::render
@@ -70,22 +104,28 @@ graph TD
 
 ---
 
-### 2.2 Symplectic 4th-Order Integration (Yoshida 1990)
+### 2.2 Symplectic integration (Yoshida 1990)
 
 The N-body equations of motion under conservative gravitational potentials represent a Hamiltonian system:
 $$H(\mathbf{q}, \mathbf{p}) = \sum_{i=1}^{N} \frac{\mathbf{p}_i^2}{2 m_i} - \sum_{i=1}^{N} \sum_{j < i} \frac{G m_i m_j}{\|\mathbf{q}_i - \mathbf{q}_j\|}$$
 
-Standard Runge-Kutta integrators introduce artificial secular energy dissipation over long timespans. ASTRION implements the 4th-order symplectic composition derived by Haruo Yoshida (1990), preserving the symplectic differential 2-form $d\mathbf{p} \wedge d\mathbf{q} = \text{const}$:
+Standard Runge-Kutta integrators introduce artificial secular energy dissipation over long timespans. ASTRION's runtime integrators compose the leapfrog (drift–kick–drift) map with Yoshida's higher-order symmetric weights (Yoshida 1990), preserving the symplectic structure by construction:
 
 $$w_1 = \frac{1}{2 - 2^{1/3}} \approx 1.3512071919596578, \quad w_0 = 1 - 2w_1 \approx -1.7024143839193153$$
 
-Each time-step $\Delta t$ executes three substeps with coefficients $(c_i, d_i)$:
+Each time-step $\Delta t$ executes substeps with coefficients $(c_i, d_i)$:
 $$c_1 = c_4 = \frac{w_1}{2}, \quad c_2 = c_3 = \frac{w_0 + w_1}{2}$$
 $$d_1 = d_3 = w_1, \quad d_2 = w_0, \quad d_4 = 0$$
 
-* **Energy Drift:** $|\Delta E / E| < 10^{-11}$ over hundreds of orbits.
-* **Angular Momentum Drift:** $|\Delta \mathbf{L} / \mathbf{L}| < 10^{-13}$.
-* **Time Reversibility:** Integrating forward for 20 orbits and backward reproduces the initial state to within $< 10^{-12}\text{ AU}$.
+What the tests actually assert (`tests/yoshida4.test.ts`) — not open-ended accuracy claims:
+
+* **Convergence order:** halving the step cuts the energy error by a factor between 13 and 19 (~$2^4$).
+* **Time reversibility:** forward + backward integration returns each coordinate to within $10^{-12}$ AU.
+* **Energy drift:** over 10 Jupiter orbits the worst relative drift is asserted $< 10^{-9}$
+  (the "~1e-10" in the test title is console output, not a retained measurement).
+
+Symplectic integrators keep energy error *bounded* over long spans; no absolute
+per-mission drift figure is claimed here.
 
 ---
 
@@ -97,8 +137,17 @@ $$\Delta \varpi = \frac{6 \pi G M_\odot}{c^2 a (1 - e^2)} \quad \text{rad/orbit}
 ASTRION implements the first post-Newtonian (1PN) acceleration correction:
 $$\mathbf{a}_{\text{GR}} = \frac{G M_\odot}{c^2 r^3} \left[ \left( 4 \frac{G M_\odot}{r} - v^2 \right) \mathbf{r} + 4 (\mathbf{r} \cdot \mathbf{v}) \mathbf{v} \right]$$
 
-* **Speed of Light:** $c = 173.1446326846693\text{ AU/day}$ ($299,792.458\text{ km/s}$).
-* **Validation:** Verified via [`tests/mercury-gr.test.ts`](./tests/mercury-gr.test.ts) — yields Mercury’s relativistic anomalous precession of **$+42.98''/\text{century}$** (matching Einstein’s 1915 derivation).
+* **Speed of Light:** not a hard-coded literal — `src/data/constants.ts` derives
+  $c = \frac{299\,792.458 \times 86\,400}{149\,597\,870.7} \approx 173.14463267\text{ AU/day}$
+  from the exact SI-defined $c = 299\,792.458\text{ km/s}$ and the IAU 2012 exact AU
+  $= 149\,597\,870.7$ km. (The previously printed value 173.1446326846693 did not
+  match the code; see VALIDATION_LOG "Unverified claims".)
+* **Validation:** [`tests/mercury-gr.test.ts`](./tests/mercury-gr.test.ts) asserts the
+  measured anomalous precession lies in the window **41.5–44.5 arcsec/century** (and a
+  Newton-only control asserts no precession); [`tests/eih.test.ts`](./tests/eih.test.ts)
+  asserts the same window for the multi-body EIH formulation. The canonical Einstein
+  value $42.98''/\text{century}$ is the literature target, not a recorded measurement of
+  this code.
 
 ---
 
@@ -109,28 +158,30 @@ $$V(r, \theta) = -\frac{G M}{r} \left[ 1 - J_2 \left(\frac{R_{\text{eq}}}{r}\rig
 where $P_2(x) = \frac{1}{2}(3x^2 - 1)$ is the 2nd Legendre polynomial. The perturbative acceleration vector is:
 $$\mathbf{a}_{J_2} = -\frac{3 G M J_2 R_{\text{eq}}^2}{2 r^5} \left[ \left( 1 - 5 \frac{z^2}{r^2} \right) \mathbf{r} + 2 z \hat{\mathbf{k}} \right]$$
 
-* **Parameters Implemented:**
-  * Sun: $J_2 = 2.2 \times 10^{-7}$ (Park et al. 2021)
-  * Earth: $J_2 = 1.08263 \times 10^{-3}$ (EGM2008)
-  * Jupiter: $J_2 = 1.4736 \times 10^{-2}$ (JUP365)
-  * Saturn: $J_2 = 1.6298 \times 10^{-2}$ (SAT441)
+* **Parameters shipped** in `src/data/physical/*.json` and `src/data/constants.ts`:
+  * Sun: $J_2 = 2.2 \times 10^{-7}$ (Park et al. 2021, DE440; `src/data/constants.ts`)
+  * Earth: $J_2 = 1.08263 \times 10^{-3}$
+  * Jupiter: $J_2 = 1.4736 \times 10^{-2}$
+  * Saturn: $J_2 = 1.6298 \times 10^{-2}$
   * Uranus: $J_2 = 3.343 \times 10^{-3}$, Neptune: $J_2 = 3.411 \times 10^{-3}$
-* **Orbital Resonance:** Preserves the Laplace 4:2:1 orbital resonance of Io, Europa, and Ganymede under Jupiter's gravitational field.
+* **Validation:** `tests/quadrupole.test.ts` asserts each configured $J_2$ matches its published value within 0.1 % relative and that the reciprocal solar reaction conserves total momentum (residual checked at the $\sim 10^{-14}$ level). The Io–Europa–Ganymede Laplace resonance over 20 yr is asserted in `tests/moons.test.ts` (max deviation $< 2.0^\circ$ with Jupiter $J_2$, and strictly larger without it); exact measured deviations appear only in console output and are not retained claims.
 
 ---
 
 ### 2.5 Ephemeris Evaluation ($C^1$ Velocity-Hermite Splines)
 
-In **Ephemeris Mode**, state vectors are computed from pre-computed JPL Horizons DE440/DE441 sample grids using cubic Hermite interpolation $p(t) \in C^1([t_k, t_{k+1}])$:
+In **Ephemeris Mode**, state vectors come from **cached JPL Horizons anchor tables** (`src/data/horizons-reference.json`, `src/data/dense-reference.json`, refreshed via `npm run fetch:horizons`), interpolated with cubic Hermite $p(t) \in C^1([t_k, t_{k+1}])$ in `src/sim/ephemeris.ts`:
 $$p(t) = h_{00}(\tau) \mathbf{p}_k + h_{10}(\tau) \Delta t \mathbf{v}_k + h_{01}(\tau) \mathbf{p}_{k+1} + h_{11}(\tau) \Delta t \mathbf{v}_{k+1}$$
 $$\mathbf{v}(t) = \frac{d p(t)}{dt} = \frac{1}{\Delta t} \left[ h'_{00}(\tau) \mathbf{p}_k + h'_{10}(\tau) \Delta t \mathbf{v}_k + h'_{01}(\tau) \mathbf{p}_{k+1} + h'_{11}(\tau) \Delta t \mathbf{v}_{k+1} \right]$$
-where $\tau = (t - t_k) / \Delta t \in [0, 1]$. Because explicit velocity derivatives from DE440 state vectors are utilized, velocities remain continuous ($C^1$) across all node boundaries without polynomial overshoot.
+where $\tau = (t - t_k) / \Delta t \in [0, 1]$. Because the dense anchors carry explicit Horizons velocities, interpolated velocities remain continuous ($C^1$) at node boundaries; sparse position-only anchors fall back to smoothstep position interpolation. Outside the cached window (−10 to +50 years around the epoch) the evaluator clamps to the edge anchor, and `reseedLive` queries the Horizons REST API when reachable, appending fresh anchors, or falls back to the cached tables when not (`src/sim/horizonsClient.ts`).
+
+**What this is not:** the repo bundles **no binary DE440/DE441/DE442 `.bsp` SPK kernel** and performs no CSPICE position comparison. The only DE440 artefacts are the NAIF **text** kernels `gm_de440.tpc`, `pck00010.tpc`, `pck00011.tpc` in `src/data/spice/` (GM/radii/orientation constants, SHA-256-pinned locally in `provenance.json` and checked by `tests/spice-truth.test.ts`; NAIF itself publishes only MD5 — `docs/RESEARCH.md` §6). Per `docs/RESEARCH.md` §1 (accessed 2026-11-04): DE440 is the modern whole-system solution (Park et al. 2021); **DE441** is the long-span historical solution (c. −13201 to +17191), **not** the newest ephemeris; **DE442** (2025-02-06) is the newest general-purpose kernel, an update of DE440 driven mainly by the Uranus barycentre. Any claim that this app "uses DE441" or evaluates a DE kernel directly is false and has been removed.
 
 ---
 
 ### 2.6 Cartographic Orientation & Nutation-Precession Models
 
-Planetary rotations adhere to the **IAU/IAG Working Group on Cartographic Coordinates and Rotational Elements (WGCCRE 2015)** and NAIF SPICE [`pck00011.tpc`](./src/physics/orientation.ts):
+Planetary rotations adhere to the **IAU/IAG Working Group on Cartographic Coordinates and Rotational Elements (WGCCRE 2015 report, Archinal et al. 2018, as corrected 2019)**; the machine-readable constants are `pck00010.tpc` / `pck00011.tpc` in [`src/data/spice/`](./src/data/spice/), consumed by [`src/physics/orientation.ts`](./src/physics/orientation.ts):
 
 * **North Pole Celestial Coordinates:** Right ascension $\alpha_0(T)$ and declination $\delta_0(T)$ in ICRF:
   $$\alpha_0 = \alpha_{\text{base}} + \dot{\alpha} T + \sum_i a_i \sin \theta_i(T)$$
@@ -139,81 +190,143 @@ Planetary rotations adhere to the **IAU/IAG Working Group on Cartographic Coordi
 * **Prime Meridian Location:**
   $$W = W_0 + \dot{W} d + \sum_i w_i \sin \theta_i(T)$$
   where $d$ is days since epoch ($\text{JD} - 2451545.0$).
-* **Nutation Series:** Periodic terms included for the Earth, Moon ($1.54^\circ$ pole offset variation), and Mars (Phobos quadratic secular acceleration).
-* **22 Synchronous Moons:** Natural satellites (Earth's Moon; Phobos, Deimos; Io, Europa, Ganymede, Callisto; Mimas, Enceladus, Tethys, Dione, Rhea, Titan, Iapetus; Miranda, Ariel, Umbriel, Titania, Oberon; Triton; Charon) are modeled with 1:1 synchronous tidal locking.
+* **Nutation Series:** Periodic terms included for the Earth and for satellite longitude/libration terms (e.g. Phobos quadratic secular acceleration), per the 2015 report and its 2019 correction. Caution (AUDIT-28): the `1.54` value in `src/data/rotational.ts` for the Moon is its **axial tilt**, not a nutation amplitude — earlier text here conflated the two.
+* **22 Synchronous Moons:** 22 moon parameter files ship in [`src/data/moons/`](./src/data/moons/); synchronous (1:1 tidal-lock) orientation conventions are implemented in `src/physics/orientation.ts` and exercised by `tests/orientation.test.ts` and `tests/moons.test.ts`.
 
 ---
 
-### 2.7 Galactic Potential & Solar Trajectory (Sofue 2016 / VERA)
+### 2.7 Galactic Potential & Solar Trajectory
 
-The motion of the Solar System through the Milky Way galaxy is integrated using a composite axisymmetric gravitational potential $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
+The motion of the Solar System through the Milky Way is integrated in
+`src/physics/galacticPotential.ts` with a composite axisymmetric potential
+$\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
-1. **Central Bulge (de Vaucouleurs & Exponential):**
-   $$\Phi_b(r) = -\frac{G M_b}{\sqrt{r^2 + b_b^2}}$$
-2. **Exponential Galactic Thin Disc (Miyamoto-Nagai):**
+1. **Bulge (Miyamoto–Nagai):**
+   $$\Phi_b(R, z) = -\frac{G M_b}{\sqrt{R^2 + \left( a_b + \sqrt{z^2 + b_b^2} \right)^2}}$$
+2. **Disc (Miyamoto–Nagai):**
    $$\Phi_d(R, z) = -\frac{G M_d}{\sqrt{R^2 + \left( a_d + \sqrt{z^2 + b_d^2} \right)^2}}$$
-3. **Dark Matter Halo (Navarro-Frenk-White / Logarithmic):**
+3. **Dark-matter halo (calibrated logarithmic):**
    $$\Phi_h(r) = \frac{1}{2} V_h^2 \ln(r^2 + d_h^2)$$
 
-* **Local Standard of Rest (LSR):** $V_0 = 238\text{ km/s}$ at $R_0 = 8.2\text{ kpc}$ (VERA Collaboration 2020).
-* **Kinematics:** 
-  * Azimuthal revolution period: $T_\phi \approx 244.9\text{ Myr}$.
-  * Vertical oscillation across the midplane: $T_z \approx 92.8\text{ Myr}$ (half-period $46.4\text{ Myr}$, amplitude $111\text{ pc}$).
+* **Local Standard of Rest:** the runtime default is the `iau1985` model —
+  $V_0 = 220\text{ km/s}$ at $R_0 = 8.2\text{ kpc}$ (`src/data/galaxy.ts`,
+  `DEFAULT_GALAXY_MODEL = GALAXY_MODELS[0]`; `galacticPotential.ts` uses
+  `LSR_SPEED_KMS = 220`). `src/data/galaxy.ts` also catalogues `sofue2016` (238 km/s at
+  8.0 kpc), `reid2019` (236 km/s at 8.15 kpc) and `gravity2021` (240 km/s at 8.275 kpc)
+  with their citations.
+* **Known limitation (AUDIT-26 in `docs/AUDIT.md`):** every model entry is marked
+  `implementation: 'lsrR0Only'` — selecting a model changes only the LSR speed and $R_0$
+  passed to the potential; the potential's mass distribution does not become
+  model-specific. Sofue-style NFW haloes and per-model bulge/disc structures described
+  in the literature are **not** switched in.
+* **Kinematics:** no single "measured" period is retained. `tests/galacticOrbit.test.ts`
+  asserts the circular period at (220 km/s, 8.2 kpc) is 220–235 Myr, the integrated solar
+  azimuthal period is 200–250 Myr, the vertical oscillation period is 60–95 Myr with
+  amplitude 60–140 pc, energy drift $< 10^{-5}$ and $L_z$ drift $< 10^{-12}$ over 500 Myr,
+  and straight-vs-curved departure $< 0.01\text{ AU}$ over 100 yr. Exact values printed by
+  those tests are console output only, not recorded measurements.
 
 ---
 
 ### 2.8 Time Systems & Ephemeris Epoch
 
-* **Barycentric Dynamical Time (TDB):** Standard relativistic coordinate time for solar system ephemerides:
-  $$\text{TDB} - \text{UTC} = (\text{TDB} - \text{TT}) + (\text{TT} - \text{TAI}) + (\text{TAI} - \text{UTC}) = 69.184\text{ s}$$
-  where $\text{TT} - \text{TAI} = 32.184\text{ s}$ and leap seconds $\text{TAI} - \text{UTC} = 37\text{ s}$.
-* **Julian Date Epoch:** Standard J2000.0 epoch at $\text{JD} = 2451545.0\text{ TDB}$ (2000 January 1, 12:00:00 TDB).
-* **Authentic 1:1 Real-Time Mode:** Exactly $1\text{ second / 1 second}$ ($1/86400\text{ days/sec}$) for live spacecraft observation.
+* **Time scales:** $\text{TT} - \text{TAI} = 32.184\text{ s}$ exactly; the last leap second was inserted **2017-01-01**, giving $\text{TAI} - \text{UTC} = 37\text{ s}$, hence $\text{TT} - \text{UTC} = 69.184\text{ s}$. `src/data/constants.ts` uses this as the TDB↔UTC offset (`TDB_MINUS_UTC_S = 69.184`), ignoring the TDB − TT periodic term (< ±1.7 ms). `tests/time.test.ts` asserts the historical leap-second table (10 s in 1972, 32 s at J2000, 37 s in 2026), TT − UTC ≈ 69.184 s, and TDB − TT within ±1.75 ms (Fairhead & Bretagnon 1990 series).
+* **Currency:** per `docs/RESEARCH.md` §2, IERS **Bulletin C 72** (accessed 2026-11-04) confirmed no leap second through end-2026 and `naif0012.tls` is documented valid at least to 2027-07-01. Whether a newer bulletin has since changed the table is tracked as OPEN-004 in `docs/OPEN_QUESTIONS.md` — the value must be re-verified, not assumed.
+* **Julian Date Epoch:** standard J2000.0 at $\text{JD} = 2451545.0$ (2000 January 1, 12:00:00 TT; defined as TT per RESEARCH §3, used as the TDB-based computational epoch).
+* **1:1 Real-Time Mode:** simulation advances at $1/86400\text{ days/s}$ (one sim second per wall second) when selected in the UI.
 
 ---
 
-## 3. Verification & Validation (V&V) Matrix
+## 3. What is measured vs what remains unverified
 
-ASTRION features an automated test suite comprising **77 test suites and 497 unit and integration tests** executing in continuous integration.
+The suite (2026-11-05 local run: **83 files / 540 tests**; no CI claim) enforces the
+assertions below. "Assertion" means the bound hard-coded in the test; it is *not* a
+measured error figure, and no tighter value is retained anywhere.
 
-| Subsystem / Test Suite | Test Focus | Metric / Acceptance Standard | Result |
-| :--- | :--- | :--- | :---: |
-| [`tests/production-truth.test.ts`](./tests/production-truth.test.ts) | 1-Year Integration vs JPL Horizons DE440 | Earth error $< 100\text{ km}$; outer planets $< 1\text{ km}$ | **PASS ($56\text{ km}$)** |
-| [`tests/mercury-gr.test.ts`](./tests/mercury-gr.test.ts) | 1PN Relativistic Perihelion Precession | Theoretical $42.98''/\text{century} \pm 1.5''$ | **PASS ($42.98''$)** |
-| [`tests/quadrupole.test.ts`](./tests/quadrupole.test.ts) | Planetary $J_2$ Oblateness Perturbations | Published gravity solutions relative diff $< 0.1\%$ | **PASS** |
-| [`tests/moons.test.ts`](./tests/moons.test.ts) | 22 Natural Satellite Orbital Periods | Fitted orbital period vs known table $< 0.3\%$ | **PASS** |
-| [`tests/moons.test.ts`](./tests/moons.test.ts) | Laplace Resonance (Io, Europa, Ganymede) | Angular deviation with $J_2 < 2.0^\circ$ | **PASS ($1.4^\circ$)** |
-| [`tests/eclipses.test.ts`](./tests/eclipses.test.ts) | 2026-08-12 Total Solar Eclipse | Minimum separation time error $< 2.0\text{ min}$ | **PASS ($1.19\text{ min}$)** |
-| [`tests/orientation.test.ts`](./tests/orientation.test.ts) | Earth Subsolar Point & Celestial Poles | Subsolar latitude/longitude within $0.1^\circ$ of ephemeris | **PASS** |
-| [`tests/galacticOrbit.test.ts`](./tests/galacticOrbit.test.ts) | 500-Myr Milky Way Galactic Orbit | Energy conservation $\Delta E / E < 10^{-7}$; $T_\phi \approx 245\text{ Myr}$ | **PASS** |
-| [`tests/spice-truth.test.ts`](./tests/spice-truth.test.ts) | NAIF SPICE GM & Solar Motion | Solar SSB wobble magnitude $788,469\text{ km}$ at $11.4\text{ m/s}$ | **PASS** |
-| [`tests/catalogAccuracy.test.ts`](./tests/catalogAccuracy.test.ts) | 66-Object Deep Space Catalog | Sgr A* mass $4.297 \times 10^6 M_\odot$, moon counts verified | **PASS** |
-| [`tests/orbitPathVisual.test.ts`](./tests/orbitPathVisual.test.ts) | Keplerian Orbit Loops vs True Positions | Instantaneous distance from loop to body $< 0.04\text{ AU}$ | **PASS** |
-| [`tests/bplane.test.ts`](./tests/bplane.test.ts) | B-Plane Targeting & Kizner S-T-R Frames | Frame orthonormality $< 10^{-12}$; Voyager turn angle | **PASS** |
-| [`tests/flyby.test.ts`](./tests/flyby.test.ts) | Patched Conics & Laplace SOI Boundaries | Laplace SOI radius vs DE440; Tisserand invariant | **PASS** |
-| [`tests/stm.test.ts`](./tests/stm.test.ts) | State Transition Matrix (STM) & Variational RK4 | Liouville phase-space volume $\det(\boldsymbol{\Phi}) \approx 1.00$ | **PASS** |
-| [`tests/orbitDetermination.test.ts`](./tests/orbitDetermination.test.ts) | Batch Least Squares OD & Normal Equations | Multi-station DSN tracking; sub-meter convergence | **PASS** |
-| [`tests/lambert.test.ts`](./tests/lambert.test.ts) | Universal Stumpff Variable Lambert Solver | Earth-Mars 259-day Hohmann transfer velocities | **PASS** |
-| [`tests/porkchop.test.ts`](./tests/porkchop.test.ts) | 2D Trajectory Contours & Launch Windows | Global minimum $\Delta v$ optimization, $C_3$ contours | **PASS** |
-| [`tests/linkBudget.test.ts`](./tests/linkBudget.test.ts) | DSN Link Budget & Telecommunications | FSPL at 8.4 GHz; SEP solar conjunction threshold | **PASS** |
-| [`tests/relativityClock.test.ts`](./tests/relativityClock.test.ts) | GR Clock Drift & Proper Time Dilation | GPS $+38.6\ \mu\text{s/day}$ net canonical verification | **PASS** |
+### Measured / asserted
+
+| Test | What it asserts (exact bound in the test) | Evidence |
+| :--- | :--- | :--- |
+| [`tests/production-truth.test.ts`](./tests/production-truth.test.ts) | 1-yr production integration (Yoshida-4 + 1PN + solar $J_2$, hierarchical, vs cached Horizons fixture): every system barycenter within $10^{-3}\text{ AU}$ (≈149,600 km) | assertion at `:82` |
+| [`tests/horizons-phase3.test.ts`](./tests/horizons-phase3.test.ts) | Mercury barycenter error at +10 yr $< 1.5\times10^{-3}\text{ AU}$ vs cached Horizons sample | assertion at `:49` |
+| [`tests/mercury-gr.test.ts`](./tests/mercury-gr.test.ts), [`tests/eih.test.ts`](./tests/eih.test.ts) | 1PN / EIH Mercury anomalous precession in 41.5–44.5 arcsec/century; Newton-only control < $10^{-5}$ rad | assertions at `mercury-gr:43,72-73`, `eih:55-56` |
+| [`tests/quadrupole.test.ts`](./tests/quadrupole.test.ts) | configured $J_2$ values within 0.1 % of published; momentum reaction residual via `toBeCloseTo(0, 14)`; perturbation sign checks | `:23,69-70` |
+| [`tests/moons.test.ts`](./tests/moons.test.ts) | 16 table-tested orbital periods within 0.3 %; semi-major axes within 1 % of JPL mean elements; Laplace resonance deviation < $2.0^\circ$ with $J_2$ and strictly larger without | `:150,155-258,326-327` |
+| [`tests/eclipses.test.ts`](./tests/eclipses.test.ts) | 2026-08-12 eclipse: min separation in 0.70°–1.00°; timing error < 20 minutes | `:110-114` |
+| [`tests/spice-truth.test.ts`](./tests/spice-truth.test.ts) | kernel text files match recorded SHA-256/byte-count; body GMs match `gm_de440.tpc` at 1e-12; Sun genuinely moves in SSB frame ($r > 10^{-4}$ AU, $v > 10^{-6}$ AU/day); SSB residual bounds | `:56-110` |
+| [`tests/time.test.ts`](./tests/time.test.ts) | leap-second table (10/32/37 s), TT−TAI = 32.184 s, TT−UTC ≈ 69.184 s, TDB−TT within ±1.75 ms, round-trips | `:26-115` |
+| [`tests/galacticOrbit.test.ts`](./tests/galacticOrbit.test.ts) | circular period 220–235 Myr; azimuthal 200–250 Myr; vertical 60–95 Myr, amplitude 60–140 pc; $|\Delta E/E| < 10^{-5}$, $L_z$ drift $< 10^{-12}$ over 500 Myr; straight-vs-curved < 0.01 AU/100 yr | `:5-126` |
+| [`tests/frames.test.ts`](./tests/frames.test.ts) | solar speed in CMB frame: $\|v\| - 369.82\| < 0.05$ km/s (Planck 2020 dipole value) | `:143-150` |
+| [`tests/orientation.test.ts`](./tests/orientation.test.ts) | Earth subsolar point at 2026-10-06 12:00 UTC: lat in (−5.5, −4.9)°, lon in (−3.9, −1.9)°; rotation-matrix orthonormality; sidereal-tilt checks | `:112-144` |
+| [`tests/yoshida4.test.ts`](./tests/yoshida4.test.ts) | 4th-order convergence (error ratio 13–19 per halving), reversibility to $10^{-12}$ AU, 10-Jupiter-orbit drift $<10^{-9}$ | `:31-59` |
+| [`tests/ias15.test.ts`](./tests/ias15.test.ts) | module-level only (not runtime-selectable, §4): 1-yr circular-orbit drift $<10^{-8}$, $e=0.8$ periapsis handled, reversibility to 7 decimals | `:30-85` |
+| [`tests/textures-manifest.test.ts`](./tests/textures-manifest.test.ts) + VALIDATION_LOG 2026-11-04 | all 9 texture files match manifest SHA-256 and byte length; independent Python re-hash 9/9; provider license confirmed CC BY 4.0 | asset-verify entry in `docs/VALIDATION_LOG.md` |
+
+### Unverified — do not cite as results
+
+* **Any km-level positional accuracy vs JPL.** The old "PASS (56 km)", eclipse
+  "1.19 / 2.35 minutes", and "solar wobble 788,469 km at 11.4 m/s" figures were never
+  produced by any retained test or recorded run and are removed (VALIDATION_LOG
+  "Unverified claims"; AUDIT-19/20/21).
+* **Per-body +10/+50 yr error tables** (ephemeris.ts computes a runtime validation
+  table, but no per-body figures are recorded as measurements).
+* **CI status.** `.github/workflows/ci.yml` exists; no GitHub Actions run is claimed
+  here (AUDIT context in `docs/AUDIT.md`).
+* **Coverage thresholds** are not enabled; the 63.41 % / 93.25 % / 100 % figures are
+  step-3c baselines, not gates.
+* **Invariant thresholds** (energy / angular-momentum / barycenter drift at 1e-6 in
+  `src/observability/invariants.ts`) are operational defaults explicitly marked
+  UNVERIFIED (OPEN-001 in `docs/OPEN_QUESTIONS.md`); they are not NASA/IAU/JPL targets.
+* **Runtime IAS15** — see §4: implemented and unit-tested, not wired into the worker.
+* **Render counts** such as 158 globular clusters are procedural defaults in
+  `src/render/galaxyVisual.ts:226`, not catalogue-derived values (no Harris catalogue
+  ships in the repo).
+* **E2E / browser behavior** — Playwright scripts exist but are manual; nothing gates them.
+* **Textures are third-party CC BY 4.0 artistically rendered maps, not spacecraft
+  measurements**; no physical quantity is sampled from their pixels (§8.1).
 
 ---
 
-## 4. Software Architecture & Modules
+## 4. Integrators: what is actually selectable at runtime
+
+The worker protocol accepts exactly these integrator names
+(`src/sim/protocol.ts:18`, `src/sim/config.ts:2`):
+**`leapfrog`, `yoshida4`, `yoshida6`, `yoshida8`, `truth8`**.
+`buildIntegrator` (`src/sim/simCore.ts:15-20`) implements them as leapfrog and Yoshida
+symplectic compositions; `yoshida8` and `truth8` resolve to the same Yoshida-8
+composition. The library default is `yoshida6` (`src/sim/config.ts:14`), while the
+shipped browser app initializes `yoshida4` at 0.2-day fixed steps (`src/main.ts:83`).
+
+Additionally, but **implemented and unit-tested only — not wired into the runtime**:
+
+* `src/physics/integrators/ias15.ts` — a native Gauss–Radau implementation after
+  Rein & Spiegel (2015), passing `tests/ias15.test.ts` (energy drift < 1e-8 on a 1-yr
+  circular orbit, adaptive passage of an $e=0.8$ periapsis, forward/backward
+  reversibility), but **no runtime module imports it and it cannot be selected**.
+  Wiring it in is open work (`docs/RESEARCH.md` §7.6).
+* `src/physics/integrators/rk89.ts` — despite the file name, it implements
+  `TruthIntegrator8`, a fixed-sub-step wrapper around the Yoshida-8 composition; it
+  contains **no Dormand–Prince RK8(9) coefficients** and is not runtime-selectable
+  (unit-tested in `tests/rk89.test.ts`).
+* `src/physics/integrators/compensated.ts` — Kahan-compensated leapfrog, unit-tested,
+  not runtime-selectable.
+
+---
+
+## 5. Software Architecture & Modules
 
 ```
 src/
 ├── data/                  # Physical constants, NAIF SPICE GM/PCK tables, nutation series
-│   ├── spice/             # Reference files: gm_de440.tpc, pck00010.tpc
+│   ├── spice/             # NAIF text kernels: gm_de440.tpc, pck00010.tpc, pck00011.tpc + provenance.json
 │   ├── physical/          # 36 physical parameter JSON definitions (Sun, planets, moons)
 │   └── constants.ts       # Gaussian constant k, AU_KM, speed of light, TDB conversions
 ├── physics/               # Pure mathematical engine (Zero DOM, zero Three.js, deterministic)
-│   ├── integrators/       # Yoshida4, Leapfrog, Hermite integrators
+│   ├── integrators/       # leapfrog, yoshida4/6/8 (runtime); ias15/compensated/rk89 unit-tested only
 │   ├── forces/            # Newtonian gravity, 1PN General Relativity, J2 quadrupole
 │   ├── kepler.ts          # State-to-elements and elements-to-state conversions
 │   ├── orientation.ts     # IAU WGCCRE 2015 rotational cartography and nutation
-│   └── galacticPotential.ts # Sofue 2016 multi-component galactic potential
+│   └── galacticPotential.ts # Miyamoto–Nagai bulge/disc + calibrated logarithmic halo
 ├── frames/                # Coordinate systems & reference frame transformations
 │   ├── basic.ts           # ICRF Barycentric, Heliocentric Ecliptic frames
 │   ├── galactic.ts        # Galactic-aligned reference frames
@@ -221,13 +334,14 @@ src/
 ├── sim/                   # Orchestration, background Web Worker, state history
 │   ├── simCore.ts         # Worker-side execution loop and state buffers
 │   ├── simClient.ts       # Main-thread client, request chaining, interpolation
-│   ├── ephemeris.ts       # Hermite spline evaluator for JPL DE440 state grids
+│   ├── ephemeris.ts       # Hermite evaluator over cached Horizons anchors (+ live reseed)
 │   ├── horizonsClient.ts  # Direct REST API client for JPL Horizons system
-│   └── track.ts           # Continuous orbit history and gap-guarded trail generator
+│   ├── track.ts           # Continuous orbit history and gap-guarded trail generator
+│   └── facts.ts           # Detailed physical telemetry facts card generator
 ├── render/                # Three.js visualization pipeline (GPU shaders, textures)
 │   ├── viewer.ts          # Camera management, smooth dolly controls, render loop
 │   ├── orbitPathVisual.ts # 3D Keplerian closed orbit loops (ellipses)
-│   ├── galaxyVisual.ts    # Milky Way spiral arms, bulge, 158 globular clusters, halo
+│   ├── galaxyVisual.ts    # Milky Way spiral arms, bulge, halo (158 cluster points are a procedural default)
 │   ├── bodyVisual.ts      # Textured planet meshes, rings, atmosphere shaders
 │   └── oortCloud.ts       # 3D cometary planetesimal halo distribution
 ├── universe/              # 66-Object Deep Space Astronomical Catalog
@@ -236,20 +350,19 @@ src/
 │   └── cosmicHierarchy.ts # Topological tree search and breadcrumbs
 └── ui/                    # User interface & telemetry HUD
     ├── panel.ts           # Controls panel, speed slider, time inputs, target selector
-    ├── presets.ts         # Navigation presets (Solar, Planetary, Lunar, Galactic)
-    └── facts.ts           # Detailed physical telemetry facts card generator
+    └── presets.ts         # Navigation presets (Solar, Planetary, Lunar, Galactic)
 ```
 
 ---
 
-## 5. Getting Started
+## 6. Getting Started
 
-### 5.1 Prerequisites
+### 6.1 Prerequisites
 * **Node.js:** Version 20.0 or higher (v22+ recommended).
 * **Package Manager:** `npm` (bundled with Node.js).
 * **Browser:** Any modern WebGL 2.0-compatible browser (Chrome, Firefox, Safari, Edge).
 
-### 5.2 Installation & Local Execution
+### 6.2 Installation & Local Execution
 ```bash
 # Clone the repository
 git clone https://github.com/Destroyer-official/solar-system.git
@@ -263,41 +376,48 @@ npm run dev
 ```
 Navigate to `http://localhost:5173` in your browser.
 
-### 5.3 Automated Verification & Build
+### 6.3 Verification & Build (local only)
 ```bash
-# Run type checking (zero compiler errors)
-npm run typecheck
-
-# Run the complete test suite (79 suites, 503 tests)
-npm test
-
-# Full continuous verification gate (typecheck + tests)
-npm run verify
-
-# Production build bundle
-npm run build
+npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
+npm run lint             # ESLint over src, tests, vite.config.ts
+npm test                 # vitest run (2026-11-05 local run: 83 files / 540 tests)
+npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
+npm run verify           # typecheck + lint + test
+npm run verify:prod      # typecheck + lint + test + production build
+npm run build            # tsc --noEmit && vite build
 ```
 
+No GitHub Actions run of these commands is claimed here; the transcripts that exist are
+local (all produced on the Windows machine documented in `docs/VALIDATION_LOG.md`).
+
 ---
 
-## 6. Primary Academic & Technical References
+## 7. Primary Academic & Technical References
 
-1. **Park, R. S., Folkner, W. M., Konopliv, A. S., et al. (2021).** *The JPL Planetary and Lunar Ephemerides DE440 and DE441.* The Astronomical Journal, 161(3), 105.
-2. **Archinal, B. A., Acton, C. H., A’Hearn, M. F., et al. (2018).** *Report of the IAU/IAG Working Group on Cartographic Coordinates and Rotational Elements: 2015.* Celestial Mechanics and Dynamical Astronomy, 130(3), 22.
+1. **Park, R. S., Folkner, W. M., Konopliv, A. S., et al. (2021).** *The JPL Planetary and Lunar Ephemerides DE440 and DE441.* The Astronomical Journal, 161(3), 105. — source of the `gm_de440.tpc` constants used here.
+2. **Archinal, B. A., Acton, C. H., A'Hearn, M. F., et al. (2018).** *Report of the IAU/IAG Working Group on Cartographic Coordinates and Rotational Elements: 2015.* Celestial Mechanics and Dynamical Astronomy, 130(3), 22. (+2019 correction, CMDA 131:61 — per `docs/RESEARCH.md` §3.)
 3. **Yoshida, H. (1990).** *Construction of higher order symplectic integrators.* Physics Letters A, 150(5-7), 262-268.
-4. **Sofue, Y. (2016).** *Rotation and mass curves of the Galaxy in the outer regions: Mass of the Galaxy in the Local Group.* Publications of the Astronomical Society of Japan, 68(1), 2.
-5. **VERA Collaboration, et al. (2020).** *The First VERA Astrometry Catalog.* Publications of the Astronomical Society of Japan, 72(4), 50.
-6. **GRAVITY Collaboration, et al. (2024).** *The mass and distance of Sagittarius A\* from stellar orbits in the galactic center.* Astronomy & Astrophysics, 682, A242.
-7. **Sawala, T., Teyssier, M., Evans, N. W., et al. (2025).** *No certainty of a future collision between the Milky Way and Andromeda.* Nature Astronomy, 9, 1206–1214.
-8. **IAU SOFA Software Collection (2023).** *Standards of Fundamental Astronomy.* International Astronomical Union.
+4. **Rein, H. & Spiegel, D. S. (2015).** *IAS15: A fast, adaptive, high-order integrator for gravitational dynamics, accurate to machine precision over a billion orbits.* MNRAS 446(2), 1424–1437. — implemented in `src/physics/integrators/ias15.ts` (unit-tested, not runtime-selectable; §4).
+5. **Sofue, Y. (2016).** *Rotation and mass curves of the Galaxy in the outer regions: Mass of the Galaxy in the Local Group.* Publications of the Astronomical Society of Japan, 68(1), 2.
+6. **VERA Collaboration, et al. (2020).** *The First VERA Astrometry Catalog.* Publications of the Astronomical Society of Japan, 72(4), 50.
+7. **Reid et al. (2019).** ApJ 885:131; **GRAVITY Collaboration (2021).** A&A 647:A59; **GRAVITY Collaboration, et al. (2024).** *The mass and distance of Sagittarius A\* from stellar orbits in the galactic center.* Astronomy & Astrophysics, 682, A242 — galactic parameters catalogued in `src/data/galaxy.ts`.
+8. **Planck Collaboration (2020).** A&A 641:A1 — CMB dipole (369.82 km/s, l = 264.021°, b = 48.253°).
+9. **Charlot et al. (2020).** A&A 644:A159 — ICRF3 frame definition.
+10. **Fairhead, P. & Bretagnon, P. (1990).** A&A 229:240 — analytical TDB − TT series.
+11. **IERS Bulletin C 72** (accessed 2026-11-04) and `Leap_Second.dat` (last row 2017-01-01, TAI − UTC = 37 s) — leap-second status and update procedure: `docs/RESEARCH.md` §2.
+12. **Sawala, T., Teyssier, M., Evans, N. W., et al. (2025).** *No certainty of a future collision between the Milky Way and Andromeda.* Nature Astronomy, 9, 1206–1214.
+13. **IAU SOFA Software Collection (2023).** *Standards of Fundamental Astronomy.* International Astronomical Union.
 
 ---
 
-## 7. License & Citation
+## 8. License & Citation
 
-Distributed under the **MIT License**. See [`LICENSE`](./LICENSE) for terms.
+Distributed under the **MIT License** — `AS IS`, without warranty of any kind. See
+[`LICENSE`](./LICENSE) for terms. This project is **not** NASA-certified, not
+flight-rated, and has had no independent assurance review; nothing in this repository
+should be read as approval for operational use.
 
-### 7.1 Third-party assets
+### 8.1 Third-party assets
 
 The nine planet surface maps in [`public/textures/`](./public/textures/) are not
 MIT-licensed project output. They are the free texture set from
