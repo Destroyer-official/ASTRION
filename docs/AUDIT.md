@@ -64,14 +64,17 @@ How to read this file:
 
 > **Status update, 2026-11-05:** commit `8850cfb` made `src/data/constants.ts` the only
 > source for the astronomical literal values checked by a new boundary test, and commit
-> `dce8000` marked all galactic model presets `lsrR0Only`. A subsequent documentation
-> pass rewrote `README.md`, `ARCHITECTURE.md`, and `docs/NASA_COMPLIANCE.md` to remove
-> certification/flight-grade/100%-green claims, fabricated counts, and console figures
-> presented as results. AUDIT-16 through AUDIT-23 are closed at the documentation level.
-> AUDIT-24/25 are substantially fixed for the listed constant sources and panel GM
-> lookup. Remaining work is not a wording issue: measured SPK/JPL error tables,
-> complete model-specific galactic potentials, and the 12 absent asteroid perturbers
-> are still open.
+> `dce8000` marked all galactic model presets `lsrR0Only`. Commit `5775d66` removed the
+> conflicting fixed TDB−UTC shortcut and routed Date↔JD conversion through the full
+> UTC→TAI→TT→TDB chain, including inversion of all three periodic terms. A subsequent
+> documentation pass rewrote `README.md`, `ARCHITECTURE.md`, and
+> `docs/NASA_COMPLIANCE.md` to remove certification/flight-grade/100%-green claims,
+> fabricated counts, and console figures presented as results. AUDIT-16 through
+> AUDIT-25 are closed for their documented-code wording/constant portions. AUDIT-26 is
+> honestly labeled but still needs true model-specific potentials; AUDIT-27's ephemeris
+> wording is corrected, but validity-range enforcement and a binary-SPK comparison are
+> still open. Remaining work also includes measured SPK/JPL error tables and the 12
+> absent asteroid perturbers.
 
 | ID | Location | Finding | Severity |
 | :--- | :--- | :--- | :--- |

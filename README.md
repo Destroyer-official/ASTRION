@@ -55,7 +55,7 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-05 local run: 83 files / 540 tests; GitHub Actions status is not claimed here.**
+- **2026-11-05 local run: 83 files / 542 tests; GitHub Actions status is not claimed here.**
   In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
   exited 0 (full transcripts, including the step 3c run recorded at 83 files / 539 tests,
   are in [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
@@ -239,7 +239,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-05 local run: **83 files / 540 tests**; no CI claim) enforces the
+The suite (2026-11-05 local run: **83 files / 542 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is *not* a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -252,9 +252,9 @@ measured error figure, and no tighter value is retained anywhere.
 | [`tests/mercury-gr.test.ts`](./tests/mercury-gr.test.ts), [`tests/eih.test.ts`](./tests/eih.test.ts) | 1PN / EIH Mercury anomalous precession in 41.5–44.5 arcsec/century; Newton-only control < $10^{-5}$ rad | assertions at `mercury-gr:43,72-73`, `eih:55-56` |
 | [`tests/quadrupole.test.ts`](./tests/quadrupole.test.ts) | configured $J_2$ values within 0.1 % of published; momentum reaction residual via `toBeCloseTo(0, 14)`; perturbation sign checks | `:23,69-70` |
 | [`tests/moons.test.ts`](./tests/moons.test.ts) | 16 table-tested orbital periods within 0.3 %; semi-major axes within 1 % of JPL mean elements; Laplace resonance deviation < $2.0^\circ$ with $J_2$ and strictly larger without | `:150,155-258,326-327` |
-| [`tests/eclipses.test.ts`](./tests/eclipses.test.ts) | 2026-08-12 eclipse: min separation in 0.70°–1.00°; timing error < 20 minutes | `:110-114` |
+| [`tests/eclipses.test.ts`](./tests/eclipses.test.ts) | 2026-08-12 eclipse assertion: min separation 0.70°–1.00°, timing error < 20 minutes; `5775d66` run printed 0.891° and 1.19 min (VALIDATION_LOG step 5) | `:110-114` + retained run |
 | [`tests/spice-truth.test.ts`](./tests/spice-truth.test.ts) | kernel text files match recorded SHA-256/byte-count; body GMs match `gm_de440.tpc` at 1e-12; Sun genuinely moves in SSB frame ($r > 10^{-4}$ AU, $v > 10^{-6}$ AU/day); SSB residual bounds | `:56-110` |
-| [`tests/time.test.ts`](./tests/time.test.ts) | leap-second table (10/32/37 s), TT−TAI = 32.184 s, TT−UTC ≈ 69.184 s, TDB−TT within ±1.75 ms, round-trips | `:26-115` |
+| [`tests/time.test.ts`](./tests/time.test.ts) | leap-second table (10/32/37 s), TT−TAI = 32.184 s, TT−UTC ≈ 69.184 s, TDB−TT within ±1.75 ms, periodic inverse, and UTC↔TDB date round-trips | `:26-136` |
 | [`tests/galacticOrbit.test.ts`](./tests/galacticOrbit.test.ts) | circular period 220–235 Myr; azimuthal 200–250 Myr; vertical 60–95 Myr, amplitude 60–140 pc; $|\Delta E/E| < 10^{-5}$, $L_z$ drift $< 10^{-12}$ over 500 Myr; straight-vs-curved < 0.01 AU/100 yr | `:5-126` |
 | [`tests/frames.test.ts`](./tests/frames.test.ts) | solar speed in CMB frame: $\|v\| - 369.82\| < 0.05$ km/s (Planck 2020 dipole value) | `:143-150` |
 | [`tests/orientation.test.ts`](./tests/orientation.test.ts) | Earth subsolar point at 2026-10-06 12:00 UTC: lat in (−5.5, −4.9)°, lon in (−3.9, −1.9)°; rotation-matrix orthonormality; sidereal-tilt checks | `:112-144` |
@@ -264,10 +264,11 @@ measured error figure, and no tighter value is retained anywhere.
 
 ### Unverified — do not cite as results
 
-* **Any km-level positional accuracy vs JPL.** The old "PASS (56 km)", eclipse
-  "1.19 / 2.35 minutes", and "solar wobble 788,469 km at 11.4 m/s" figures were never
-  produced by any retained test or recorded run and are removed (VALIDATION_LOG
-  "Unverified claims"; AUDIT-19/20/21).
+* **Any general km-level positional accuracy vs JPL.** The old "PASS (56 km)" and
+  "solar wobble 788,469 km at 11.4 m/s" figures had no retained assertion or recorded
+  run and remain removed (VALIDATION_LOG "Unverified claims"; AUDIT-19/21). The eclipse
+  1.19-minute result from the `5775d66` step-5 run is retained as one observed value;
+  the previous contradictory 1.19/2.35-minute prose is not a permanent assertion.
 * **Per-body +10/+50 yr error tables** (ephemeris.ts computes a runtime validation
   table, but no per-body figures are recorded as measurements).
 * **CI status.** `.github/workflows/ci.yml` exists; no GitHub Actions run is claimed
@@ -380,7 +381,7 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-05 local run: 83 files / 540 tests)
+npm test                 # vitest run (2026-11-05 local run: 83 files / 542 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build

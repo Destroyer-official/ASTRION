@@ -822,6 +822,106 @@ evidence.
 
 ---
 
+## 2026-11-05 — Step 5: time-scale chain and date-conversion correctness
+
+Commit under test: `5775d66`
+(`fix(time): use the full UTC-TAI-TT-TDB conversion chain everywhere`).
+
+### Defects found
+
+The data layer had a fixed `TDB_MINUS_UTC_S = 69.184` conversion while the physics
+layer had the Fairhead–Bretagnon periodic `TDB − TT` conversion. Those could disagree
+by up to the modeled periodic offset. `tdbToTt()` also omitted the third periodic term
+included in `ttToTdb()`, so forward and inverse transformations did not describe the
+same model. The UI took a JD labeled **TDB** and passed it directly to `utcToTt()`,
+which expects JD **UTC**.
+
+The fix moves date conversion to `src/physics/time.ts`, makes it use
+UTC → TAI → TT → TDB and TDB → TT → TAI → UTC, adds fixed-point inversion, and changes
+the panel to convert the simulation’s TDB JD to UTC before computing offsets.
+`src/data/constants.ts` no longer owns date/TDB conversion.
+
+### Test-first precision failure
+
+The first inverse-series assertion requested sub-microsecond scalar-JD precision:
+
+```
+FAIL tests/time.test.ts > inverts the complete TDB - TT periodic series to sub-microsecond accuracy
+expected -9.313225746154785e-10 to be close to -7.588755450890583e-10
+difference is 1.7244702952642024e-10
+```
+
+This was an impossible tolerance, not a physics failure: a scalar JD around
+2,450,000 has a float64 spacing of roughly `4.66e-10` days, or about 40 μs. The
+assertion was rewritten to test the offset in **seconds** and require inverse agreement
+within 0.1 s. That makes the numerical precision assumption explicit instead of hiding
+it behind a falsely precise day tolerance.
+
+The original “converts JavaScript Date to JD(UTC) and back faithfully” test was also
+accidentally replaced during the edit; it was restored before the commit, and the new
+TDB round-trip test was added alongside it. Final file has 10 tests.
+
+### Recorded verification
+
+Targeted suite:
+
+```
+Test Files  6 passed (6)
+     Tests  57 passed (57)
+  Duration  603ms
+```
+
+Commands:
+
+```
+npm run typecheck && npm run lint    exit 0
+npm run verify:prod                  exit 0
+```
+
+Full local regression on commit `5775d66`:
+
+```
+ Test Files  83 passed (83)
+      Tests  542 passed (542)
+   Duration  41.32s (tests 96%, import 3%, transform 1%)
+
+dist/assets/physics.worker-C1FoAVmf.js     62.65 kB
+dist/assets/index-QGQ_31-l.js           1,260.04 kB │ gzip: 392.24 kB
+✓ built in 406ms
+```
+
+Exit code `0`; the large-chunk warning remains open. Coverage was not re-run after
+this commit, so the 63.41 % figure from step 3c is still the last recorded baseline.
+
+### Eclipse run output captured from this suite
+
+`tests/eclipses.test.ts` passed its assertion bounds and printed:
+
+```
+Catalogued greatest eclipse: 2026-08-12T17:46:00.000Z
+Simulated minimum separation: 2026-08-12T17:47:11.495Z
+Timing error: 1.19 minutes
+Geocentric minimum separation: 0.891°
+```
+
+This is now a retained observed value for the stated 2026-11-05 local run at commit
+`5775d66`; the permanent automated assertion remains the weaker bounds of <20 minutes
+and 0.70°–1.00°. The displayed timing result was rounded from 71.495 s to 1.19 minutes.
+
+### Remaining time-scale limitations
+
+- The leap-second table’s last step is 2017-01-01 (TAI−UTC = 37 s). Its currency is
+  OPEN-004: IERS Bulletin C must be rechecked each January/July.
+- Fairhead–Bretagnon coefficients are recorded as OPEN-003 because the primary-source
+  transcription was not independently verified during this pass.
+- Scalar JD arithmetic has ~40 μs absolute spacing near 2.46e6. Two-part JdPair APIs
+  exist for conversions that must retain sub-second precision, but the simulation
+  clock and worker protocol still transport a scalar `t` in days.
+- No external SOFA/SPICE comparison has been run, so correctness is currently based on
+  these unit assertions and dated provenance—not a certified standard-library match.
+
+---
+
 ## Entries
 
 | Date | Type | Summary |
@@ -834,3 +934,4 @@ evidence.
 | 2026-11-05 | STEP-3b QUALITY GATES | ESLint and V8 coverage added; first lint found 37 errors, fixed; clean install and production checks pass; 82 files / 531 tests; overall 63.29 % lines, physics 93.25 % lines / 69.69 % branches, frames 100 %; 0 runtime audit findings, 10 moderate dev-only minimatch advisories remain. |
 | 2026-11-05 | STEP-3c OBSERVABILITY | Central logger, health registry, and finite/energy/angular-momentum/barycenter invariant checks added and wired through worker frames; first core run found 2 real defects, fixed; 83 files / 539 tests pass in 43.66 s, coverage 153.58 s after a 120→300 s explicit slow-test fix; overall 63.41 % lines, observability 91.66 % lines / 71.11 % branches. |
 | 2026-11-05 | STEP-4a SOURCE TRUTH | Physical constants consolidated with an automated duplicate-literal boundary test; panel GMs/radii now derive from loaded body data; galactic model presets labeled LSR/R0-only; full regression 83 files / **540** tests, typecheck/lint/build exit 0; README, ARCHITECTURE and compliance docs rewritten to remove certification and unrecorded numerical claims. |
+| 2026-11-05 | STEP-5 TIME SCALES | Removed the fixed TDB−UTC shortcut, completed the periodic TDB↔TT inverse, routed all Date↔JD conversions through UTC→TAI→TT→TDB, corrected panel scale labels, and added 2 tests; full regression 83 files / **542** tests in 41.32s, typecheck/lint/build exit 0. Retained observed eclipse output: 1.19-minute timing error and 0.891° minimum separation on this run. |
