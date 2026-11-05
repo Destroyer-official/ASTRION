@@ -55,7 +55,7 @@ function bracketIndex(t: Float64Array, time: number): number {
 export class EphemerisProvider {
   private readonly model: SystemModel;
   private readonly anchors: AnchorSample[];
-  private readonly tracks: Map<string, BodyTrack>;
+  private tracks: Map<string, BodyTrack>;
   private validationCache: ValidationRow[] | null = null;
 
   constructor(model: SystemModel) {
@@ -325,10 +325,13 @@ export class EphemerisProvider {
         }
         state.t = targetDays;
 
-        this.anchors.push({ offsetDays: targetDays, bodies: newBodies, vels: newVels });
+        this.anchors.push({ offsetDays: targetDays, bodies: newBodies, vels: newVels, fine: true });
         this.anchors.sort((a, b) => a.offsetDays - b.offsetDays);
+        // The per-body tracks are built once in the constructor; fresh live anchors
+        // must extend them or interpolation keeps using only the shipped tables.
+        this.tracks = this.buildTracks();
 
-        return { live: true, source: liveVectors['sun']?.source ?? 'DE441' };
+        return { live: true, source: liveVectors['sun']?.source ?? 'JPL Horizons (ephemeris not reported)' };
       }
     } catch {
       // Offline fallback
