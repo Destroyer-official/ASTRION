@@ -19,6 +19,7 @@
     "fetch:textures": "node scripts/fetch-textures.mjs",
     "verify:live": "node scripts/verify-live.mjs",
     "verify:spk": "node scripts/verify-spk.mjs",
+    "audit:ui": "node scripts/ui-audit.mjs",
     "verify:nutation": "node scripts/verify-nutation.mjs",
     "format": "prettier --write .",
     "preview": "vite preview"

@@ -12,6 +12,7 @@ dist
 dist-ssr
 coverage
 tests/validation/.cache/
+ui-audit-artifacts/
 *.local
 
 # Editor directories and files
