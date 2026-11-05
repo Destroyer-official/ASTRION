@@ -18,7 +18,7 @@ const forbid = (dir: string, patterns: RegExp[]) => {
 it('physics/ and frames/ never import three, DOM, or higher layers', () => {
   const bad = [
     /from ['"]three['"]/,
-    /from ['"]@\/(render|ui|sim|frames)/,
+    /from ['"]@\/(render|ui|sim|frames|universe)/,
     /\bdocument\./,
     /\bwindow\./,
   ];
@@ -30,12 +30,16 @@ it('render/ never imports physics internals', () => {
   forbid('src/render', [/from ['"]@\/physics\/(integrators|forces)/]);
 });
 
-it('sim/ never imports render or ui', () => {
-  forbid('src/sim', [/from ['"]@\/(render|ui)/, /from ['"]three['"]/]);
+it('sim/ never imports render, ui or universe', () => {
+  forbid('src/sim', [/from ['"]@\/(render|ui|universe)/, /from ['"]three['"]/]);
 });
 
 it('data/ imports nothing from other layers', () => {
-  forbid('src/data', [/from ['"]@\/(physics|sim|render|ui|frames)/]);
+  forbid('src/data', [/from ['"]@\/(physics|sim|render|ui|frames|universe)/]);
+});
+
+it('universe/ never imports sim, render or ui', () => {
+  forbid('src/universe', [/from ['"]@\/(render|ui|sim)/, /from ['"]three['"]/]);
 });
 
 it('physics/ never imports frames', () => {
