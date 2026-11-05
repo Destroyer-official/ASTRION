@@ -157,9 +157,19 @@ How to read this file:
 > the SHA-256-pinned `pck00011.tpc` snapshot. Full current evidence and the invalid
 > sidereal-closure experiment are recorded in VALIDATION_LOG steps 5/5b.
 >
-> Not yet satisfied: binary-SPK/CSPICE position validation, enforced kernel/WGCCRE
-> validity ranges, model-specific galactic potentials, the complete 16-asteroid
-> perturber set, and runtime IAS15 selection.
+> Step 6 added the first real ephemeris path (`2cee26a`): a DAF/SPK type 2/3 reader in
+> `src/sim/spk.ts` compared against the NAIF-published `de440.bsp`/`de440s.bsp` (MD5
+> verified against NAIF's own checksums), agreeing with the cached Horizons vectors to
+> 2.4e-4 m and 7.1e-8 mm/s. That comparison also found and fixed a frame defect
+> (`9fd4922`): the sim's ecliptic was realized with the IAU 2006 obliquity while all
+> orbital data comes from Horizons' IAU76/80 plane, leaving ICRS-derived quantities
+> (WGCCRE poles, star vectors) 0.042 arcsec away from the orbital frame — 526 km at
+> Uranus. Details in VALIDATION_LOG step 6.
+>
+> Not yet satisfied: an independent CSPICE cross-check and a multi-epoch sweep across
+> the kernel span (OPEN-007), enforced kernel/WGCCRE validity ranges, model-specific
+> galactic potentials, the complete 16-asteroid perturber set, and runtime IAS15
+> selection.
 
 ## 7. Verified-pass summary (do not "fix" these)
 

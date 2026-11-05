@@ -11,8 +11,9 @@ Conventions used by this log:
   reference point for later regressions.
 - Claims that could not be reproduced are collected under
   [Unverified claims](#unverified-claims-cannot-be-reproduced-from-this-repo) and
-  tracked in [AUDIT.md](./AUDIT.md); `docs/OPEN_QUESTIONS.md` is not yet created
-  (mission step 1 produces only this log and the audit).
+  tracked in [AUDIT.md](./AUDIT.md). Assumptions that are useful operationally but
+  not yet backed by a measurement or a primary source are numbered in
+  [OPEN_QUESTIONS.md](./OPEN_QUESTIONS.md) (created in step 4a).
 
 ---
 
@@ -166,7 +167,7 @@ that no later step mistakes them for measurements. Each is cross-referenced in
 | `c = 173.1446326846693 AU/day`                                                  | `README.md:100`              | Computed from `src/data/constants.ts:27`, the code yields `173.14463267424031`; `src/physics/light/lightTime.ts:17` comments the same `…67424`. The README digits are wrong at the 1e-8 level.                                                                                                                   |
 | "158 globular clusters"                                                         | `README.md:230`              | Matches the default in `src/render/galaxyVisual.ts:226` but no Harris catalogue file or citation is present in the repo.                                                                                                                                                                                         |
 
-## Scientific-accuracy baseline — what actually exists today
+## Scientific-accuracy baseline — what actually exists today (measured 2026-11-04)
 
 Mission section 4 asks for a baseline of real errors against JPL before setting
 targets. The honest statement of the current baseline, from the run above:
@@ -179,6 +180,10 @@ targets. The honest statement of the current baseline, from the run above:
   SPK binary kernel is present, so there is no Chebyshev SPK-vs-CSPICE position
   difference in km to report. The "well below 1 km" target therefore starts from
   **no measured value**, not from a failing one.
+  _Superseded in part on 2026-11-05 (step 6): `src/sim/spk.ts` reads binary SPK
+  now and its comparison against `de440.bsp` is measured to 2.4e-4 m, but the
+  runtime still integrates cached Horizons vectors rather than evaluating a
+  kernel, so the app's own ephemeris error against DE440 remains unmeasured._
 - **N-body vs DE error at +1/+10/+50 years: not measured per body.** The existing
   comparison (`tests/production-truth.test.ts`) checks barycenters at +1 yr
   against a cached Horizons reference with a 1e-3 AU (149,598 km) bound. No
@@ -989,6 +994,201 @@ the UI, which remains a production-readiness gap.
 
 ---
 
+## 2026-11-05 — Step 6: binary SPK reader, DE440 comparison, and the frame defect it found
+
+Commits under test: `9fd4922` (`fix(frames): realize the ecliptic frame with the
+obliquity Horizons uses`) and `2cee26a` (`feat(sim): add a read-only DAF/SPK type
+2/3 ephemeris reader`). This entry is committed with the validation test and the
+`docs/OPEN_QUESTIONS.md` updates it produces.
+
+Until this step the repository had **no** binary ephemeris path: `src/data/spice/`
+holds text kernels and cached Horizons tables, and every "DE440" claim in the docs
+was a provenance check on a text file. `src/sim/spk.ts` now reads DAF/SPK files
+directly (header and summary chain, ND/NI and `LTL-IEEE`/`BIG-IEEE` validation,
+type 2 and type 3 Chebyshev segments, Clenshaw evaluation with the analytic
+derivative for type 2 velocity, barycentric subtraction, and a J2000 → ecliptic
+rotation), and `npm run verify:spk` compares it with a real kernel.
+
+### Kernel acquisition
+
+Kernels are never committed (OPEN-005). The cache directory is ignored, and the
+script requires NAIF's own MD5 before using a file — this replaces the "digest is
+local only" limitation recorded in `docs/RESEARCH.md` §6 item 4, which noted that
+NAIF publishes MD5 rather than SHA-256.
+
+```
+$ npm run verify:spk
+tests/validation/.cache/de440.bsp: 119799808 bytes, MD5 c9d581bfd84209dbeee8b1583939b148 (matches NAIF aa_checksums.txt)
+SHA-256 a4ce9bf9b3282becc9f4b2ac3cebe03a2ae7599981aabd7265fd8482fff7c4b5 (local integrity record)
+
+$ SPK_KERNEL=de440s.bsp npm run verify:spk
+tests/validation/.cache/de440s.bsp: 32726016 bytes, MD5 3917ee56769db332790c751e2168843d (matches NAIF aa_checksums.txt)
+```
+
+Both MD5 values were read from
+`https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/aa_checksums.txt`
+(fetched 2026-11-05) and both local files match it, so the bytes under test are
+byte-identical to NAIF's copies.
+
+### First comparison: a kilometre-scale failure, and a units error in reading it
+
+The first version of `tests/validation/spk-real.test.ts` compared the reader with
+the nine cached Horizons vectors at their own epoch (JD 2461319.5 TDB) and failed
+every body. Reading that output, the Jupiter residual was written down as
+`120.89 m` — the number was actually **120,894.8 m**; the printout was scaled
+wrong by 1000, so the defect looked like kernel imprecision instead of a frame
+error. Re-measured with correct scaling, de440.bsp gave (position in m, velocity
+in mm/s, per axis, our value minus Horizons):
+
+```
+bodies/sun.json        pos        0.0        -2.9     -156.2 m  max      156.2 m  |  vel   0.0000   0.0000   0.0009 mm/s
+bodies/mercury.json    pos        0.0      1356.8   -13716.7 m  max    13716.7 m  |  vel   0.0000   0.5072   2.4741 mm/s
+bodies/venus.json      pos        0.0      1263.9      396.9 m  max     1263.9 m  |  vel   0.0000  -0.1095   7.0971 mm/s
+bodies/earth.json      pos        0.0        -2.3     6379.3 m  max     6379.3 m  |  vel   0.0000   0.0004   5.9025 mm/s
+bodies/mars.json       pos        0.0      -955.7    47452.6 m  max    47452.6 m  |  vel   0.0000  -0.1290   0.6094 mm/s
+bodies/jupiter.json    pos       -0.0     -1898.5   120894.8 m  max   120894.8 m  |  vel   0.0000  -0.0521  -1.6402 mm/s
+bodies/saturn.json     pos       -0.0     12167.8    54492.3 m  max    54492.3 m  |  vel   0.0000   0.0143   1.9268 mm/s
+bodies/uranus.json     pos       -0.0      1562.9   526114.0 m  max   526114.0 m  |  vel  -0.0000  -0.0182   0.5712 mm/s
+bodies/neptune.json    pos        0.0     21817.4    42365.2 m  max    42365.2 m  |  vel   0.0000   0.0215   1.1121 mm/s
+```
+
+Two features ruled out the obvious explanations. `de440s.bsp` produced the same
+table to the last digit, and the X residual was `0.000 m` for all nine bodies. A
+time-scale or epoch error would move X; a fit-precision difference between the
+two kernels could not leave them identical. A pure rotation about the X axis does
+exactly that.
+
+### Diagnosis: the simulation had two different ecliptic frames
+
+Fitting a rotation about X to each body's own residual (`a = (y·dz − z·dy)/(y²+z²)`):
+
+```
+sun      implied angle=0.042000 arcsec      mars     implied angle=0.042000 arcsec
+mercury  implied angle=0.042000 arcsec      jupiter  implied angle=0.042000 arcsec
+venus    implied angle=0.042000 arcsec      saturn   implied angle=0.042000 arcsec
+earth    implied angle=0.042000 arcsec      uranus   implied angle=0.042000 arcsec
+neptune  implied angle=0.042000 arcsec
+best-fit rotation between our ecliptic frame and the Horizons frame: 0.042000 arcsec
+our obliquity: 84381.4060 arcsec -> implied Horizons obliquity 84381.4480 arcsec
+```
+
+Nine independent bodies, one angle, matching a documented constant: JPL Horizons
+defines `REF_PLANE='ECLIPTIC'` at J2000 as "the IAU76/80 obliquity of 84381.448
+arcsec at J2000.0 relative to the ICRF reference frame"
+(`https://ssd-api.jpl.nasa.gov/doc/horizons.html`, fetched 2026-11-05). Every
+vector in `src/data/bodies` was produced there, so the simulation's orbital frame
+is that frame — but `src/data/galaxy.ts` converted ICRS input with the IAU 2006
+value 84381.406 arcsec. The application had been comparing DE440 states with
+WGCCRE pole vectors and star directions in two planes 0.042 arcsec apart. The
+constant is now 84381.448 with the citation in its comment,
+`scripts/verify-nutation.mjs` reads it from that file instead of duplicating it,
+and `tests/frames.test.ts` pins the value.
+
+### Why de440s and de440 agreed to the last digit
+
+Dumped from the segment directories, both files use type 2 segments with a
+2,764,800 s (32-day) record interval and the same record payload — 26 words for
+Jupiter, 20 for Uranus — and differ only in coverage: 3,425 records spanning
+−4.7341e9…4.7354e9 ET versus 12,556 records spanning −1.4201e10…2.0514e10 ET.
+`de440s.bsp` is the same records over the 1849–2150 window, not a lower-precision
+refit. That explains the identical table, and it means this comparison does not
+measure `de440s` fit error at all.
+
+### Acceptance limits, set from the measurement
+
+After the frame fix, the same nine comparisons gave:
+
+```
+bodies/sun.json        max 1.164e-7 m  |  max 4.879e-13 mm/s
+bodies/mercury.json    max 9.313e-7 m  |  max 4.441e-10 mm/s
+bodies/venus.json      max 9.313e-7 m  |  max 4.441e-10 mm/s
+bodies/earth.json      max 4.470e-5 m  |  max 7.105e-8 mm/s
+bodies/mars.json       max 2.980e-5 m  |  max 7.105e-9 mm/s
+bodies/jupiter.json    max 5.960e-5 m  |  max 1.776e-9 mm/s
+bodies/saturn.json     max 2.384e-4 m  |  max 1.776e-9 mm/s
+bodies/uranus.json     max 2.384e-4 m  |  max 8.882e-10 mm/s
+bodies/neptune.json    max 5.960e-5 m  |  max 0.000e+0 mm/s
+```
+
+Identical for both kernels. The test now requires position < `1e-3` m and velocity
+< `1e-6` mm/s. Those are not rounded-down hopes: the worst measured residual is
+0.238 mm, and the limit sits below the quantisation of the reference itself — the
+Horizons vectors are printed with 16 significant digits, so one unit in their last
+place is 1.5 mm at Uranus' `y = 17.27151024209494` AU. The residual is the price of
+how the reference was rounded, not of the reader. The velocity agreement
+(≤ 7.1e-8 mm/s) is the check that the type 2 analytic derivative and the km / km-s
+unit chain are right, not merely the position interpolation.
+
+### Verification
+
+Final-tree full suite:
+
+```
+$ npm test
+ Test Files  86 passed (86)
+      Tests  559 passed (559)
+   Duration  54.12s (tests 96%, import 3%, transform 1%)
+```
+
+Targeted suites for the two changed concerns:
+
+```
+$ node node_modules/vitest/vitest.mjs run tests/spk.test.ts tests/frames.test.ts
+ ✓ tests/spk.test.ts (5 tests) 6ms
+ ✓ tests/frames.test.ts (15 tests) 39ms
+      Tests  20 passed (20)
+
+$ node node_modules/vitest/vitest.mjs run tests/spk.test.ts tests/nutation.test.ts \
+    tests/stars.test.ts tests/orientation.test.ts tests/orientation-property.test.ts \
+    tests/pck-rotation.test.ts tests/frames.test.ts tests/eclipses.test.ts
+ Test Files  8 passed (8)
+      Tests  117 passed (117)
+   Duration  871ms
+```
+
+`npm run typecheck` and `npm run lint` exited `0`. `npm run build` produced
+`dist/assets/index-BqCOmUjB.js 1,260.04 kB │ gzip: 392.24 kB` plus the
+62.65 kB physics worker — still one large chunk (AUDIT-49 stays open).
+
+Coverage was re-measured on this tree, which the step-3c table had not seen
+(columns are Stmts / Branch / Funcs / Lines):
+
+```
+$ npm run test:coverage
+ Test Files  86 passed (86)
+   Duration  170.01s (tests 99%, import 1%)
+All files          |    63.3 |    45.26 |   63.38 |   63.73 |
+ src/frames        |     100 |      100 |     100 |     100 |
+ src/physics       |   92.67 |    69.69 |   94.47 |   93.25 |
+ src/sim           |   82.14 |    68.49 |   86.18 |   84.84 |
+  spk.ts           |   82.25 |    69.44 |     100 |   83.92 | ...06,223,257,261
+```
+
+Overall lines moved from the step-3c 63.41 % to 63.73 %; `src/sim` is now
+measured at 84.84 % lines, and `spk.ts` enters at 83.92 % with its uncovered
+lines being the malformed-data throws — an invalid type 3 coefficient count
+(206), an invalid type 2 coefficient count (223), a non-positive or fractional
+directory (257) and a directory whose declared word count disagrees with the
+segment (261). Those branches need deliberately corrupt synthetic segments to
+cover, which is the honest gap left in this step.
+
+### What this validates and what it does not
+
+- It validates our reader against Horizons text vectors that Horizons derived from
+  DE440 — parsing, record selection, Chebyshev evaluation, type 2 differentiation,
+  unit handling, ET scaling, barycentric subtraction, and frame rotation. A
+  shared-source error would be invisible to it, and no CSPICE comparison has been
+  run (OPEN-007).
+- Coverage is one epoch per body, the epoch of the shipped vectors. A sweep across
+  the kernel span, and segments of types other than 2/3, are not tested.
+- The kernels stay out of Git, so `npm test` skips `tests/validation/spk-real.test.ts`
+  on any machine without a cached kernel; it ran here because the cache exists.
+- The frame change moves every ICRS-derived quantity in the app by 0.042 arcsec.
+  Existing absolute checks still pass after it: Polaris `66.10°` from the ecliptic
+  plane (tolerance ±0.6°) and the galactic-centre axis `0.072°` from Sgr A*.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1003,3 +1203,4 @@ the UI, which remains a production-readiness gap.
 | 2026-11-05 | STEP-4a SOURCE TRUTH           | Physical constants consolidated with an automated duplicate-literal boundary test; panel GMs/radii now derive from loaded body data; galactic model presets labeled LSR/R0-only; full regression 83 files / **540** tests, typecheck/lint/build exit 0; README, ARCHITECTURE and compliance docs rewritten to remove certification and unrecorded numerical claims.       |
 | 2026-11-05 | STEP-5 TIME SCALES             | Removed the fixed TDB−UTC shortcut, completed the periodic TDB↔TT inverse, routed all Date↔JD conversions through UTC→TAI→TT→TDB, corrected panel scale labels, and added 2 tests; full regression 83 files / **542** tests in 41.32s, typecheck/lint/build exit 0. Retained observed eclipse output: 1.19-minute timing error and 0.891° minimum separation on this run. |
 | 2026-11-05 | STEP-5b ORIENTATION PROPERTIES | Added seeded fast-check tests for right-handedness, orthonormality and body/ecliptic round-trips across every rotating body over ±50 years; an invalid full-matrix sidereal-closure property was removed after counterexamples. Full regression 84 files / **544** tests in 40.66s; typecheck/lint/build exit 0; large bundle and WGCCRE-range enforcement remain open.   |
+| 2026-11-05 | STEP-6 SPK VALIDATION          | DAF/SPK type 2/3 reader (`src/sim/spk.ts`) added and compared against NAIF's MD5-verified `de440.bsp`/`de440s.bsp`; the first run failed by up to 526 km and proved the sim realized its ecliptic with the IAU 2006 obliquity while every Horizons vector sits on the IAU76/80 plane (0.042 arcsec), fixed in `9fd4922`; nine bodies then agree to 2.4e-4 m and 7.1e-8 mm/s and the test limits are set from that measurement. Full regression 86 files / **559** tests in 54.12 s; coverage re-measured at 63.73 % lines overall and 83.92 % for `spk.ts`; typecheck/lint/build exit 0; kernels stay out of Git and no CSPICE cross-check exists yet (OPEN-005/007). |
