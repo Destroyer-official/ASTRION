@@ -37,6 +37,13 @@ How to read this file:
 
 ## 1. Architecture and isolation (mission §2)
 
+> **Status update, same day:** AUDIT-04 and AUDIT-05 are **fixed**. The boundary
+> guard was widened first and failed on `photometry.ts`, proving the old guard was
+> blind rather than the code clean; the constant was then moved to the data layer.
+> Commits `107520c` (fix) and `fdf49ac` (guard), each green on its own. Evidence in
+> VALIDATION_LOG's STEP-3a entry. AUDIT-06 (no `index.ts` barrels) is **still open** —
+> widening the guard to require public-API imports is the next step of that work.
+
 | ID | Location | Finding | Severity |
 | :--- | :--- | :--- | :--- |
 | AUDIT-04 | [src/physics/light/photometry.ts:18](file:///D:/code/Main_projects/universe/solar-system/src/physics/light/photometry.ts#L18) | `import { AU_PER_PARSEC } from '@/universe/cosmicCoordinates';` — a **lower layer imports an upper one**. `src/universe/*` is consumed by the UI (`src/ui/panel.ts:8,10,18,19`) and itself imports down into `@/physics/light` (`src/universe/universePhysicsBackbone.ts:28`) and `@/physics/cosmicGravity`, so this single edge creates a `physics ↔ universe` cycle. The constant belongs in `src/data/constants.ts`. | **CRITICAL** |

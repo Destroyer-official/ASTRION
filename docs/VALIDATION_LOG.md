@@ -436,6 +436,63 @@ themselves are still correct (last leap second 2017-01-01, TAI−UTC = 37 s).
 
 ---
 
+## 2026-11-04 — Step 3a: import-boundary guard and the cycle it hid
+
+Two commits, ordered so each is green on its own:
+
+1. `107520c` — `AU_PER_PARSEC` moved to the data layer; `src/physics/light/photometry.ts`
+   and `src/universe/cosmicCoordinates.ts` now read it from `@/data/constants`. This
+   removes the only upward import in the codebase (AUDIT-04).
+2. `fdf49ac` — `tests/architecture.test.ts` now forbids `@/universe` in `physics`,
+   `frames`, `sim` and `data`, and forbids `@/sim|render|ui` and `three` inside
+   `universe` (AUDIT-05, the guard's blind spot).
+
+### Test-first evidence
+
+The widened guard was run **before** the fix and failed exactly as predicted, which
+is what proves the old guard was blind rather than the code clean:
+
+```
+ × physics/ and frames/ never import three, DOM, or higher layers
+   ✓ render/ never imports physics internals
+   ✓ sim/ never imports render, ui or universe
+   ✓ data/ imports nothing from other layers
+   ✓ universe/ never imports sim, render or ui
+AssertionError: src\physics\light\photometry.ts breaks layer rule
+  /from ['"]@\/(render|ui|sim|frames|universe)/
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+```
+
+### After the fix
+
+- `npm run typecheck` → **exit 0**.
+- `npx vitest run tests/architecture.test.ts tests/lightEngine.test.ts` →
+  `Test Files 2 passed (2)`, `Tests 20 passed (20)` — the guard is green and the
+  photometry module that consumed the constant still behaves.
+- `npm test` → **exit 0**
+
+```
+ Test Files  82 passed (82)
+      Tests  531 passed (531)
+   Duration  38.81s (tests 95%, import 3%, transform 2%)
+```
+
+Test count rose 530 → **531**, the single new test being the `universe/` rule. No
+previously passing test broke.
+
+- `npm run build` → **exit 0**, `✓ built in 494ms`, worker chunk unchanged at
+  `60.42 kB`.
+
+### Still open in step 3
+
+Lint (no script, AUDIT-37), coverage baseline (AUDIT-38), structured logger
+(AUDIT-32), per-module health checks (AUDIT-36), `exactOptionalPropertyTypes`
+(AUDIT-14), and barrels/public-API enforcement for AUDIT-06 — every module except
+`physics/light` still lacks an `index.ts`, so deep imports remain legal.
+
+---
+
 ## Entries
 
 | Date | Type | Summary |
@@ -444,3 +501,4 @@ themselves are still correct (last leap second 2017-01-01, TAI−UTC = 37 s).
 | 2026-11-04 | ASSET-VERIFY | Textures: CC BY 4.0 confirmed on the provider page; `tests/textures-manifest.test.ts` 10/10 pass; independent Python SHA-256 check 9/9 match, 0 mismatch, files unmodified. |
 | 2026-11-04 | BASELINE TAG | `baseline-pre-audit` after 14 grouped commits; tree verified identical (318/321 unchanged, 3 intentional edits, 0 lost); typecheck 0, tests 82/530, build OK, **lint exit 1 (no lint script)**, coverage unmeasured. |
 | 2026-11-04 | STEP-2 RESEARCH | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C. |
+| 2026-11-04 | STEP-3a BOUNDARY | Guard widened to cover `universe` (failed first, as proof), physics→universe cycle removed; 82 files / **531** tests pass, typecheck 0, build 0. |
