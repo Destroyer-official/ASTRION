@@ -136,7 +136,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
       <!-- Universal Cosmic Search -->
       <div class="cosmic-search-container" style="margin-top: 6px; position: relative;">
         <div style="display: flex; gap: 4px; align-items: center;">
-          <input id="cosmicSearchInput" type="text" placeholder="🔍 Search celestial catalog: Sgr A*, Jupiter, Proxima b, Voyager 1, Ceres..." style="flex: 1; padding: 4px 8px; font-size: 11px; background: rgba(15,23,42,0.8); border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; color: #fff; outline: none;">
+          <input id="cosmicSearchInput" type="text" aria-label="Search the celestial catalog" placeholder="🔍 Search celestial catalog: Sgr A*, Jupiter, Proxima b, Voyager 1, Ceres..." style="flex: 1; padding: 4px 8px; font-size: 11px; background: rgba(15,23,42,0.8); border: 1px solid rgba(56,189,248,0.3); border-radius: 4px; color: #fff; outline: none;">
           <button id="cosmicSearchClear" style="padding: 2px 6px; font-size: 10px; display: none;">✕</button>
         </div>
         <div id="cosmicSearchResults" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: rgba(15,23,42,0.98); border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; z-index: 1000; max-height: 240px; overflow-y: auto; margin-top: 3px; box-shadow: 0 8px 24px rgba(0,0,0,0.8);"></div>
@@ -154,7 +154,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
       <div class="dynamics-bar" style="margin-top: 4px;">
         <div style="display: flex; align-items: center; gap: 6px;">
           <span style="font-size: 11px; opacity: 0.7;">Dynamics:</span>
-          <span id="dynamicsStatus" class="status-badge badge-sim">Yoshida-4 N-Body</span>
+          <span id="dynamicsStatus" role="status" aria-live="polite" class="status-badge badge-sim">Yoshida-4 N-Body</span>
         </div>
         <div style="display: flex; gap: 4px;">
           <button id="toggleDynamics" style="font-size: 10px; padding: 2px 6px;">Switch Mode</button>
@@ -176,13 +176,13 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
             <button id="realtimeBtn" type="button" style="font-size: 10px; padding: 2px 7px; border-radius: 4px; background: rgba(56,189,248,0.15); border: 1px solid rgba(56,189,248,0.4); color: #38bdf8; cursor: pointer; font-weight: 600;" title="Snap simulation speed to true 1:1 real-time (1 second / 1 second)">⏱️ 1× Real-Time</button>
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <input id="speed" type="range" min="-4.94" max="4.5" step="0.02" value="2" style="flex: 1;">
+            <input id="speed" type="range" aria-label="Simulation speed, logarithmic days per second" min="-4.94" max="4.5" step="0.02" value="2" style="flex: 1;">
             <span id="speedLabel" style="color: #38bdf8; font-weight: 600; font-size: 11px; white-space: nowrap; min-width: 105px; text-align: right;">100.0 d/s</span>
           </div>
         </div>
 
         <div class="row">
-          <input id="date" type="date" style="flex: 1;">
+          <input id="date" type="date" aria-label="Simulation date" style="flex: 1;">
           <button id="go">Go</button>
           <button id="now" title="Sync live to current real-world UTC time">Now (Live)</button>
         </div>
@@ -190,14 +190,14 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         <!-- Professional NASA Navigation Dropdown & Camera Zoom Slider -->
         <div style="display: grid; gap: 8px; margin-top: 4px;">
           <label>Mission Target & Scale
-            <select id="presetSelect" style="width: 100%; font-size: 11px; padding: 4px 6px; background: rgba(15,23,42,0.9); border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 3px;">
+            <select id="presetSelect" aria-label="Camera and scale preset" style="width: 100%; font-size: 11px; padding: 4px 6px; background: rgba(15,23,42,0.9); border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 3px;">
             </select>
           </label>
 
           <label>Camera Zoom
             <div style="display: flex; align-items: center; gap: 6px; margin-top: 3px;">
               <button id="zoomOutBtn" type="button" style="padding: 2px 8px; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #fff; cursor: pointer;" title="Zoom Out">−</button>
-              <input id="cameraZoom" type="range" min="-6.0" max="5.0" step="0.02" value="1.74" style="flex: 1;">
+              <input id="cameraZoom" type="range" aria-label="Camera zoom, logarithmic distance" min="-6.0" max="5.0" step="0.02" value="1.74" style="flex: 1;">
               <button id="zoomInBtn" type="button" style="padding: 2px 8px; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #fff; cursor: pointer;" title="Zoom In">+</button>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
@@ -212,14 +212,14 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         <div id="factsBox" class="facts-box" style="display:none; margin-top: 6px;"></div>
 
         <!-- Internal camera focus select (kept in DOM for event/store bindings) -->
-        <select id="focus" style="display:none;"></select>
+        <select id="focus" aria-label="Focus body" style="display:none;"></select>
 
         <label>Reference Frame
-          <select id="frame"></select>
+          <select id="frame" aria-label="Reference frame"></select>
         </label>
 
         <label>Scale mode
-          <select id="scaleMode">
+          <select id="scaleMode" aria-label="Scale mode">
             <option value="pixels" selected>Proportional Visible Scale (Dynamic Visual Clarity)</option>
             <option value="true">True 1:1 Physical Scale (IAU/IAG Cartographic Standards)</option>
             <option value="exaggerated">Exaggerated Scale</option>
@@ -227,12 +227,12 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </label>
 
         <label id="exagRow" style="display:none;">Exaggeration
-          <input id="scaleExag" type="range" min="1" max="300" step="1" value="20">
+          <input id="scaleExag" type="range" aria-label="Size exaggeration" min="1" max="300" step="1" value="20">
           <span id="exagVal">20x</span>
         </label>
 
         <label>Trail length
-          <select id="trailDays">
+          <select id="trailDays" aria-label="Trail length in days">
             <option value="3">3 days (Fast Moons)</option>
             <option value="28">28 days (Lunar Month)</option>
             <option value="365.25">1 year (Earth)</option>
@@ -258,7 +258,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           </summary>
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <label>Symplectic Integrator
-              <select id="integrator" style="width: 100%; font-size: 10px; padding: 3px 5px; background: #0f172a; border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 2px;">
+              <select id="integrator" aria-label="Symplectic integrator" style="width: 100%; font-size: 10px; padding: 3px 5px; background: #0f172a; border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 2px;">
                 <option value="yoshida8">Yoshida 8th-Order Symplectic (Truth / ~10⁻¹⁵ Energy Drift)</option>
                 <option value="yoshida6" selected>Yoshida 6th-Order Symplectic (Default 7-Stage)</option>
                 <option value="yoshida4">Yoshida 4th-Order Symplectic (Balanced)</option>
@@ -283,15 +283,15 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <div style="display: flex; gap: 6px;">
               <label style="flex: 1;">Departure Origin
-                <select id="lambertOrigin" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;"></select>
+                <select id="lambertOrigin" aria-label="Lambert transfer departure origin" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;"></select>
               </label>
               <label style="flex: 1;">Target Destination
-                <select id="lambertTarget" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;"></select>
+                <select id="lambertTarget" aria-label="Lambert transfer target destination" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;"></select>
               </label>
             </div>
             <div style="display: flex; gap: 6px; align-items: flex-end;">
               <label style="flex: 1;">Transfer Time (Days)
-                <input id="lambertTof" type="number" min="10" max="5000" value="259" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <input id="lambertTof" type="number" aria-label="Lambert transfer time of flight in days" min="10" max="5000" value="259" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
               </label>
               <button id="lambertSolveBtn" type="button" style="padding: 4px 8px; font-size: 10px; font-weight: 600; background: #0284c7; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">Compute Lambert</button>
               <button id="porkchopBtn" type="button" style="padding: 4px 8px; font-size: 10px; font-weight: 600; background: #7c3aed; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;" title="Run Porkchop analysis to find global minimum Delta-v launch window">⚡ Porkchop Scan</button>
@@ -308,7 +308,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <div style="display: flex; gap: 6px;">
               <label style="flex: 1;">Encounter Planet
-                <select id="bplanePlanet" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <select id="bplanePlanet" aria-label="B-plane encounter planet" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
                   <option value="jupiter" selected>Jupiter (Gravity Assist King)</option>
                   <option value="earth">Earth (Resonant Return / Flyby)</option>
                   <option value="venus">Venus (Inner System Slingshot)</option>
@@ -317,12 +317,12 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
                 </select>
               </label>
               <label style="flex: 1;">Periapsis Alt (km)
-                <input id="bplaneAlt" type="number" min="100" max="2000000" value="5000" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <input id="bplaneAlt" type="number" aria-label="B-plane periapsis altitude in kilometres" min="100" max="2000000" value="5000" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
               </label>
             </div>
             <div style="display: flex; gap: 6px; align-items: flex-end;">
               <label style="flex: 1;">Approach v_∞ (km/s)
-                <input id="bplaneVinf" type="number" min="0.5" max="50" step="0.5" value="10.0" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <input id="bplaneVinf" type="number" aria-label="B-plane approach v-infinity in km per second" min="0.5" max="50" step="0.5" value="10.0" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
               </label>
               <button id="bplaneComputeBtn" type="button" style="padding: 4px 8px; font-size: 10px; font-weight: 600; background: #9333ea; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">Compute B-Plane</button>
             </div>
@@ -338,7 +338,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <div style="display: flex; gap: 6px; align-items: flex-end;">
               <label style="flex: 1;">Celestial Target & Scale
-                <select id="backboneTarget" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <select id="backboneTarget" aria-label="Trajectory backbone target" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
                   <option value="mars" selected>Mars (Planetary Scale, 1.5 AU)</option>
                   <option value="neptune">Neptune (Outer System, 30.0 AU)</option>
                   <option value="proxima_centauri">Proxima Centauri (Interstellar, 4.24 ly)</option>
@@ -355,7 +355,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </details>
 
         <!-- Telemetry Readout -->
-        <pre id="readout"></pre>
+        <pre id="readout" role="status" aria-live="polite" aria-atomic="true"></pre>
       </div>
     </div>
   `;
