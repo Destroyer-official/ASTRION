@@ -17,7 +17,10 @@ export function poleEcliptic(raDeg: number, decDeg: number): Vec3 {
   return [x, ce * y + se * z, -se * y + ce * z];
 }
 
-type M3 = [number, number, number, number, number, number, number, number, number]; // row-major
+/** Row-major 3×3 rotation matrix, body-fixed axes → J2000 ecliptic axes. */
+export type Matrix3 = [number, number, number, number, number, number, number, number, number];
+
+type M3 = Matrix3;
 
 const mul = (a: M3, b: M3): M3 => {
   const o: M3 = [0, 0, 0, 0, 0, 0, 0, 0, 0];
