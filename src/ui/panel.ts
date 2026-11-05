@@ -13,7 +13,7 @@ import { solveLambert } from '@/physics/lambert';
 import { generatePorkchopGrid } from '@/physics/porkchop';
 import { computeLinkBudget } from '@/physics/linkBudget';
 import { computeClockDriftRate } from '@/physics/relativityClock';
-import { utcToTt, utcToTdb, getLeapSeconds } from '@/physics/time';
+import { tdbToUtc, utcToTt, getLeapSeconds } from '@/physics/time';
 import { periapsisToBMag, hyperbolicTurnAngle } from '@/physics/bplane';
 import { PLANET_SOI_AU } from '@/physics/flyby';
 import { universeBackbone } from '@/universe/universePhysicsBackbone';
@@ -1347,16 +1347,17 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           ]
         : [];
 
-      const jd = d.jd ?? (Date.parse(d.dateUtc) / (DAY_S * 1000) + 2440587.5);
-      const ttOffsetS = (utcToTt(jd) - jd) * DAY_S;
-      const tdbOffsetS = (utcToTdb(jd) - jd) * DAY_S;
-      const leapSec = getLeapSeconds(jd);
+      const jdTdb = d.jd ?? (Date.parse(d.dateUtc) / (DAY_S * 1000) + 2440587.5);
+      const jdUtc = tdbToUtc(jdTdb);
+      const ttOffsetS = (utcToTt(jdUtc) - jdUtc) * DAY_S;
+      const tdbOffsetS = (jdTdb - jdUtc) * DAY_S;
+      const leapSec = getLeapSeconds(jdUtc);
 
       const lines: string[] = [
         `Date (UTC)     ${d.dateUtc}`,
         `Terrestrial TT +${ttOffsetS.toFixed(3)}s (${leapSec} leap-s, TT-TAI 32.184s)`,
         `Barycentric TDB+${tdbOffsetS.toFixed(3)}s (relativistic Fairhead-Bretagnon)`,
-        `Julian Date    ${jd.toFixed(6)}`,
+        `Julian Date    ${jdTdb.toFixed(6)} (TDB)`,
         `Sun-SSB dist   ${(d.sunBaryAu * AU_KM).toLocaleString('en-US', { maximumFractionDigits: 0 })} km (${((d.sunBaryAu * AU_KM) / ctx.sunRadiusKm).toFixed(2)} R_sun)`,
         `Sun speed      ${d.sunSpeedKms.toFixed(3)} km/s`,
         `|ΔE/E|         ${d.energyDrift.toExponential(2)}`,

@@ -1,4 +1,5 @@
-import { AU_KM, jdToDate } from '@/data/constants';
+import { AU_KM } from '@/data/constants';
+import { jdToDate } from '@/physics/time';
 import referenceData from '@/data/horizons-reference.json';
 import denseData from '@/data/dense-reference.json';
 import { cloneState } from '@/physics/system';

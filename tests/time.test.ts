@@ -9,6 +9,7 @@ import {
   utcToTt,
   ttToUtc,
   ttToTdb,
+  ttToTdbOffsetS,
   tdbToTt,
   utcToTdb,
   tdbToUtc,
@@ -16,6 +17,8 @@ import {
   tcbToTdb,
   dateToJdUtc,
   jdUtcToDate,
+  dateToJd,
+  jdToDate,
   TT_MINUS_TAI_S,
   pairToJd,
   jdToPair,
@@ -93,6 +96,18 @@ describe('SOFA / IERS High-Precision Time Standards', () => {
     expect(minMs).toBeLessThan(-1.2);
   });
 
+  it('inverts the complete TDB - TT periodic series within scalar-JD precision', () => {
+    for (let day = 0; day < 365.25; day += 7) {
+      const originalTt = JD_J2000 + day;
+      const tdb = ttToTdb(originalTt);
+      const recoveredTt = tdbToTt(tdb);
+      const offsetS = (tdb - originalTt) * DAY_S;
+      const expectedOffsetS = ttToTdbOffsetS(originalTt);
+      expect(offsetS).toBeCloseTo(expectedOffsetS, 3);
+      expect(Math.abs((recoveredTt - originalTt) * DAY_S)).toBeLessThan(0.1);
+    }
+  });
+
   it('preserves exact round-trip conversion between UTC and TDB', () => {
     const testJdUtc = 2461319.5;
     const jdTdb = utcToTdb(testJdUtc);
@@ -113,5 +128,13 @@ describe('SOFA / IERS High-Precision Time Standards', () => {
     const jd = dateToJdUtc(d);
     const dBack = jdUtcToDate(jd);
     expect(dBack.toISOString()).toBe(d.toISOString());
+  });
+
+  it('converts JavaScript Date (UTC) to JD(TDB) and back without day-level drift', () => {
+    const d = new Date('2026-08-12T17:46:00.000Z');
+    const jdTdb = dateToJd(d);
+    const jdUtc = dateToJdUtc(d);
+    expect(Math.abs((jdTdb - jdUtc) * DAY_S - 69.184)).toBeLessThan(0.002);
+    expect(jdToDate(jdTdb).getTime()).toBe(d.getTime());
   });
 });

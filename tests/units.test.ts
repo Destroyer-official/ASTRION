@@ -4,12 +4,10 @@ import {
   GM_SUN_KM3_S2,
   kmsToAuDay,
   auDayToKms,
-  jdToDate,
-  dateToJd,
-  TDB_MINUS_UTC_S,
   JD_UNIX_EPOCH,
   DAY_S,
 } from '@/data/constants';
+import { dateToJd, jdToDate } from '@/physics/time';
 
 describe('units', () => {
   it('Sun GM matches the Gaussian constant k^2 to ~1e-8 relative', () => {
@@ -22,11 +20,14 @@ describe('units', () => {
   it('velocity conversion round-trips', () => {
     expect(auDayToKms(kmsToAuDay(12.3456))).toBeCloseTo(12.3456, 12);
   });
-  it('UTC<->TDB round-trips exactly with the 69.184 s offset', () => {
+  it('UTC<->TDB round-trips through the full TAI/TT/TDB model', () => {
     const d = new Date('2026-01-01T00:00:00Z');
-    expect(TDB_MINUS_UTC_S).toBe(69.184);
-    expect(jdToDate(dateToJd(d)).getTime()).toBe(d.getTime());
+    const jd = dateToJd(d);
     const jdUnix = d.getTime() / (DAY_S * 1000) + JD_UNIX_EPOCH;
-    expect(dateToJd(d) - jdUnix).toBeCloseTo(69.184 / DAY_S, 9); // ms precision limit
+    const offsetMs = (jd - jdUnix) * DAY_S * 1000;
+
+    expect(offsetMs).toBeGreaterThan(69_182.5);
+    expect(offsetMs).toBeLessThan(69_185.5);
+    expect(Math.abs(jdToDate(jd).getTime() - d.getTime())).toBeLessThan(1);
   });
 });

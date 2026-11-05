@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import './style.css';
-import { dateToJd, jdToDate, auDayToKms, AU_KM } from '@/data/constants';
+import { auDayToKms, AU_KM } from '@/data/constants';
+import { dateToJd, jdToDate } from '@/physics/time';
 import { loadSystem, ALL_BODIES } from '@/sim/registry';
 import { SimClient } from '@/sim/simClient';
 import { GalaxySim } from '@/sim/galaxySim';

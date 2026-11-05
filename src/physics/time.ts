@@ -126,27 +126,33 @@ export function ttToUtc(jdTt: number): number {
 }
 
 /**
- * Converts JD(TT) to JD(TDB) using the Fairhead & Bretagnon (1990) relativistic series.
- * Evaluates periodic gravitational time dilation and orbital motion of Earth (amplitude ~1.657 ms).
+ * Fairhead & Bretagnon (1990) TDB − TT terms, in seconds.
+ * UNVERIFIED primary-source transcription: see docs/OPEN_QUESTIONS.md OPEN-003.
+ * The amplitude is approximately 1.7 ms, matching the bound asserted by
+ * tests/time.test.ts.
  */
-export function ttToTdb(jdTt: number): number {
-  const T = (jdTt - JD_J2000) / 36525; // Julian centuries from J2000.0
+export function ttToTdbOffsetS(jdTt: number): number {
+  const T = (jdTt - JD_J2000) / 36525;
   const g = (357.52772 + 35999.05034 * T) * (Math.PI / 180);
-  const deltaS =
+  return (
     0.001657 * Math.sin(g + 0.01671 * Math.sin(g)) +
     0.000022 * Math.sin(2 * g) +
-    0.000014 * Math.sin((40.0 + 32964.0 * T) * (Math.PI / 180));
-  return jdTt + deltaS / DAY_S;
+    0.000014 * Math.sin((40.0 + 32964.0 * T) * (Math.PI / 180))
+  );
 }
 
-/** Converts JD(TDB) to JD(TT) */
+/** Converts JD(TT) to JD(TDB) using the Fairhead & Bretagnon (1990) relativistic series. */
+export function ttToTdb(jdTt: number): number {
+  return jdTt + ttToTdbOffsetS(jdTt) / DAY_S;
+}
+
+/** Converts JD(TDB) to JD(TT) by fixed-point inversion of the periodic TT → TDB offset. */
 export function tdbToTt(jdTdb: number): number {
-  const T = (jdTdb - JD_J2000) / 36525;
-  const g = (357.52772 + 35999.05034 * T) * (Math.PI / 180);
-  const deltaS =
-    0.001657 * Math.sin(g + 0.01671 * Math.sin(g)) +
-    0.000022 * Math.sin(2 * g);
-  return jdTdb - deltaS / DAY_S;
+  let jdTt = jdTdb;
+  for (let i = 0; i < 3; i++) {
+    jdTt = jdTdb - ttToTdbOffsetS(jdTt) / DAY_S;
+  }
+  return jdTt;
 }
 
 /** Converts JD(UTC) to JD(TDB) */
@@ -187,4 +193,14 @@ export function dateToJdUtc(date: Date): number {
 /** Converts JD(UTC) to a standard JavaScript Date (UTC) */
 export function jdUtcToDate(jdUtc: number): Date {
   return new Date(Math.round((jdUtc - JD_UNIX_EPOCH) * DAY_S * 1000));
+}
+
+/** Converts JD(TDB) to a JavaScript Date (UTC). */
+export function jdToDate(jdTdb: number): Date {
+  return jdUtcToDate(tdbToUtc(jdTdb));
+}
+
+/** Converts a JavaScript Date (UTC) to JD(TDB). */
+export function dateToJd(date: Date): number {
+  return utcToTdb(dateToJdUtc(date));
 }

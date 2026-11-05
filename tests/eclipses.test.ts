@@ -4,7 +4,7 @@ import { Engine } from '@/sim/engine';
 import { DEFAULT_CONFIG } from '@/sim/config';
 import { cloneState } from '@/physics/system';
 import { compose } from '@/physics/hierarchy';
-import { dateToJd, jdToDate } from '@/data/constants';
+import { dateToJd, jdToDate } from '@/physics/time';
 import { hermite } from '@/sim/hermite';
 import { findMinSeparation } from '@/sim/eclipses';
 import type { SystemState } from '@/physics/types';
