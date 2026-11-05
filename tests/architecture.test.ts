@@ -62,10 +62,19 @@ it('observability/ is infrastructure with no app, browser, clock, or randomness 
   ]);
 });
 
-it('only the console log sink writes directly to console', () => {
+it('only console log sink writes directly to console', () => {
   for (const file of walk('src')) {
     if (file.endsWith(join('observability', 'logger.ts'))) continue;
     const src = readFileSync(file, 'utf8');
     expect(src, `${file} bypasses the central log sink`).not.toMatch(/\bconsole\./);
+  }
+});
+
+it('physical constants have one data-layer definition', () => {
+  const literal = /149_?597_?870\.7|299_?792\.458|132_?712_?440_?041\.279419|63_?241(?:\.077)?/;
+  for (const file of walk('src')) {
+    if (file.endsWith(join('data', 'constants.ts'))) continue;
+    const code = readFileSync(file, 'utf8').replace(/\/\/[^\n]*/g, '');
+    expect(code, `${file} duplicates a physical constant`).not.toMatch(literal);
   }
 });

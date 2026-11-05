@@ -16,6 +16,7 @@
  * - Planck Collaboration (2020), "Planck 2018 results. VI. Cosmological parameters", A&A 641:A6.
  */
 
+import { KPC_PER_MPC } from '@/data/constants';
 import { G_GALACTIC, MYR_TO_TIME } from './galacticPotential';
 import type { Vector3D } from './light/lightTime';
 import { HUBBLE_CONSTANT_KM_S_MPC, OMEGA_MATTER, OMEGA_LAMBDA } from './light/dopplerRedshift';
@@ -23,7 +24,7 @@ import { HUBBLE_CONSTANT_KM_S_MPC, OMEGA_MATTER, OMEGA_LAMBDA } from './light/do
 // Astronomical and galactic constants
 export const G_GRAV_KPC_KMS2_MSUN = G_GALACTIC; // ~4.30091e-6 kpc*(km/s)^2 / M_sun
 export const KM_S_TO_KPC_MYR = MYR_TO_TIME; // 1 (km/s) = (1 / 977.79222) kpc/Myr ~ 0.0010227 kpc/Myr
-export const KPC_PER_MPC = 1000;
+export { KPC_PER_MPC };
 
 export interface NFWProfileParams {
   /** Virial mass M_200 in solar masses (e.g. 1.0e12 for Milky Way) */

@@ -1,4 +1,4 @@
-import { AU_KM, auDayToKms } from '@/data/constants';
+import { AU_KM, C_LIGHT_KMS, auDayToKms } from '@/data/constants';
 import { bodyToEcliptic, poleOf } from '@/physics/orientation';
 import { stateToElements, type Elements } from '@/physics/kepler';
 import type { SystemState, Vec3 } from '@/physics/types';
@@ -69,7 +69,7 @@ export function computeBodyFacts(
       volumetricRadiusKm: sunRadiusKm,
       flattening: 0,
       distSunAu: distBaryAu, // Shows distance to Solar System Barycenter
-      lightMinutes: distBaryAu * (AU_KM / 299792.458 / 60),
+      lightMinutes: distBaryAu * (AU_KM / C_LIGHT_KMS / 60),
       speedKms,
       elements: {
         a: distBaryAu,
@@ -115,7 +115,7 @@ export function computeBodyFacts(
   const vz = state.vel[3 * i + 2]! - state.vel[3 * sun + 2]!;
 
   const distSunAu = Math.hypot(rx, ry, rz);
-  const lightMinutes = distSunAu * (AU_KM / 299792.458 / 60);
+  const lightMinutes = distSunAu * (AU_KM / C_LIGHT_KMS / 60);
   const speedKms = auDayToKms(Math.hypot(vx, vy, vz));
 
   let elements: Elements;

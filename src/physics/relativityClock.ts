@@ -1,8 +1,8 @@
-import { AU_KM, DAY_S, C_LIGHT_KMS } from '@/data/constants';
+import { C_LIGHT_AU_DAY, DAY_S } from '@/data/constants';
 import type { Vec3 } from './types';
 
-/** Speed of light in AU/day: c = (299792.458 * 86400) / 149597870.7 ≈ 173.1446327 */
-export const C_LIGHT_AU_DAY = (C_LIGHT_KMS * DAY_S) / AU_KM;
+/** Public compatibility alias; the value is defined in src/data/constants.ts. */
+export { C_LIGHT_AU_DAY };
 export const C2_AU_DAY = C_LIGHT_AU_DAY * C_LIGHT_AU_DAY;
 
 export interface ClockDriftRate {

@@ -10,26 +10,28 @@
  * - Hipparcos & Gaia DR3 Astrometric Coordinate Standards
  */
 
-import { AU_PER_PARSEC } from '@/data/constants';
+import * as cosmicConstants from '@/data/constants';
 
-// Exact SI definitions (IAU standards)
-export const METERS_PER_KM = 1_000;
-export const KM_PER_AU = 149_597_870.7; // IAU 2012 exact definition
-export const SPEED_OF_LIGHT_KMS = 299_792.458; // km/s (exact)
-export const SECONDS_PER_JULIAN_YEAR = 31_557_600; // 365.25 days * 86400 s
-export const KM_PER_LIGHT_YEAR = SPEED_OF_LIGHT_KMS * SECONDS_PER_JULIAN_YEAR; // ~9.46073e12 km
-export const AU_PER_LIGHT_YEAR = KM_PER_LIGHT_YEAR / KM_PER_AU; // ~63,241.077 AU
-export { AU_PER_PARSEC }; // single definition lives in src/data/constants.ts
-export const KM_PER_PARSEC = AU_PER_PARSEC * KM_PER_AU; // ~3.08567758e13 km
-export const LIGHT_YEARS_PER_PARSEC = AU_PER_PARSEC / AU_PER_LIGHT_YEAR; // ~3.2615638 ly
-export const PARSECS_PER_KPC = 1_000;
-export const KPC_PER_MPC = 1_000;
-export const KM_PER_KPC = KM_PER_PARSEC * PARSECS_PER_KPC; // ~3.08567758e16 km
-export const KM_PER_MPC = KM_PER_KPC * KPC_PER_MPC; // ~3.08567758e19 km
+// Public aliases. Every underlying value is defined once in src/data/constants.ts.
+export const AU_KM = cosmicConstants.AU_KM;
+export const AU_PER_LIGHT_YEAR = cosmicConstants.AU_PER_LIGHT_YEAR;
+export const AU_PER_PARSEC = cosmicConstants.AU_PER_PARSEC;
+export const KM_PER_AU = cosmicConstants.AU_KM;
+export const KM_PER_KPC = cosmicConstants.KM_PER_KPC;
+export const KM_PER_LIGHT_YEAR = cosmicConstants.KM_PER_LIGHT_YEAR;
+export const KM_PER_MPC = cosmicConstants.KM_PER_MPC;
+export const KM_PER_PARSEC = cosmicConstants.KM_PER_PARSEC;
+export const KPC_PER_MPC = cosmicConstants.KPC_PER_MPC;
+export const LIGHT_YEARS_PER_PARSEC = cosmicConstants.LIGHT_YEARS_PER_PARSEC;
+export const METERS_PER_KM = cosmicConstants.METERS_PER_KM;
+export const PARSECS_PER_KPC = cosmicConstants.PARSECS_PER_KPC;
+export const SECONDS_PER_JULIAN_YEAR = cosmicConstants.SECONDS_PER_JULIAN_YEAR;
+export const SPEED_OF_LIGHT_KMS = cosmicConstants.C_LIGHT_KMS;
+export const SPEED_OF_LIGHT_KM_S = cosmicConstants.C_LIGHT_KMS;
 
 // Astronomical conversions
-export const auToKm = (au: number): number => au * KM_PER_AU;
-export const kmToAu = (km: number): number => km / KM_PER_AU;
+export const auToKm = (au: number): number => au * AU_KM;
+export const kmToAu = (km: number): number => km / AU_KM;
 export const lyToAu = (ly: number): number => ly * AU_PER_LIGHT_YEAR;
 export const auToLy = (au: number): number => au / AU_PER_LIGHT_YEAR;
 export const pcToLy = (pc: number): number => pc * LIGHT_YEARS_PER_PARSEC;
@@ -92,9 +94,6 @@ export function cartesianToEquatorial(
 
   return { raDeg, decDeg, distanceLy };
 }
-
-export const AU_KM = KM_PER_AU;
-export const SPEED_OF_LIGHT_KM_S = SPEED_OF_LIGHT_KMS;
 
 export function equatorialToCartesianLy(raDeg: number, decDeg: number, distanceLy: number): Cartesian3D & { distLy: number } {
   const cart = equatorialToCartesian({ raDeg, decDeg, distanceLy });

@@ -13,6 +13,7 @@
  * - Planck Collaboration 2018/2020 Cosmological Standards.
  */
 
+import { AU_KM, DAY_S, JD_J2000, KM_PER_KPC } from '@/data/constants';
 import type { Vector3D } from '@/physics/light/lightTime';
 import {
   solveLightTime,
@@ -123,7 +124,7 @@ export class UniversePhysicsBackbone {
       lensGmInternal?: number;
     },
   ): UniversalPhysicsState {
-    const epochJd = options?.epochJd ?? 2451545.0; // J2000 default
+    const epochJd = options?.epochJd ?? JD_J2000;
 
     // 1. Separation and Metric Distances
     const separation = computeCosmicSeparation(observerCoord, targetCoord);
@@ -131,9 +132,9 @@ export class UniversePhysicsBackbone {
     // 2. Multi-Scale Gravity
     // Position vector relative to local scale center in kpc
     const posFromCenterKpc: Vector3D = {
-      x: (targetCoord.localOffsetAu.x * 149597870.7) / 3.08567758e16,
-      y: (targetCoord.localOffsetAu.y * 149597870.7) / 3.08567758e16,
-      z: (targetCoord.localOffsetAu.z * 149597870.7) / 3.08567758e16,
+      x: (targetCoord.localOffsetAu.x * AU_KM) / KM_PER_KPC,
+      y: (targetCoord.localOffsetAu.y * AU_KM) / KM_PER_KPC,
+      z: (targetCoord.localOffsetAu.z * AU_KM) / KM_PER_KPC,
     };
     const scaleTierMap: Record<CosmicTier, 'planetary' | 'galactic' | 'local_group' | 'supercluster'> = {
       satellite_system: 'planetary',
@@ -204,9 +205,9 @@ export class UniversePhysicsBackbone {
           coord: targetCoord,
           epochJd,
           velocityKms: {
-            x: (targetVelAUPerDay.x * 149597870.7) / 86400,
-            y: (targetVelAUPerDay.y * 149597870.7) / 86400,
-            z: (targetVelAUPerDay.z * 149597870.7) / 86400,
+            x: (targetVelAUPerDay.x * AU_KM) / DAY_S,
+            y: (targetVelAUPerDay.y * AU_KM) / DAY_S,
+            z: (targetVelAUPerDay.z * AU_KM) / DAY_S,
           },
         });
       } catch (err) {

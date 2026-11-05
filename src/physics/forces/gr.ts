@@ -1,8 +1,8 @@
-import { kmsToAuDay } from '@/data/constants';
+import { C_LIGHT_AU_DAY } from '@/data/constants';
 import type { ForceModel } from '../types';
 import { add } from '../vec3';
 
-export const C_AU_DAY = kmsToAuDay(299_792.458);
+export const C_AU_DAY = C_LIGHT_AU_DAY;
 
 /**
  * a = GM/(c^2 r^3) [ (4GM/r - v^2) r + 4 (r.v) v ],  r, v relative to the Sun.

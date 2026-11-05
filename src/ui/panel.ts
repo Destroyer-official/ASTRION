@@ -1,10 +1,11 @@
-import { AU_KM, DAY_S, GM_SUN_KM3_S2, gmToInternal, auDayToKms, kmsToAuDay } from '@/data/constants';
+import { AU_KM, AU_PER_LIGHT_YEAR, DAY_S, GM_SUN_KM3_S2, SGRA_MASS_SOLAR, gmToInternal, auDayToKms, kmsToAuDay } from '@/data/constants';
 import type { BodyRow } from '@/sim/readout';
 import type { AppStore, ScaleMode } from '@/sim/store';
 import type { ComputedFacts } from '@/sim/facts';
 import type { GalaxyReadout } from '@/sim/galaxySim';
 import type { GalaxyModel } from '@/data/galaxy';
 import type { ValidationRow } from '@/sim/ephemeris';
+import { ALL_BODIES } from '@/sim/registry';
 import { getCosmicNode, searchCosmicNodes, getCosmicBreadcrumbs, cosmicCatalog } from '@/universe/cosmicRegistry';
 import type { CosmicNode, CosmicTier } from '@/universe/cosmicHierarchy';
 import { formatCosmicDistance } from '@/universe/cosmicCoordinates';
@@ -18,6 +19,12 @@ import { PLANET_SOI_AU } from '@/physics/flyby';
 import { universeBackbone } from '@/universe/universePhysicsBackbone';
 import type { ModuleHealth } from '@/observability';
 import { createUniversalCoordinate, METERS_PER_AU } from '@/universe/cosmicScaleEngine';
+
+const BODY_BY_ID = new Map(ALL_BODIES.map((body) => [body.id, body]));
+const bodyParams = (id: string) => {
+  const body = BODY_BY_ID.get(id)!;
+  return { gm: body.gmKm3S2, radiusKm: body.radiusKm, name: body.name };
+};
 
 export interface Option {
   id: string;
@@ -441,10 +448,10 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     if (distAu < 100) {
       return `${distAu.toFixed(2)} AU`;
     }
-    if (distAu < 63241) {
+    if (distAu < AU_PER_LIGHT_YEAR) {
       return `${Math.round(distAu).toLocaleString()} AU`;
     }
-    const ly = distAu / 63241.077;
+    const ly = distAu / AU_PER_LIGHT_YEAR;
     return `${ly.toFixed(2)} ly (${Math.round(distAu).toLocaleString()} AU)`;
   };
 
@@ -822,13 +829,9 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
   const bplaneComputeBtn = q<HTMLButtonElement>('#bplaneComputeBtn') as HTMLButtonElement | null;
   const bplaneResult = q<HTMLDivElement>('#bplaneResult') as HTMLDivElement | null;
 
-  const PLANET_PARAMS: Record<string, { gm: number; radiusKm: number; name: string }> = {
-    jupiter: { gm: 126686534.0, radiusKm: 71492, name: 'Jupiter' },
-    earth: { gm: 398600.4418, radiusKm: 6378.137, name: 'Earth' },
-    venus: { gm: 324858.592, radiusKm: 6051.8, name: 'Venus' },
-    mars: { gm: 42828.37, radiusKm: 3389.5, name: 'Mars' },
-    saturn: { gm: 37931187.0, radiusKm: 60268, name: 'Saturn' },
-  };
+  const PLANET_PARAMS: Record<string, { gm: number; radiusKm: number; name: string }> = Object.fromEntries(
+    ['jupiter', 'earth', 'venus', 'mars', 'saturn'].map((id) => [id, bodyParams(id)]),
+  );
 
   if (bplaneComputeBtn && bplanePlanet && bplaneAlt && bplaneVinf && bplaneResult) {
     bplaneComputeBtn.onclick = () => {
@@ -892,10 +895,10 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     gmInternal?: number;
     luminositySolar?: number;
   }> = {
-    mars: { name: 'Mars (Planetary Scale)', tier: 'planetary_system', anchorId: 'sun', distanceLy: 1.524 / 63241.077, distanceAu: 1.524, velKms: 24.1, gmInternal: gmToInternal(42828.37), luminositySolar: 1e-9 },
-    neptune: { name: 'Neptune (Outer System)', tier: 'planetary_system', anchorId: 'sun', distanceLy: 30.07 / 63241.077, distanceAu: 30.07, velKms: 5.4, gmInternal: gmToInternal(6835100), luminositySolar: 1e-9 },
+    mars: { name: 'Mars (Planetary Scale)', tier: 'planetary_system', anchorId: 'sun', distanceLy: 1.524 / AU_PER_LIGHT_YEAR, distanceAu: 1.524, velKms: 24.1, gmInternal: gmToInternal(bodyParams('mars').gm), luminositySolar: 1e-9 },
+    neptune: { name: 'Neptune (Outer System)', tier: 'planetary_system', anchorId: 'sun', distanceLy: 30.07 / AU_PER_LIGHT_YEAR, distanceAu: 30.07, velKms: 5.4, gmInternal: gmToInternal(bodyParams('neptune').gm), luminositySolar: 1e-9 },
     proxima_centauri: { name: 'Proxima Centauri (Alpha Cen C)', tier: 'star_system', anchorId: 'milky_way', distanceLy: 4.2465, velKms: 32.2, luminositySolar: 0.0017 },
-    sgra: { name: 'Sagittarius A* (SMBH Lensing)', tier: 'galaxy_structure', anchorId: 'milky_way', distanceLy: 26700, velKms: 0, gmInternal: gmToInternal(132712440041.279419 * 4.154e6), luminositySolar: 100 },
+    sgra: { name: 'Sagittarius A* (SMBH Lensing)', tier: 'galaxy_structure', anchorId: 'milky_way', distanceLy: 26700, velKms: 0, gmInternal: gmToInternal(GM_SUN_KM3_S2 * SGRA_MASS_SOLAR), luminositySolar: 100 },
     andromeda_galaxy: { name: 'Andromeda Galaxy (M31)', tier: 'local_group', anchorId: 'laniakea', distanceLy: 2537000, velKms: -110, luminositySolar: 2.6e10 },
     virgo_cluster: { name: 'Virgo Galaxy Cluster', tier: 'supercluster', anchorId: 'laniakea', distanceLy: 54000000, velKms: 1150, luminositySolar: 1e12 },
     laniakea: { name: 'Laniakea Supercluster', tier: 'supercluster', anchorId: 'laniakea', distanceLy: 250000000, velKms: 600, luminositySolar: 1e14 },
@@ -954,7 +957,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         `Target Object:       ${spec.name}`,
         `Coordinate Regime:   Tier [${tgtCoord.tier}] | Local Anchor: [${tgtCoord.anchorId}]`,
         `Local Displacement:  ${tgtCoord.localOffsetMeters.x.toLocaleString()} m (Sub-mm Precision)`,
-        `Global Distance:     ${spec.distanceLy < 1 ? (spec.distanceLy * 63241.077).toFixed(3) + ' AU' : spec.distanceLy.toLocaleString() + ' ly'}`,
+        `Global Distance:     ${spec.distanceLy < 1 ? (spec.distanceLy * AU_PER_LIGHT_YEAR).toFixed(3) + ' AU' : spec.distanceLy.toLocaleString() + ' ly'}`,
         `------------------------------------------------------------`,
         `🔬 Multi-Scale Gravity Regime:`,
         `  Active Regime:     ${gRegimeLabels[g.regime] ?? g.regime}`,

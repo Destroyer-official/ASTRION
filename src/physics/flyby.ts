@@ -22,6 +22,7 @@
  * Pure physics — no DOM, no Three.js, no Date.now().
  */
 
+import { AU_KM, DAY_S } from '@/data/constants';
 import type { Vec3 } from './types';
 
 /* ── vec3 helpers ─────────────────────────────────────────────────── */
@@ -214,7 +215,7 @@ export interface VInfinityResult {
 }
 
 /** AU/day to km/s conversion factor */
-const AU_DAY_TO_KM_S = 149597870.7 / 86400;
+const AU_DAY_TO_KM_S = AU_KM / DAY_S;
 
 /**
  * Analyzes the v-infinity characteristics at a planet for mission design.
