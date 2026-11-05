@@ -26,6 +26,16 @@ export const C_LIGHT_KMS = 299_792.458;
 /** Speed of light in AU/day */
 export const C_LIGHT_AU_DAY = (C_LIGHT_KMS * DAY_S) / AU_KM;
 
+/**
+ * One parsec expressed in AU: the distance at which 1 AU subtends 1 arcsecond,
+ * so pc = 1 AU / (1 arcsec in radians). One turn = 360 deg = 1_296_000 arcsec,
+ * hence arcsec per radian = 1_296_000 / (2 pi) = 648_000 / pi, giving
+ * 648_000 / pi = 206_264.806... AU. This is a derivable identity, not a
+ * measurement. IAU 2015 Resolution B2 fixes the same value; that page was not
+ * fetched during this pass, see docs/RESEARCH.md section 6.
+ */
+export const AU_PER_PARSEC = 648_000 / Math.PI;
+
 /** Solar J2 quadrupole coefficient (Park et al. 2021 DE440) */
 export const SUN_J2 = 2.2e-7;
 

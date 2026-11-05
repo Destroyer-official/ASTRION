@@ -10,6 +10,8 @@
  * - Hipparcos & Gaia DR3 Astrometric Coordinate Standards
  */
 
+import { AU_PER_PARSEC } from '@/data/constants';
+
 // Exact SI definitions (IAU standards)
 export const METERS_PER_KM = 1_000;
 export const KM_PER_AU = 149_597_870.7; // IAU 2012 exact definition
@@ -17,7 +19,7 @@ export const SPEED_OF_LIGHT_KMS = 299_792.458; // km/s (exact)
 export const SECONDS_PER_JULIAN_YEAR = 31_557_600; // 365.25 days * 86400 s
 export const KM_PER_LIGHT_YEAR = SPEED_OF_LIGHT_KMS * SECONDS_PER_JULIAN_YEAR; // ~9.46073e12 km
 export const AU_PER_LIGHT_YEAR = KM_PER_LIGHT_YEAR / KM_PER_AU; // ~63,241.077 AU
-export const AU_PER_PARSEC = 648_000 / Math.PI; // ~206,264.806 AU (exact definition 1 rad = 648000/pi arcsec)
+export { AU_PER_PARSEC }; // single definition lives in src/data/constants.ts
 export const KM_PER_PARSEC = AU_PER_PARSEC * KM_PER_AU; // ~3.08567758e13 km
 export const LIGHT_YEARS_PER_PARSEC = AU_PER_PARSEC / AU_PER_LIGHT_YEAR; // ~3.2615638 ly
 export const PARSECS_PER_KPC = 1_000;

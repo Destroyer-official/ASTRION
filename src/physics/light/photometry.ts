@@ -15,7 +15,7 @@
  */
 
 import { AU_KM } from '@/data/constants';
-import { AU_PER_PARSEC } from '@/universe/cosmicCoordinates';
+import { AU_PER_PARSEC } from '@/data/constants';
 
 export const SOLAR_LUMINOSITY_WATTS = 3.828e26; // IAU 2015 exact standard
 export const SOLAR_ABSOLUTE_MAGNITUDE_V = 4.83; // Solar visual absolute magnitude
