@@ -49,3 +49,15 @@ it('physics/ never imports frames', () => {
 it('sim/track and sim/history stay free of three', () => {
   forbid('src/sim', [/from ['"]three['"]/]);
 });
+
+it('observability/ is infrastructure with no app, browser, clock, or randomness dependencies', () => {
+  forbid('src/observability', [
+    /from ['"]three['"]/,
+    /from ['"]@\//,
+    /\bdocument\./,
+    /\bwindow\./,
+    /\bDate\.now\(/,
+    /new Date\(/,
+    /Math\.random\(/,
+  ]);
+});
