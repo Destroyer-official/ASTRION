@@ -608,6 +608,135 @@ GitHub Actions run is claimed here.
 
 ---
 
+## 2026-11-05 — Step 3c: structured logging, health state, and runtime invariants
+
+Commits:
+
+- `5bd7839` — core `src/observability` logger, health registry, invariant evaluator,
+  boundary rules, and `docs/OPEN_QUESTIONS.md`.
+- `47d7fa0` — barycentric drift and invariant results propagated through frames;
+  worker fault logging, runtime health, and the diagnostics-panel display.
+- `d03b1a9` — explicit timeout for the 20-year Laplace run under coverage
+  instrumentation.
+
+### Test-first development of the core layer
+
+The first core test run found two genuine defects, recorded before correction:
+
+```
+Test Files  1 failed | 1 passed (2)
+     Tests  2 failed | 10 passed (12)
+```
+
+The health registry logged a `status unchanged / detail changed` event as though
+it were a new transition, and infinity was reported as an angular-momentum
+threshold breach rather than a non-finite value. The implementation was changed
+so status events fire only on status changes and each metric reports either
+`non_finite` or its drift-threshold name, never both.
+
+The next targeted run passed:
+
+```
+✓ tests/observability.test.ts (4 tests)
+✓ tests/architecture.test.ts (8 tests)
+
+Test Files  2 passed (2)
+     Tests  12 passed (12)
+```
+
+Strict TypeScript also rejected constructor parameter properties under
+`erasableSyntaxOnly`, and the first invariant rewrite had an incorrect tuple
+type. Both were fixed rather than relaxed.
+
+### Runtime integration measurements
+
+`npm run typecheck` and `npm run lint` exited `0`. The targeted integration run
+`npx vitest run tests/architecture.test.ts tests/load.test.ts
+tests/simcore.test.ts tests/simclient.test.ts tests/observability.test.ts` passed
+**5 files / 35 tests** in 5.38 s.
+
+Command: `npm run verify:prod`
+
+```
+ Test Files  83 passed (83)
+      Tests  539 passed (539)
+   Duration  43.66s (tests 96%, import 3%, transform 1%)
+
+✓ 157 modules transformed.
+dist/assets/physics.worker-DoD2sSgf.js     62.61 kB
+dist/assets/index-CxD0W3Zm.js           1,259.67 kB │ gzip: 392.07 kB
+✓ built in 409ms
+```
+
+Exit code `0`. Worker code grew `60.42 kB → 62.61 kB`; the main bundle grew
+`1,255.63 kB → 1,259.67 kB` (gzip `390.46 → 392.07 kB`). The large-chunk warning
+remains open.
+
+### Coverage rerun after the new runtime path
+
+Command: `npm run test:coverage`
+
+The first instrumented run failed despite `--testTimeout=300000`:
+
+```
+ Test Files  1 failed | 82 passed (83)
+      Tests  1 failed | 538 passed (539)
+   Duration  170.53s
+Error: Test timed out in 120000ms.
+```
+
+Reason: that test supplies its own explicit 120-second timeout, and a per-test
+timeout overrides the CLI default. The committed change raises only this 20-year
+resonance integration to 300,000 ms. It did not weaken any assertion or reduce
+simulated time. Rerun:
+
+```
+ Test Files  83 passed (83)
+      Tests  539 passed (539)
+   Duration  153.58s (tests 99%, import 1%)
+Laplace resonance test: 122,391 ms
+```
+
+Coverage after step 3c:
+
+| Scope | Statements | Branches | Functions | Lines |
+| :--- | ---: | ---: | ---: | ---: |
+| All source | 62.99 % | 44.74 % | 62.87 % | 63.41 % |
+| `src/observability` | 87.50 % | 71.11 % | 94.44 % | 91.66 % |
+| `src/physics` | 92.67 % | 69.69 % | 94.37 % | 93.25 % |
+| `src/frames` | 100 % | 100 % | 100 % | 100 % |
+| `src/sim` | 82.13 % | 68.37 % | 85.00 % | 84.92 % |
+| `src/ui` | 2.28 % | 2.24 % | 1.31 % | 2.60 % |
+
+The physics/frames target remains partially unmet, and `main.ts`, browser
+startup paths, and worker entry still have no browser-level execution coverage.
+No threshold was added.
+
+### What is now enforced
+
+- Only `src/observability/logger.ts` may call `console.*`; a boundary test fails
+  any source file that bypasses the sink.
+- `src/observability` may not import application layers, Three.js, DOM globals,
+  wall-clock time, or unseeded randomness.
+- Every `Frame` carries `comDrift`, `invariantOk`, and `invariantViolations`.
+- Worker errors are logged with error type, message, stack, consecutive-failure
+  count, and parked state, then rethrown into the existing self-healing path.
+- The browser records uncaught errors and unhandled rejections in the structured
+  log; the diagnostics readout shows `|ΔCM|`, integrity, and module health.
+- Default operational thresholds are explicitly marked UNVERIFIED and recorded
+  as `OPEN-001`, not presented as NASA/IAU/JPL-derived values.
+
+### Still open in observability
+
+Invariant detection is frame-boundary detection, not per-integrator guarding;
+AUDIT-34 remains open. The worker and simulation-state modules are health-checked
+during actual execution, while render/UI are startup-only (`ok` after successful
+construction). No independent `selfTest()` routines, module step timings, or
+renderer disposal health probe exist yet. Browser-level runtime logging has not
+been exercised by Playwright because the E2E gate itself is still open.
+
+---
+
 ## Entries
 
 | Date | Type | Summary |
@@ -618,3 +747,4 @@ GitHub Actions run is claimed here.
 | 2026-11-04 | STEP-2 RESEARCH | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C. |
 | 2026-11-04 | STEP-3a BOUNDARY | Guard widened to cover `universe` (failed first, as proof), physics→universe cycle removed; 82 files / **531** tests pass, typecheck 0, build 0. |
 | 2026-11-05 | STEP-3b QUALITY GATES | ESLint and V8 coverage added; first lint found 37 errors, fixed; clean install and production checks pass; 82 files / 531 tests; overall 63.29 % lines, physics 93.25 % lines / 69.69 % branches, frames 100 %; 0 runtime audit findings, 10 moderate dev-only minimatch advisories remain. |
+| 2026-11-05 | STEP-3c OBSERVABILITY | Central logger, health registry, and finite/energy/angular-momentum/barycenter invariant checks added and wired through worker frames; first core run found 2 real defects, fixed; 83 files / 539 tests pass in 43.66 s, coverage 153.58 s after a 120→300 s explicit slow-test fix; overall 63.41 % lines, observability 91.66 % lines / 71.11 % branches. |

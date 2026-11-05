@@ -83,6 +83,17 @@ How to read this file:
 
 ## 3. Observability (mission §3)
 
+> **Status update, 2026-11-05:** AUDIT-32 is **fixed** by `5bd7839`/`47d7fa0`:
+> levels, tags, child fields, one console sink, and a boundary test that rejects
+> `console.*` anywhere else in `src/`. AUDIT-33 is fixed for its core requirement:
+> energy/angular drift, NaN/Infinity, and a new `comDrift` invariant are evaluated
+> and propagated on every frame, with warning logs and health status. Threshold
+> values remain UNVERIFIED operational settings (`OPEN-001`), not authoritative
+> accuracy claims. AUDIT-36 is **partially fixed**: physics-worker/simulation state
+> are live-checked and render/UI report startup state, but no independent
+> `selfTest()` or step timing exists. AUDIT-34 remains open because detection is
+> at the frame boundary, not inside integrators. See VALIDATION_LOG STEP-3c.
+
 | ID | Location | Finding | Severity |
 | :--- | :--- | :--- | :--- |
 | AUDIT-32 | `src/` (95 files, 20,407 lines) | **No central structured logger exists** (no `*log*` module, no `Logger`/levels/tags symbol). Raw `console.*` usage in `src/` is 1 occurrence total — [src/sim/simClient.ts:146](file:///D:/code/Main_projects/universe/solar-system/src/sim/simClient.ts#L146) `console.error('physics worker error', e);`. So §3's "no stray console.log" is met almost by accident, while the *positive* requirement (levels, per-module tags, one sink) is unmet: the single most important fault signal in the app is written straight to devtools and lost. | HIGH |
