@@ -4,6 +4,7 @@ import { loadSystem, ALL_BODIES } from '@/sim/registry';
 import { barycentricFrame } from '@/frames/basic';
 import { galacticFrame } from '@/frames/galactic';
 import type { ViewState } from '@/render/viewer';
+import { History } from '@/sim/history';
 
 describe('NASA Eyes OrbitPathVisual', () => {
   const model = loadSystem(ALL_BODIES);
@@ -15,7 +16,7 @@ describe('NASA Eyes OrbitPathVisual', () => {
     focus: sunIdx,
     trails: true,
     trailDays: 365,
-    history: { count: 0, cap: 100 } as any,
+    history: new History(model.ids.length, 100, 1),
   };
 
   it('initializes closed orbit loops for all planets and moons', () => {

@@ -28,7 +28,7 @@ function triple(key: string): [number, number, number] {
 function block(key: string): number[] {
   for (const tag of [`BODY${key}`, `body${key.toLowerCase()}`]) {
     const re = new RegExp(`${tag}\\s*=\\s*\\(\\s*([^()]+)\\)`, 'g');
-    let m: RegExpExecArray | null = null;
+    let m: RegExpExecArray | null;
     let last: RegExpExecArray | null = null;
     while ((m = re.exec(pck)) !== null) last = m;
     if (!last) continue;
@@ -111,13 +111,11 @@ describe('rotation models vs NAIF PCK (IAU WGCCRE)', () => {
 
   it.each(rows)('%s nutation series matches PCK', (id, naif) => {
     const rot = PHYSICAL_MAP[id]!.rotation!;
-    let hasTerms = false;
-    let systemId = 0;
     try {
       const raA = block(`${naif}_NUT_PREC_RA`);
       const decA = block(`${naif}_NUT_PREC_DEC`);
       const wA = block(`${naif}_NUT_PREC_PM`);
-      hasTerms = [...raA, ...decA, ...wA].some((x) => x !== 0);
+      const hasTerms = [...raA, ...decA, ...wA].some((x) => x !== 0);
       // Parent planet's phase system: Earth/Moon=3, Mars system=4, ... (mirrors sync script).
       const parent: Record<string, number> = {
         moon: 3, mars: 4, phobos: 4, deimos: 4,
@@ -126,7 +124,7 @@ describe('rotation models vs NAIF PCK (IAU WGCCRE)', () => {
         uranus: 7, ariel: 7, umbriel: 7, titania: 7, oberon: 7, miranda: 7,
         neptune: 8, triton: 8,
       };
-      systemId = parent[id] ?? 0;
+      const systemId = parent[id] ?? 0;
       if (hasTerms && systemId) {
         const n = rot.nutation;
         expect(n, `${id} nutation block present`).toBeDefined();

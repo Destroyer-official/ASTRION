@@ -45,7 +45,7 @@ export function stateToElements(mu: number, r: Vec3, v: Vec3): Elements {
   const nu = Math.atan2(dot(r, Q), dot(r, P));
 
   let meanAnom = 0;
-  let period = Infinity;
+  let period: number;
 
   if (e < 1 - 1e-7) {
     // Elliptic

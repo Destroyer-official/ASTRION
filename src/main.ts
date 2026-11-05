@@ -210,9 +210,7 @@ const viewer = createViewer(document.getElementById('app')!, model, HISTORY_CAP,
     isApplyingPreset = false;
   },
 });
-(window as any).__viewer = viewer;
-(window as any).__galaxySim = galaxySim;
-(window as any).__store = store;
+Object.assign(window, { __viewer: viewer, __galaxySim: galaxySim, __store: store });
 
 // Precompute full 500 Myr galactic orbit path and supply to viewer (0.1 Myr step, symmetrical past & future for live wake)
 viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
@@ -589,10 +587,7 @@ function tick(now: number) {
 }
 
 if (typeof window !== 'undefined') {
-  (window as any).__viewer = viewer;
-  (window as any).__client = client;
-  (window as any).__store = store;
-  (window as any).__model = model;
+  Object.assign(window, { __viewer: viewer, __client: client, __store: store, __model: model });
 }
 
 requestAnimationFrame(tick);

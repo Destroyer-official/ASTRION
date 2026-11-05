@@ -2,14 +2,14 @@ name: Verify
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, nasa-grade-work]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
 
 jobs:
   verify:
-    name: Typecheck · Tests · Production Build
+    name: Typecheck · Lint · Coverage · Production Build
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -28,8 +28,14 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npm run typecheck
 
-      - name: Test suite (Vitest, 59 suites)
-        run: npm test
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Test suite and coverage (Vitest)
+        run: npm run test:coverage
+
+      - name: Runtime dependency audit
+        run: npm audit --omit=dev
 
       - name: Production build (Vite)
         run: npm run build

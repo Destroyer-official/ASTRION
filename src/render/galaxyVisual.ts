@@ -241,7 +241,7 @@ export class GalaxyVisual {
 
     for (let i = 0; i < numStars; i++) {
       const idx = i * 3;
-      let x = 0, y = 0, z = 0, r = 0, theta = 0;
+      let x = 0, y = 0, z = 0, r = 0;
       let isArm = false;
 
       // Resample if candidate falls within the Local Bubble (0.75 kpc = 45 AU in scene units)
@@ -253,7 +253,7 @@ export class GalaxyVisual {
         // Choose arm (or inter-arm)
         const armIdx = Math.floor(Math.random() * arms);
         isArm = Math.random() < 0.75;
-        theta = spiralArmAngle(r, armIdx);
+        let theta = spiralArmAngle(r, armIdx);
 
         if (isArm) {
           // Arm dispersion

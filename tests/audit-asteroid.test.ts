@@ -24,7 +24,6 @@ beforeAll(async () => {
     jplReachable = false;
   }
   if (!jplReachable) {
-    // eslint-disable-next-line no-console -- intentional, official skip notice
     console.info(
       'Skipping live JPL asteroid audit: ssd.jpl.nasa.gov unreachable from this environment (offline/sandbox).',
     );

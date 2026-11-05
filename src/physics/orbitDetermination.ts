@@ -414,7 +414,7 @@ export function batchLeastSquares(
   let converged = false;
   let finalResiduals: number[] = [];
   let rmsResidual = Infinity;
-  let iter = 0;
+  let iter: number;
 
   for (iter = 0; iter < config.maxIterations; iter++) {
     // Initialize normal equations: Λ δx = N

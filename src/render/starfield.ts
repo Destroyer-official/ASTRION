@@ -86,14 +86,11 @@ export function createStarfield(radius = 45000): THREE.Group {
     const b = sign * -Math.log(1 - Math.random() * 0.98) * 0.095;
 
     // Galactic longitude: concentrated towards Galactic Center (Sagittarius bulge)
-    let l = 0;
-    if (Math.random() < 0.58) {
+    let l = Math.random() < 0.58
       // Inner galaxy bulge & arms (-50° to +50°)
-      l = (Math.random() - 0.5) * (Math.PI * 0.55);
-    } else {
+      ? (Math.random() - 0.5) * (Math.PI * 0.55)
       // Full circle around the galactic disc
-      l = Math.random() * 2 * Math.PI;
-    }
+      : Math.random() * 2 * Math.PI;
     if (l < 0) l += 2 * Math.PI;
 
     // Great Rift dust lane absorption: Cygnus to Sagittarius (l: 345° to 35°, b: -3° to +3°)

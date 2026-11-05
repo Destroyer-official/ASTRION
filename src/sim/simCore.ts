@@ -36,7 +36,7 @@ export class SimCore {
   handle(msg: ToWorker): Frame | null {
     if (msg.type === 'init') {
       let state: SystemState;
-      let ids: string[] = [];
+      let ids: string[];
 
       this.config = msg.config ?? {
         ...DEFAULT_CONFIG,

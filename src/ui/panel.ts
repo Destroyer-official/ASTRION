@@ -6,7 +6,7 @@ import type { GalaxyReadout } from '@/sim/galaxySim';
 import type { GalaxyModel } from '@/data/galaxy';
 import type { ValidationRow } from '@/sim/ephemeris';
 import { getCosmicNode, searchCosmicNodes, getCosmicBreadcrumbs, cosmicCatalog } from '@/universe/cosmicRegistry';
-import type { CosmicNode } from '@/universe/cosmicHierarchy';
+import type { CosmicNode, CosmicTier } from '@/universe/cosmicHierarchy';
 import { formatCosmicDistance } from '@/universe/cosmicCoordinates';
 import { solveLambert } from '@/physics/lambert';
 import { generatePorkchopGrid } from '@/physics/porkchop';
@@ -34,7 +34,7 @@ export interface PanelContext {
   onReset(): void;
   onSeekDate(d: Date): void;
   onNow(): void;
-  onReseedHorizons?(): Promise<any> | void;
+  onReseedHorizons?(): Promise<{ live: boolean; source: string }> | void;
   onOpenEyes?(): void;
   onGalaxyReset?(): void;
   onGalaxyCamera?(cam: string): void;
@@ -699,9 +699,9 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           `Transfer Orbit:  a = ${sol.a.toFixed(3)} AU | e = ${sol.e.toFixed(4)}`,
           `Propellant Mass:  ${propFraction.toFixed(1)}% (Isp = 380s, Tsiolkovsky)`,
         ].join('\n');
-      } catch (err: any) {
+      } catch (err: unknown) {
         lambertResult.style.display = 'block';
-        lambertResult.textContent = `Lambert solver convergence: ${err?.message ?? err}`;
+        lambertResult.textContent = `Lambert solver convergence: ${err instanceof Error ? err.message : String(err)}`;
       }
     };
   }
@@ -870,7 +870,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
 
   const TARGET_SPECS: Record<string, {
     name: string;
-    tier: any;
+    tier: CosmicTier;
     anchorId: string;
     distanceLy: number;
     distanceAu?: number;

@@ -50,7 +50,7 @@ describe('galaxy orbit alignment and guide lines', () => {
       gv.update(state);
       gv.group.updateMatrixWorld(true);
 
-      const orbitGeom = (gv as any).orbitGeom as THREE.BufferGeometry;
+      const { orbitGeom } = gv as unknown as { orbitGeom: THREE.BufferGeometry };
       const posAttr = orbitGeom.attributes['position']!;
       let minOrbitDist = Infinity;
       const tmp = new THREE.Vector3();
@@ -68,7 +68,7 @@ describe('galaxy orbit alignment and guide lines', () => {
 
   it('ensures galactic coordinate guide rings do not have conflicting gold rings', () => {
     const gv = new GalaxyVisual();
-    const gridGroup = (gv as any).gridGroup as THREE.Group;
+    const { gridGroup } = gv as unknown as { gridGroup: THREE.Group };
     let foundGold = false;
 
     gridGroup.traverse((child) => {
