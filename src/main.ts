@@ -375,18 +375,22 @@ const seekToJd = async (jd: number) => {
   viewer.cancelFlight();
   const days = Math.max(-MAX_JUMP_DAYS, Math.min(MAX_JUMP_DAYS, jd - model.epochJd));
   if (store.get().dynamicsMode === 'ephemeris') {
-    // Ephemeris mode: jump display directly and evaluate exact analytical position & velocity
+    // Ephemeris mode: jump display directly and evaluate the interpolated
+    // position & velocity from the local anchor tables.
     client.display.t = days;
     ephemeris.interpolate(days, client.display.pos, client.display.vel);
   } else {
-    // Instant exact travel: seed the live N-body state from local high-precision
-    // DE440 cubic Hermite ephemeris if within the 60-year window (0 ms, 100% offline-safe),
-    // or live JPL Horizons API if outside the local table.
+    // Instant exact travel: seed the live N-body state from the local Horizons
+    // anchor tables (0 ms, 100% offline-safe) or from the live JPL Horizons API
+    // when the tables cannot answer. Note the measured caveat: only -1..+2 yr is
+    // densely anchored, so interpolation there is sub-km, while the ±10/±50 yr
+    // corner anchors in between are years apart and the blend inherits their gap
+    // (VALIDATION_LOG step 7, AUDIT-51).
     const win = ephemeris.window();
     const isWithinWindow = days >= win.min && days <= win.max;
 
     const ok = await client.travelTo(days, async (d) => {
-      // 1. Within local DE440 window: instant analytical interpolation (no network overhead)
+      // 1. Within local anchor window: instant analytical interpolation (no network overhead)
       if (isWithinWindow) {
         ephemeris.interpolate(d, travelPos, travelVel);
         return { pos: travelPos, vel: travelVel };

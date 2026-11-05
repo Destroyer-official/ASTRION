@@ -94,6 +94,7 @@ How to read this file:
 | AUDIT-29 | `README.md:35-63` vs `ARCHITECTURE.md:40-41`                                                                                                                                                                                                                                                          | Depth range documented as "1e-7 to 1e7 AU" in README and `near=1e-6 / far=1e6` in ARCHITECTURE for the same camera. Must be resolved against `src/render/viewer.ts` before either number is trusted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | MEDIUM       |
 | AUDIT-30 | filesystem check                                                                                                                                                                                                                                                                                      | Missing every traceability document the mission requires: `docs/AUDIT.md` (this file, now present), `docs/RESEARCH.md`, `docs/VALIDATION_LOG.md` (now present), `docs/UI_AUDIT.md`, `docs/OPEN_QUESTIONS.md`, `docs/TROUBLESHOOTING.md`, `docs/READINESS_REPORT.md`, plus root `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, `SECURITY.md`. `docs/` held only `CATALOG_API.md` and `NASA_COMPLIANCE.md` before this step. With no VALIDATION_LOG, every number in AUDIT-19…23 had zero evidence chain.                                                                                                                                                                                                                                                                                                                                 | HIGH         |
 | AUDIT-31 | `LICENSE:1`, `README.md:298`, `CITATION.cff:19`                                                                                                                                                                                                                                                       | **PASS.** Licensing is consistent: MIT in all three places, and `LICENSE:15-21` carries the standard "AS IS … WITHOUT WARRANTY OF ANY KIND" clause. Note the tension worth resolving in the docs pass: an MIT no-warranty project simultaneously claiming NASA certification (AUDIT-16) is internally contradictory.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | PASS         |
+| AUDIT-51 | `src/sim/ephemeris.ts:152-232`, `src/main.ts:376-395`, `ARCHITECTURE.md:148`, `src/data/horizons-reference.json`, `src/data/dense-reference.json`                                                                                                        | The ephemeris/display path is accurate only inside a window nobody documented. `dense-reference.json` samples the inner planets and the Moon every 1.5 d but the Sun and outer planets only every 9 d, and covers **jd 2460954.5–2462049.5 (−1 yr … +2 yr)**; `horizons-reference.json` then jumps to ±365.25/±3652.5/+18262.5 d, so from +2 yr to +50 yr the only anchors are three points years apart and the provider blends between them. Measured against the MD5-verified `de440.bsp` (VALIDATION_LOG step 7): ≤ 1.0 km for the Sun and every planet but Mercury (1.014e+2 km) over ±300 d; 2.6e+5–5.4e+6 km at the +365.25 d sparse anchor and at the dense-window edge; **1.1e+8–2.8e+9 km (0.8–18.6 AU)** in the ±10/±50 yr regions the code and docs present as a supported "60-year" window. Two defects were fixed in the same step (`b8f21d2` per-body bracketing, which had frozen the five 9-day bodies at their epoch vector; `0d9743c` SPK path chaining), but the coverage gap itself is open: either the tables must be regenerated over the advertised span or the UI must stop offering dates the tables cannot answer, and the validated kernel reader (`src/sim/spk.ts`) is the obvious third option. | **CRITICAL** |
 
 ## 3. Observability (mission §3)
 
@@ -167,9 +168,15 @@ How to read this file:
 > Uranus. Details in VALIDATION_LOG step 6.
 >
 > Not yet satisfied: an independent CSPICE cross-check and a multi-epoch sweep across
-> the kernel span (OPEN-007), enforced kernel/WGCCRE validity ranges, model-specific
-> galactic potentials, the complete 16-asteroid perturber set, and runtime IAS15
-> selection.
+> the kernel span (OPEN-007), the ephemeris-mode anchor coverage behind AUDIT-51 /
+> OPEN-008, enforced kernel/WGCCRE validity ranges, model-specific galactic
+> potentials, the complete 16-asteroid perturber set, and runtime IAS15 selection.
+>
+> Step 7 (`0d9743c`, `b8f21d2`) measured the runtime ephemeris path against the same
+> kernel: the shipped anchor tables reproduce `de440.bsp` to ≤ 0.127 km, five bodies
+> had been frozen at their epoch vector by a shared date bracket (Jupiter off by
+> 7.3e+8 km at +700 d, now 8.2e-2 km), and the dense table turns out to cover −1..+2
+> yr rather than the ±10/+50 yr the docs described — 0.8–18.6 AU error beyond it.
 
 ## 7. Verified-pass summary (do not "fix" these)
 
@@ -191,14 +198,14 @@ by hand.
 
 | Severity           | Count | IDs                                                                                                                                                                                                    |
 | :----------------- | ----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CRITICAL**       |    13 | AUDIT-01, AUDIT-03, AUDIT-04, AUDIT-05, AUDIT-11, AUDIT-16, AUDIT-17, AUDIT-18, AUDIT-19, AUDIT-20, AUDIT-22, AUDIT-25, AUDIT-26                                                                       |
+| **CRITICAL**       |    14 | AUDIT-01, AUDIT-03, AUDIT-04, AUDIT-05, AUDIT-11, AUDIT-16, AUDIT-17, AUDIT-18, AUDIT-19, AUDIT-20, AUDIT-22, AUDIT-25, AUDIT-26, AUDIT-51                                                             |
 | **HIGH**           |    20 | AUDIT-06, AUDIT-08, AUDIT-12, AUDIT-14, AUDIT-15, AUDIT-21, AUDIT-23, AUDIT-24, AUDIT-27, AUDIT-30, AUDIT-32, AUDIT-33, AUDIT-34, AUDIT-35, AUDIT-36, AUDIT-37, AUDIT-38, AUDIT-40, AUDIT-41, AUDIT-50 |
 | **MEDIUM**         |     9 | AUDIT-02, AUDIT-09, AUDIT-28, AUDIT-29, AUDIT-39, AUDIT-43, AUDIT-44, AUDIT-48, AUDIT-49                                                                                                               |
 | **LOW**            |     3 | AUDIT-45, AUDIT-46, AUDIT-47                                                                                                                                                                           |
 | **PASS**           |     5 | AUDIT-07, AUDIT-10, AUDIT-13, AUDIT-31, AUDIT-42                                                                                                                                                       |
-| **Total findings** |    50 | 45 gaps + 5 verified passes                                                                                                                                                                            |
+| **Total findings** |    51 | 46 gaps + 5 verified passes                                                                                                                                                                            |
 
-The CRITICAL set splits into two groups, and the split is reflected in the order of work:
+The CRITICAL set splits into four groups, and the split is reflected in the order of work:
 
 - **Repository state (2) — now resolved:** 01, 03 (uncommitted work and untracked CI). Closed the
   same day by the 14 grouped commits and the `baseline-pre-audit` tag; kept listed for the record.
@@ -208,6 +215,10 @@ The CRITICAL set splits into two groups, and the split is reflected in the order
   advertised but unreachable, three inconsistent test counts, two accuracy claims contradicted by
   their own tests, contradictory solar-motion constants, wrong GM literals in the targeting panel,
   and a galactic model that cannot select the physics it advertises.
+- **Accuracy coverage (1):** 51 — the ephemeris path is documented and offered as a ±10/+50 yr
+  window but is anchored only over −1..+2 yr, and AU-scale interpolation error was measured there
+  against `de440.bsp`. Two contributing defects are fixed (`b8f21d2`, `0d9743c`); the coverage
+  decision (regenerate tables, gate the UI, or read a kernel) is open.
 
 ## 9. Recommended order of work
 

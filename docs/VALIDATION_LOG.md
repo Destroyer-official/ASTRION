@@ -1189,6 +1189,143 @@ cover, which is the honest gap left in this step.
 
 ---
 
+## 2026-11-05 — Step 7: runtime ephemeris measured against DE440
+
+Commits: `0d9743c` (`feat(sim): chain SPK segments so barycenter and moon IDs
+resolve`) and `b8f21d2` (`fix(sim): bracket ephemeris anchors per body instead of
+by date`). This entry was written after both, and the temporary sweep harness that
+produced the numbers was deleted rather than committed; the permanent version of the
+comparison is `tests/validation/ephemeris-vs-de440.test.ts`.
+
+Goal: turn "interpolation error against a binary SPK has not been measured" (the
+last line of ARCHITECTURE's Ephemeris Mode description) into a number. It produced
+two defect findings, one fixed here and one left open because fixing it is a product
+decision.
+
+### The tables themselves are sound
+
+First check: do the shipped anchor values agree with the kernel they claim to come
+from? Every one of the 731 dense samples and all four sparse anchors were compared
+with `de440.bsp` at their own epochs:
+
+```
+dense samples=731 jd 2460954.5..2462049.5
+  sun      worst anchor error 0.121 km     jupiter  worst anchor error 0.102 km
+  mercury  worst anchor error 0.126 km     saturn   worst anchor error 0.119 km
+  venus    worst anchor error 0.121 km     uranus   worst anchor error 0.112 km
+  earth    worst anchor error 0.122 km     neptune  worst anchor error 0.127 km
+  mars     worst anchor error 0.126 km     moon     worst anchor error 0.120 km
+sparse offset    365.25 km: sun=0.0  mercury=0.0  venus=0.0  earth=0.0  mars=0.0
+  jupiter=0.0  saturn=0.0  uranus=0.0  neptune=0.0  moon=n/a
+sparse offset   3652.5 km: (same, all 0.0)   sparse offset  18262.5 km: (same, all 0.0)
+sparse offset  -3652.5 km: (same, all 0.0)
+```
+
+So the data is right to ~0.13 km (the tables' own print precision). Two body
+identities were pinned down the same way: `earth` reproduces NAIF target **3**
+(the Earth–Moon barycentre) to 0.122 km while target 399 differs by 4,540.667 km —
+consistent with `src/data/bodies/earth.json` citing `COMMAND=3` and the barycentre
+GM 403503.2356 — and the model's `moon` slot is parent-relative, not barycentric,
+which is why it is excluded from the kernel comparison.
+
+### Defect 1 — five bodies were frozen at their epoch vector
+
+The tables have mixed density, and the anchor lists show it:
+
+```
+  mercury   n=731 coverage=100%   avgStep=1.50 d      sun      n=122 coverage=17%  avgStep=9.00 d
+  venus     n=731 coverage=100%   avgStep=1.50 d      jupiter  n=122 coverage=17%  avgStep=9.00 d
+  earth     n=731 coverage=100%   avgStep=1.50 d      saturn   n=122 coverage=17%  avgStep=9.00 d
+  mars      n=731 coverage=100%   avgStep=1.50 d      uranus   n=122 coverage=17%  avgStep=9.00 d
+  moon      n=731 coverage=100%   avgStep=1.50 d      neptune  n=122 coverage=17%  avgStep=9.00 d
+```
+
+`interpolate()` chose one date bracket for every body, so at any date whose bracket
+endpoints did not contain a 9-day body, that body fell through to `model.state` and
+stayed there. Position error against `de440.bsp` at three probe dates, before the
+fix, then after it (`b8f21d2`, per-body node lists plus per-body clamping):
+
+| body | +1 d before | +100 d before | +700 d before | +1 d after | +100 d after | +700 d after |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Jupiter | 1.105e+6 km | 1.1008e+8 km | 7.308e+8 km | 1.412e-2 km | 6.140e-2 km | 8.177e-2 km |
+| Sun | 9.81e+2 km | 9.7765e+4 km | 5.9243e+5 km | 1.456e-2 km | 7.031e-2 km | 1.896e-2 km |
+
+The five 9-day bodies were affected; the 1.5-day bodies were not (Earth measured
+0.072/0.074/0.069 km before and 0.0717/0.0743/0.0694 km after — unchanged within the
+print precision). `tests/ephemeris.test.ts` now asserts that no body may return its
+epoch state at a date its own anchors bracket, and
+`tests/validation/ephemeris-vs-de440.test.ts` sweeps −300…+300 d at 0.25-day steps:
+
+```
+sun      worst 1.074e-1 km at day 103      |  worst velocity 4.051e-7 km/s
+mercury  worst 1.014e+2 km at day 123.25   |  worst velocity 2.318e-3 km/s
+venus    worst 9.803e-1 km at day 85.75    |  worst velocity 2.223e-5 km/s
+earth    worst 2.623e-1 km at day -242.75  |  worst velocity 5.352e-6 km/s
+mars     worst 1.260e-1 km at day 47.5     |  worst velocity 2.667e-6 km/s
+jupiter  worst 1.237e-1 km at day -188.5   |  worst velocity 4.177e-7 km/s
+saturn   worst 1.057e-1 km at day 58       |  worst velocity 3.571e-7 km/s
+uranus   worst 1.116e-1 km at day 247      |  worst velocity 3.422e-7 km/s
+neptune  worst 1.269e-1 km at day 130      |  worst velocity 4.003e-7 km/s
+```
+
+The committed limit is 200 km, set just above the measured 101.4 km worst case.
+
+### Defect 2 — the advertised window is far wider than the anchors
+
+Same harness, wider sweeps, after the fix:
+
+```
+days -364..729 step 0.5:
+  mercury 4.799e+5 km at day 365   | earth 3.090e+5 km at day 365   | mars 2.575e+5 km at day 365
+  venus   3.629e+5 km at day 365   | sun 3.953e+3 km at day 729     | jupiter 5.382e+6 km at day 729
+  saturn  4.292e+6 km at day 729   | uranus 2.907e+6 km at day 729  | neptune 2.352e+6 km at day 729
+days -3652..18262 step 10:
+  mercury 1.146e+8 km at day 4228  | venus 2.174e+8 km at day 17028 | earth 3.005e+8 km at day 11868
+  mars    4.553e+8 km at day 3988  | sun 1.852e+6 km at day 5998    | jupiter 1.479e+9 km at day 16128
+  saturn  2.200e+9 km at day 13398 | uranus 2.778e+9 km at day 10868 | neptune 1.263e+9 km at day 10918
+```
+
+Reading them together with the coverage table:
+
+- The dense window is −365…+730 d, i.e. −1…+2 yr, **not** the "[−10 yr, +50 yr]"
+  and "60-year window" wording in `ARCHITECTURE.md` and `src/main.ts` (both now
+  corrected to describe the measured regimes).
+- Even inside it, the single sparse anchor at +365.25 d sits between two 1.5-day
+  nodes. It carries no velocity, so the position-only blend takes over for ~1 day
+  and costs 2.6e+5–4.8e+5 km — the zero end-slope of that blend is much worse than
+  the curvature estimate alone would suggest.
+- Past +730 d there is no anchor until +3652.5 d, so every planet carries the error
+  of a years-wide chord: 1.1e+8–4.6e+8 km between +1 and +10 yr, and 1.2e+9–2.8e+9
+  km (8.4–18.6 AU) out to +50 yr. Velocities there are wrong by 5–60 km/s.
+
+This is recorded as **AUDIT-51 (CRITICAL)** and **OPEN-008**: either the tables are
+regenerated at an interval that supports the span the UI offers, the UI is gated to
+the dense window with the accuracy stated next to it, or ephemeris mode is driven by
+the now-validated kernel reader. No acceptance limit is claimed for the sparse
+region, and none is asserted in a test.
+
+### Verification
+
+```
+$ node scripts/verify-spk.mjs
+tests/validation/.cache/de440.bsp: 119799808 bytes, MD5 c9d581bfd84209dbeee8b1583939b148 (matches NAIF aa_checksums.txt)
+ Test Files  2 passed (2)
+      Tests  18 passed (18)
+
+$ npm test
+ Test Files  87 passed (87)
+      Tests  571 passed (571)
+   Duration  51.52s (tests 97%, import 3%, transform 1%)
+
+$ npm run build
+dist/assets/index-*.js 1,260.04 kB │ gzip: 392.24 kB   (chunk-size warning still emitted)
+```
+
+`npm run typecheck` and `npm run lint` exited `0`. Coverage was not re-measured in
+this step; the step-6 table remains the last recorded baseline.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1204,3 +1341,4 @@ cover, which is the honest gap left in this step.
 | 2026-11-05 | STEP-5 TIME SCALES             | Removed the fixed TDB−UTC shortcut, completed the periodic TDB↔TT inverse, routed all Date↔JD conversions through UTC→TAI→TT→TDB, corrected panel scale labels, and added 2 tests; full regression 83 files / **542** tests in 41.32s, typecheck/lint/build exit 0. Retained observed eclipse output: 1.19-minute timing error and 0.891° minimum separation on this run. |
 | 2026-11-05 | STEP-5b ORIENTATION PROPERTIES | Added seeded fast-check tests for right-handedness, orthonormality and body/ecliptic round-trips across every rotating body over ±50 years; an invalid full-matrix sidereal-closure property was removed after counterexamples. Full regression 84 files / **544** tests in 40.66s; typecheck/lint/build exit 0; large bundle and WGCCRE-range enforcement remain open.   |
 | 2026-11-05 | STEP-6 SPK VALIDATION          | DAF/SPK type 2/3 reader (`src/sim/spk.ts`) added and compared against NAIF's MD5-verified `de440.bsp`/`de440s.bsp`; the first run failed by up to 526 km and proved the sim realized its ecliptic with the IAU 2006 obliquity while every Horizons vector sits on the IAU76/80 plane (0.042 arcsec), fixed in `9fd4922`; nine bodies then agree to 2.4e-4 m and 7.1e-8 mm/s and the test limits are set from that measurement. Full regression 86 files / **559** tests in 54.12 s; coverage re-measured at 63.73 % lines overall and 83.92 % for `spk.ts`; typecheck/lint/build exit 0; kernels stay out of Git and no CSPICE cross-check exists yet (OPEN-005/007). |
+| 2026-11-05 | STEP-7 RUNTIME EPHEMERIS       | Measured the ephemeris/display path against the MD5-verified `de440.bsp`: the tables themselves agree with the kernel to ≤0.127 km, but five bodies (Sun + outer planets, 9-day anchors) were frozen at their epoch vector because one date bracket was shared by all bodies — Jupiter off by 7.3e+8 km at +700 d, fixed to 8.2e-2 km by `b8f21d2`; SPK path chaining added in `0d9743c`; ±300 d now measures ≤1.0 km (Mercury 1.014e+2 km, limit set at 200 km) while the −1..+2 yr anchor span versus the claimed ±10/+50 yr window is recorded as AUDIT-51/OPEN-008 (1.1e+8–2.8e+9 km, 0.8–18.6 AU). Full regression 87 files / **571** tests in 51.52 s; typecheck/lint/build exit 0. |
