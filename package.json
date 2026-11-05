@@ -18,6 +18,7 @@
     "fetch:spice": "node scripts/fetch-spice.mjs",
     "fetch:textures": "node scripts/fetch-textures.mjs",
     "verify:live": "node scripts/verify-live.mjs",
+    "verify:spk": "node scripts/verify-spk.mjs",
     "verify:nutation": "node scripts/verify-nutation.mjs",
     "format": "prettier --write .",
     "preview": "vite preview"
