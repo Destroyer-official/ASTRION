@@ -135,29 +135,69 @@ export class SpkFile {
     const direct = this.findSegment(target, center, et, referenceFrame);
     if (direct) return this.evaluateSegment(direct, et);
 
-    // Many DE kernels publish each body relative to the SSB only. Combine two
-    // barycentric states to obtain the requested geometric state.
-    if (center !== 0) {
-      const targetSegment = this.findSegment(target, 0, et, referenceFrame);
-      const centerSegment = this.findSegment(center, 0, et, referenceFrame);
-      if (targetSegment && centerSegment) {
-        const targetValue = this.evaluateSegment(targetSegment, et);
-        const centerValue = this.evaluateSegment(centerSegment, et);
-        return {
-          pos: [
-            targetValue.pos[0]! - centerValue.pos[0]!,
-            targetValue.pos[1]! - centerValue.pos[1]!,
-            targetValue.pos[2]! - centerValue.pos[2]!,
-          ],
-          vel: [
-            targetValue.vel[0]! - centerValue.vel[0]!,
-            targetValue.vel[1]! - centerValue.vel[1]!,
-            targetValue.vel[2]! - centerValue.vel[2]!,
-          ],
-        };
+    // DE kernels publish most bodies relative to the SSB and the rest as small
+    // center offsets (199/1, 399/3, 301/3), so a request such as "599 relative
+    // to 0" is only answerable by chaining segments, the way CSPICE does.
+    const path = this.findPath(target, center, et, referenceFrame);
+    if (path) {
+      const pos: [number, number, number] = [0, 0, 0];
+      const vel: [number, number, number] = [0, 0, 0];
+      for (const segment of path) {
+        const step = this.evaluateSegment(segment, et);
+        for (let axis = 0; axis < 3; axis++) {
+          pos[axis] = pos[axis]! + step.pos[axis]!;
+          vel[axis] = vel[axis]! + step.vel[axis]!;
+        }
+      }
+      return { pos, vel };
+    }
+    throw new Error(`no SPK type 2/3 segment path covers target ${target} relative to center ${center} at ET ${et}`);
+  }
+
+  /**
+   * Breadth-first search over `target -> center` edges that cover `et`, so a body
+   * published only as an offset from its barycenter still resolves. Every segment
+   * on the returned path shares one reference frame.
+   */
+  private findPath(
+    target: number,
+    center: number,
+    et: number,
+    referenceFrame?: number,
+  ): SpkSegmentDescriptor[] | undefined {
+    const edges = new Map<number, SpkSegmentDescriptor[]>();
+    for (let i = this.segments.length - 1; i >= 0; i--) {
+      const segment = this.segments[i]!;
+      if (segment.target === segment.center) continue;
+      if (segment.type !== 2 && segment.type !== 3) continue;
+      if (et < segment.firstEt || et > segment.lastEt) continue;
+      if (referenceFrame !== undefined && segment.referenceFrame !== referenceFrame) continue;
+      const outgoing = edges.get(segment.target);
+      if (outgoing) outgoing.push(segment);
+      else edges.set(segment.target, [segment]);
+    }
+
+    const parent = new Map<number, { body: number; segment: SpkSegmentDescriptor }>();
+    const queue: number[] = [target];
+    const seen = new Set<number>([target]);
+    for (let head = 0; head < queue.length; head++) {
+      for (const segment of edges.get(queue[head]!) ?? []) {
+        if (seen.has(segment.center)) continue;
+        seen.add(segment.center);
+        parent.set(segment.center, { body: queue[head]!, segment });
+        queue.push(segment.center);
       }
     }
-    throw new Error(`no SPK type 2/3 segment covers target ${target} relative to center ${center} at ET ${et}`);
+    if (!seen.has(center)) return undefined;
+
+    const path: SpkSegmentDescriptor[] = [];
+    let cursor = center;
+    while (cursor !== target) {
+      const step = parent.get(cursor)!;
+      path.unshift(step.segment);
+      cursor = step.body;
+    }
+    return path;
   }
 
   private findSegment(
