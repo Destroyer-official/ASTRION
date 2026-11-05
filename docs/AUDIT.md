@@ -93,6 +93,15 @@ How to read this file:
 
 ## 4. Quality gates, CI and tests (mission §6)
 
+> **Status update, 2026-11-05:** AUDIT-37 is **fixed** by commit `930b3cd`:
+> ESLint runs locally and in CI and the initial 37 errors were corrected.
+> AUDIT-38 now has a **measured baseline**, but the coverage objective is not
+> fully met: physics has 93.25 % lines / 69.69 % branches, frames 100 % / 100 %.
+> No threshold was invented; branch coverage remains open. AUDIT-39's stale
+> suite label is removed and CI now audits runtime dependencies (0 findings).
+> A full audit still reports 10 moderate development-only minimatch advisories,
+> so dependency hygiene is not declared closed. See VALIDATION_LOG STEP-3b.
+
 | ID | Location | Finding | Severity |
 | :--- | :--- | :--- | :--- |
 | AUDIT-37 | `package.json:8-22`, `.github/workflows/ci.yml` | **No lint step exists.** There is no `lint` script, no ESLint/Biome dependency and no config file (only `.prettierrc` and a `format` script never run by CI). Mission §1.e mandates `npm run lint`; §6 mandates ESLint in CI. Boundary enforcement (§2.1) is likewise only `tests/architecture.test.ts`, which as shown in AUDIT-05 does not cover the failing layer. | HIGH |

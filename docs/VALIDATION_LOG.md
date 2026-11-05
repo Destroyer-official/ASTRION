@@ -493,6 +493,121 @@ Lint (no script, AUDIT-37), coverage baseline (AUDIT-38), structured logger
 
 ---
 
+## 2026-11-05 — Step 3b: lint and the first measured coverage baseline
+
+Commit under test: `930b3cd` (`ci: add ESLint and measured coverage checks`).
+Local environment remains Node `v27.0.0-alpha.0.0.0`, npm `12.1.0`; CI is configured
+for Node 22, so these local numbers are not represented as CI results.
+
+### Toolchain compatibility and clean install
+
+The first dependency attempt failed with `ERESOLVE` because
+`typescript-eslint@8.56.1` declares `typescript >=4.8.4 <6.0.0`, while this
+repository uses TypeScript 6.0.3. No peer-dependency override or force flag was
+used. The committed toolchain uses `typescript-eslint@8.72.1`, whose declared
+range is `>=4.8.4 <6.1.0`, plus ESLint 10.14.0 and matching Vitest/coverage
+5.1.0 packages.
+
+Command: `npm ci`
+
+```
+added 152 packages, and audited 153 packages in 17s
+10 moderate severity vulnerabilities
+```
+
+Exit code `0`. The lockfile therefore installs cleanly. The 10 advisories are
+**development-only**, not hidden by that success; see the audit result below.
+
+### Lint: failing first run, then a real pass
+
+Command: `npm run lint`
+
+The first run exited `1` with **37 errors and 1 warning**. The errors identified
+six IAS15 Gauss–Radau nodes and one galactic-axis component written with more
+decimal digits than an IEEE-754 double can retain, redundant assignments, unused
+variables, and explicit `any` escape hatches. The fixes preserved runtime values
+by using JavaScript's shortest round-trip decimal representations, replaced the
+`any` uses with concrete types, and removed the redundant assignments.
+
+After those fixes, the same command exited `0` with no diagnostics. The final
+`npm run typecheck` also exited `0` with no diagnostics.
+
+### Coverage: instrumentation timeout, then measured baseline
+
+Command: `npm run test:coverage`
+
+The first run used the existing 120-second test timeout. Instrumentation slowed
+`tests/moons.test.ts` enough that its Laplace-resonance test timed out:
+
+```
+ Test Files  1 failed | 81 passed (82)
+      Tests  1 failed | 530 passed (531)
+   Duration  179.39s
+Error: Test timed out in 120000ms.
+```
+
+The committed coverage command therefore uses `--testTimeout=300000`; the test
+itself and its scientific assertions were not changed. The next run exited `0`:
+
+```
+ Test Files  82 passed (82)
+      Tests  531 passed (531)
+   Duration  148.92s (tests 99%, import 1%)
+```
+
+First full-`src/**/*.ts` V8 coverage baseline, copied from that run:
+
+| Scope | Statements | Branches | Functions | Lines |
+| :--- | ---: | ---: | ---: | ---: |
+| All source | 62.89 % | 44.61 % | 62.55 % | 63.29 % |
+| `src/physics` | 92.67 % | 69.69 % | 94.37 % | 93.25 % |
+| `src/frames` | 100 % | 100 % | 100 % | 100 % |
+| `src/sim` | 81.98 % | 68.00 % | 84.67 % | 84.84 % |
+| `src/render` | 39.70 % | 28.05 % | 30.00 % | 39.95 % |
+| `src/ui` | 2.30 % | 2.32 % | 1.38 % | 2.61 % |
+| `src/universe` | 91.48 % | 87.19 % | 93.22 % | 92.24 % |
+
+The JSON summary from the same run records 4,509 / 7,124 covered lines and
+1,362 / 3,053 covered branches. **No coverage threshold is claimed or enabled.**
+Physics clears the mission's 90 % line target but not its 90 % branch target;
+frames clears both. UI coverage is especially low because there is not yet a
+browser-driven UI suite.
+
+### Production regression check and dependency audit
+
+Command: `npm run verify:prod`
+
+Exit code `0`. This ran typecheck, lint, the normal uninstrumented test suite,
+and the production build in sequence:
+
+```
+ Test Files  82 passed (82)
+      Tests  531 passed (531)
+   Duration  55.57s (tests 95%, import 3%, transform 2%)
+
+✓ 153 modules transformed.
+dist/assets/physics.worker-D6EKk4Qb.js     60.41 kB
+dist/assets/index-CwneRvVb.js           1,255.64 kB │ gzip: 390.45 kB
+✓ built in 382ms
+```
+
+The existing main-chunk size warning remains; this step did not address
+AUDIT-49. `npm audit --omit=dev --json` exited `0` and reported **0 runtime
+vulnerabilities**. A full `npm audit` exited `1` with **10 moderate development
+vulnerabilities**, all one transitive `minimatch@10.2.6` advisory
+(`GHSA-g3hv-75wg-m249`) reached through ESLint and typescript-eslint. The
+suggested `npm audit fix --force` would downgrade ESLint to 9.39.5 and was not
+run. CI audits runtime dependencies; the development advisory remains open.
+
+### CI status
+
+`.github/workflows/ci.yml` now runs typecheck, ESLint, instrumented tests with
+coverage, `npm audit --omit=dev`, and the production build. The stale "59
+suites" label was removed. These commands are verified locally as above; no
+GitHub Actions run is claimed here.
+
+---
+
 ## Entries
 
 | Date | Type | Summary |
@@ -502,3 +617,4 @@ Lint (no script, AUDIT-37), coverage baseline (AUDIT-38), structured logger
 | 2026-11-04 | BASELINE TAG | `baseline-pre-audit` after 14 grouped commits; tree verified identical (318/321 unchanged, 3 intentional edits, 0 lost); typecheck 0, tests 82/530, build OK, **lint exit 1 (no lint script)**, coverage unmeasured. |
 | 2026-11-04 | STEP-2 RESEARCH | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C. |
 | 2026-11-04 | STEP-3a BOUNDARY | Guard widened to cover `universe` (failed first, as proof), physics→universe cycle removed; 82 files / **531** tests pass, typecheck 0, build 0. |
+| 2026-11-05 | STEP-3b QUALITY GATES | ESLint and V8 coverage added; first lint found 37 errors, fixed; clean install and production checks pass; 82 files / 531 tests; overall 63.29 % lines, physics 93.25 % lines / 69.69 % branches, frames 100 %; 0 runtime audit findings, 10 moderate dev-only minimatch advisories remain. |
