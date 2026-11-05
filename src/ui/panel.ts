@@ -1333,9 +1333,13 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
 
       const gr = d.galaxyReadout;
       const curGalModel = ctx.galaxyModels.find((m) => m.id === (store.get().galaxyModelId ?? 'iau1985'));
+      const galModelImplementation =
+        curGalModel?.implementation === 'modelPotential'
+          ? 'model potential implemented'
+          : 'LSR/R0 preset only';
       const galHeader = gr
         ? [
-            `Galactic Model:    ${curGalModel?.label ?? 'IAU 1985'} (${curGalModel?.source.split('(')[0]?.trim()})`,
+            `Galactic Model:    ${curGalModel?.label ?? 'IAU 1985'} (${curGalModel?.source.split('(')[0]?.trim()}; ${galModelImplementation})`,
             `Galactic Position: R=${gr.rKpc.toFixed(2)} kpc | z=${gr.zPc >= 0 ? '+' : ''}${gr.zPc.toFixed(0)} pc`,
             `Galactic Velocity: ${gr.speedKms.toFixed(1)} km/s (Azimuthal ${gr.vAzimuthalKms.toFixed(1)} km/s)`,
             `Sun Midplane:      in ${gr.timeToNextMidplaneMyr.toFixed(1)} Myr (${gr.vertPhase.toUpperCase()})`,
