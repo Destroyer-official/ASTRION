@@ -158,4 +158,27 @@ describe('Dual Mode: JPL Horizons DE440 Ephemeris Provider', () => {
     expect(vSunKms).toBeGreaterThan(0.005);
     expect(vSunKms).toBeLessThan(0.025);
   });
+
+  it('evaluates every body from the anchors that carry it, not from its epoch state', () => {
+    // The dense table samples the inner planets and the Moon every 1.5 d but the
+    // Sun and outer planets only every 9 d, and the sparse table adds dates that
+    // exist for the planets alone. Bracketing by date for all bodies at once put
+    // the coarsely sampled ones between two anchors that do not contain them, and
+    // they silently returned the epoch vector: measured 1.1e6 km at +1 d and
+    // 7.3e8 km at +700 d for Jupiter (VALIDATION_LOG step 7).
+    const pos = new Float64Array(model.state.n * 3);
+    for (const id of ['sun', 'jupiter', 'saturn', 'uranus', 'neptune']) {
+      const i = model.ids.indexOf(id);
+      expect(i, `${id} present`).toBeGreaterThan(-1);
+      expect(ephem.interpolate(100, pos)).toBe(true);
+      const movedAu = Math.hypot(
+        pos[3 * i]! - model.state.pos[3 * i]!,
+        pos[3 * i + 1]! - model.state.pos[3 * i + 1]!,
+        pos[3 * i + 2]! - model.state.pos[3 * i + 2]!,
+      );
+      // A frozen body reproduces the epoch vector exactly; the Sun alone moves
+      // ~7e-4 AU per 100 days, so the bound has to be far below that.
+      expect(movedAu, `${id} must not stay pinned to its epoch position`).toBeGreaterThan(1e-6);
+    }
+  });
 });

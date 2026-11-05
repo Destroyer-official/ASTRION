@@ -68,7 +68,7 @@ console.log(`SHA-256 ${await digest(destination, 'sha256')} (local integrity rec
 
 const test = spawnSync(
   process.execPath,
-  ['node_modules/vitest/vitest.mjs', 'run', 'tests/validation/spk-real.test.ts'],
+  ['node_modules/vitest/vitest.mjs', 'run', 'tests/validation'],
   { stdio: 'inherit', env: { ...process.env, SPK_KERNEL: name } },
 );
 process.exit(test.status ?? 1);

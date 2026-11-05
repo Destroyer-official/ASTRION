@@ -27,9 +27,33 @@ interface AnchorSample {
   vels?: Record<string, number[]>;
 }
 
+/** One body's own anchor series. The shipped tables mix densities (inner planets
+ *  every 1.5 d, the Sun and outer planets every 9 d), so each body needs its own
+ *  node list to be bracketed correctly. */
+interface BodyTrack {
+  readonly t: Float64Array;
+  readonly p: Float64Array;
+  readonly v: Float64Array;
+  readonly hasV: Uint8Array;
+}
+
+function bracketIndex(t: Float64Array, time: number): number {
+  let lo = 0;
+  let hi = t.length - 1;
+  if (time <= t[0]!) return 0;
+  if (time >= t[hi]!) return hi - 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (t[mid]! <= time) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
+
 export class EphemerisProvider {
   private readonly model: SystemModel;
   private readonly anchors: AnchorSample[];
+  private readonly tracks: Map<string, BodyTrack>;
   private validationCache: ValidationRow[] | null = null;
 
   constructor(model: SystemModel) {
@@ -72,6 +96,41 @@ export class EphemerisProvider {
       ...denseSamples,
       { offsetDays: 0, bodies: t0Bodies, vels: t0Vels },
     ].sort((a, b) => a.offsetDays - b.offsetDays);
+    this.tracks = this.buildTracks();
+  }
+
+  /** Collects, for each body id, only the anchors that actually carry it. */
+  private buildTracks(): Map<string, BodyTrack> {
+    const tracks = new Map<string, { t: number[]; p: number[][]; v: number[][]; hasV: number[] }>();
+    for (const anchor of this.anchors) {
+      for (const [id, position] of Object.entries(anchor.bodies)) {
+        const velocity = anchor.vels?.[id];
+        let track = tracks.get(id);
+        if (!track) {
+          track = { t: [], p: [], v: [], hasV: [] };
+          tracks.set(id, track);
+        }
+        track.t.push(anchor.offsetDays);
+        track.p.push(position);
+        track.v.push(velocity ?? [0, 0, 0]);
+        track.hasV.push(velocity ? 1 : 0);
+      }
+    }
+
+    const built = new Map<string, BodyTrack>();
+    for (const [id, track] of tracks) {
+      const p = new Float64Array(track.p.length * 3);
+      const v = new Float64Array(track.v.length * 3);
+      track.p.forEach((node, i) => p.set(node, 3 * i));
+      track.v.forEach((node, i) => v.set(node, 3 * i));
+      built.set(id, {
+        t: Float64Array.from(track.t),
+        p,
+        v,
+        hasV: Uint8Array.from(track.hasV),
+      });
+    }
+    return built;
   }
 
   /**
@@ -86,113 +145,89 @@ export class EphemerisProvider {
   }
 
   /**
-   * Evaluates DE440 ephemeris positions (and analytical velocities) using smooth
-   * piecewise cubic Hermite interpolation.
-   * Returns true if within the supported DE440 window [-10 yr, +50 yr], false otherwise.
+   * Evaluates the cached Horizons anchors: cubic Hermite (C1) where both bracket
+   * nodes carry Horizons velocities, smooth blended linear where they do not.
+   * Each body is bracketed by the nearest two anchors that actually contain it —
+   * the shipped tables mix densities (inner planets and the Moon every 1.5 d, the
+   * Sun and outer planets every 9 d), so one shared date bracket would drop the
+   * sparsely sampled bodies back to their epoch state.
+   * Returns true when `offsetDays` lies inside the covered window.
    */
   interpolate(offsetDays: number, outPos: Float64Array, outVel?: Float64Array): boolean {
     const minT = this.anchors[0]!.offsetDays;
     const maxT = this.anchors[this.anchors.length - 1]!.offsetDays;
     const clampedT = Math.max(minT, Math.min(maxT, offsetDays));
-    const inRange = offsetDays >= minT && offsetDays <= maxT;
-
-    // Find interval [i0, i1]
-    let idx = 0;
-    while (idx < this.anchors.length - 1 && this.anchors[idx + 1]!.offsetDays <= clampedT) {
-      idx++;
-    }
-
-    const a0 = this.anchors[idx]!;
-    if (Math.abs(clampedT - a0.offsetDays) < 1e-6) {
-      // Exact anchor match
-      for (let i = 0; i < this.model.ids.length; i++) {
-        const id = this.model.ids[i]!;
-        const p = a0.bodies[id];
-        if (p) {
-          outPos[3 * i] = p[0]!;
-          outPos[3 * i + 1] = p[1]!;
-          outPos[3 * i + 2] = p[2]!;
-        } else {
-          outPos[3 * i] = this.model.state.pos[3 * i]!;
-          outPos[3 * i + 1] = this.model.state.pos[3 * i + 1]!;
-          outPos[3 * i + 2] = this.model.state.pos[3 * i + 2]!;
-        }
-        if (outVel) {
-          const v = a0.vels?.[id];
-          if (v) {
-            outVel[3 * i] = v[0]!;
-            outVel[3 * i + 1] = v[1]!;
-            outVel[3 * i + 2] = v[2]!;
-          } else {
-            outVel[3 * i] = this.model.state.vel[3 * i]!;
-            outVel[3 * i + 1] = this.model.state.vel[3 * i + 1]!;
-            outVel[3 * i + 2] = this.model.state.vel[3 * i + 2]!;
-          }
-        }
-      }
-      return inRange;
-    }
-
-    const a1 = this.anchors[idx + 1]!;
-    const t0 = a0.offsetDays;
-    const t1 = a1.offsetDays;
-    const dt = t1 - t0;
-    const invDt = 1 / dt;
-    const u = (clampedT - t0) * invDt;
-
-    // Cubic Hermite when both endpoints carry Horizons velocities (dense
-    // anchors + t0): exact positions AND tangents at nodes, C1 continuous.
-    // Otherwise the legacy smoothstep between sparse position-only anchors.
-    const h00 = 2 * u * u * u - 3 * u * u + 1;
-    const h10 = u * u * u - 2 * u * u + u;
-    const h01 = -2 * u * u * u + 3 * u * u;
-    const h11 = u * u * u - u * u;
-
-    // Time derivatives of Hermite basis functions:
-    // dh00/dt = (6u^2 - 6u) / dt
-    // dh10/dt * dt = 3u^2 - 4u + 1
-    // dh01/dt = (-6u^2 + 6u) / dt
-    // dh11/dt * dt = 3u^2 - 2u
-    const dh00_dt = (6 * u * u - 6 * u) * invDt;
-    const dh01_dt = (-6 * u * u + 6 * u) * invDt;
-    const dh10_scaled = 3 * u * u - 4 * u + 1;
-    const dh11_scaled = 3 * u * u - 2 * u;
 
     for (let i = 0; i < this.model.ids.length; i++) {
-      const id = this.model.ids[i]!;
-      const p0 = a0.bodies[id];
-      const p1 = a1.bodies[id];
-      const v0 = a0.vels?.[id];
-      const v1 = a1.vels?.[id];
-
-      if (p0 && p1 && v0 && v1) {
+      const base = 3 * i;
+      const track = this.tracks.get(this.model.ids[i]!);
+      if (!track) {
         for (let k = 0; k < 3; k++) {
-          outPos[3 * i + k] = h00 * p0[k]! + h10 * dt * v0[k]! + h01 * p1[k]! + h11 * dt * v1[k]!;
-          if (outVel) {
-            outVel[3 * i + k] = dh00_dt * p0[k]! + dh01_dt * p1[k]! + dh10_scaled * v0[k]! + dh11_scaled * v1[k]!;
-          }
+          outPos[base + k] = this.model.state.pos[base + k]!;
+          if (outVel) outVel[base + k] = this.model.state.vel[base + k]!;
         }
-      } else if (p0 && p1) {
-        outPos[3 * i] = h00 * p0[0]! + h01 * p1[0]!;
-        outPos[3 * i + 1] = h00 * p0[1]! + h01 * p1[1]!;
-        outPos[3 * i + 2] = h00 * p0[2]! + h01 * p1[2]!;
+        continue;
+      }
+
+      // Clamp per body as well: a sparsely sampled body's own last anchor can
+      // precede the global window edge, and extrapolating there is worse than
+      // holding the edge state.
+      const bodyT = Math.max(track.t[0]!, Math.min(track.t[track.t.length - 1]!, clampedT));
+      const idx = bracketIndex(track.t, bodyT);
+      if (idx === track.t.length - 1 || Math.abs(bodyT - track.t[idx]!) < 1e-6) {
+        this.copyNode(track, idx, base, outPos, outVel);
+        continue;
+      }
+
+      const t0 = track.t[idx]!;
+      const t1 = track.t[idx + 1]!;
+      const dt = t1 - t0;
+      const invDt = 1 / dt;
+      const u = (bodyT - t0) * invDt;
+
+      const h00 = 2 * u * u * u - 3 * u * u + 1;
+      const h10 = u * u * u - 2 * u * u + u;
+      const h01 = -2 * u * u * u + 3 * u * u;
+      const h11 = u * u * u - u * u;
+      const dh00_dt = (6 * u * u - 6 * u) * invDt;
+      const dh01_dt = (-6 * u * u + 6 * u) * invDt;
+      const dh10_scaled = 3 * u * u - 4 * u + 1;
+      const dh11_scaled = 3 * u * u - 2 * u;
+      const hermite = track.hasV[idx] === 1 && track.hasV[idx + 1] === 1;
+      const j = 3 * (idx + 1);
+
+      for (let k = 0; k < 3; k++) {
+        const p0 = track.p[3 * idx + k]!;
+        const p1 = track.p[j + k]!;
+        const v0 = track.v[3 * idx + k]!;
+        const v1 = track.v[j + k]!;
+        outPos[base + k] = hermite ? h00 * p0 + h10 * dt * v0 + h01 * p1 + h11 * dt * v1 : h00 * p0 + h01 * p1;
         if (outVel) {
-          outVel[3 * i] = dh00_dt * p0[0]! + dh01_dt * p1[0]!;
-          outVel[3 * i + 1] = dh00_dt * p0[1]! + dh01_dt * p1[1]!;
-          outVel[3 * i + 2] = dh00_dt * p0[2]! + dh01_dt * p1[2]!;
-        }
-      } else {
-        outPos[3 * i] = this.model.state.pos[3 * i]!;
-        outPos[3 * i + 1] = this.model.state.pos[3 * i + 1]!;
-        outPos[3 * i + 2] = this.model.state.pos[3 * i + 2]!;
-        if (outVel) {
-          outVel[3 * i] = this.model.state.vel[3 * i]!;
-          outVel[3 * i + 1] = this.model.state.vel[3 * i + 1]!;
-          outVel[3 * i + 2] = this.model.state.vel[3 * i + 2]!;
+          outVel[base + k] = hermite
+            ? dh00_dt * p0 + dh01_dt * p1 + dh10_scaled * v0 + dh11_scaled * v1
+            : dh00_dt * p0 + dh01_dt * p1;
         }
       }
     }
-    return inRange;
+
+    return offsetDays >= minT && offsetDays <= maxT;
+  }
+
+  private copyNode(
+    track: BodyTrack,
+    index: number,
+    base: number,
+    outPos: Float64Array,
+    outVel?: Float64Array,
+  ): void {
+    for (let k = 0; k < 3; k++) {
+      outPos[base + k] = track.p[3 * index + k]!;
+      if (outVel) {
+        outVel[base + k] = track.hasV[index] === 1
+          ? track.v[3 * index + k]!
+          : this.model.state.vel[base + k]!;
+      }
+    }
   }
 
   /**
