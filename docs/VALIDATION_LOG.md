@@ -1268,7 +1268,9 @@ uranus   worst 1.116e-1 km at day 247      |  worst velocity 3.422e-7 km/s
 neptune  worst 1.269e-1 km at day 130      |  worst velocity 4.003e-7 km/s
 ```
 
-The committed limit is 200 km, set just above the measured 101.4 km worst case.
+The committed limit is 200 km, set just above the measured 101.4 km worst case. Step 7b
+later widened the same sweep to the whole dense window and lowered the worst case to
+80.11 km.
 
 ### Defect 2 — the advertised window is far wider than the anchors
 
@@ -1326,6 +1328,58 @@ this step; the step-6 table remains the last recorded baseline.
 
 ---
 
+## 2026-11-05 — Step 7b: coarse anchors inside the fine window
+
+Commit: `e92467f` (`fix(sim): let fine anchors override coarse ones inside their own
+span`). Found by continuing the same sweep past ±300 d.
+
+The dense table covers −365…+730 d, but the sparse table contributes a date at
++365.25 d — right in the middle of it. Every body already had two 1.5-day nodes
+around that date, and the sparse node carries no velocity, so the bracket became
+fine-then-coarse and the blended position path (zero end-slope at both nodes)
+replaced the Hermite one:
+
+```
+days -364..729 step 0.5, before:
+  mercury 4.799e+5 km at day 365   | venus   3.629e+5 km at day 365
+  earth   3.090e+5 km at day 365   | mars    2.575e+5 km at day 365
+days 364..367 step 0.05, after:
+  mercury 2.238e+1 km              | venus   9.260e-1 km   | earth 1.826e-1 km
+  mars    9.376e-2 km              | sun     6.519e-2 km   | jupiter 9.955e-2 km
+  saturn  8.068e-2 km              | uranus  7.919e-2 km   | neptune 5.592e-2 km
+```
+
+`buildTracks()` now takes each body's fine anchors first and admits a coarse anchor
+only outside that body's fine span. The whole dense window then measures, at 0.5-day
+steps over −364…+724 d:
+
+```
+sun      worst 1.207e-1 km at day 652   | mercury  worst 8.011e+1 km at day 123.5
+venus    worst 8.011e-1 km at day 542   | earth    worst 2.341e-1 km at day 106.5
+mars     worst 1.260e-1 km at day 47.5  | jupiter  worst 1.237e-1 km at day -188.5
+saturn   worst 1.189e-1 km at day 544   | uranus   worst 1.116e-1 km at day 247
+neptune  worst 1.269e-1 km at day 130   | velocity worst 1.856e-3 km/s (mercury)
+```
+
+`tests/validation/ephemeris-vs-de440.test.ts` was widened from ±300 d at 0.25 d to
+that span at 0.5 d, keeping the 200 km limit set above the 80.11 km worst case. What
+remains open is unchanged and still AU-scale: past a body's own last dense node
+(+724 d for the outer planets, +730 d for the inner) the next anchor is years away,
+so 5.4e+6 km error appears at +729 d and 1.1e+8–2.8e+9 km beyond that (AUDIT-51,
+OPEN-008).
+
+```
+$ npm test
+ Test Files  87 passed (87)
+      Tests  571 passed (571)
+   Duration  41.56s (tests 96%, import 3%, transform 1%)
+$ node scripts/verify-spk.mjs        ->  Test Files 2 passed (2) / Tests 18 passed (18)
+$ npm run typecheck / lint           ->  exit 0
+$ npm run build                      ->  dist/assets/index-DdywkBh8.js 1,260.56 kB │ gzip: 392.60 kB
+```
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1342,3 +1396,4 @@ this step; the step-6 table remains the last recorded baseline.
 | 2026-11-05 | STEP-5b ORIENTATION PROPERTIES | Added seeded fast-check tests for right-handedness, orthonormality and body/ecliptic round-trips across every rotating body over ±50 years; an invalid full-matrix sidereal-closure property was removed after counterexamples. Full regression 84 files / **544** tests in 40.66s; typecheck/lint/build exit 0; large bundle and WGCCRE-range enforcement remain open.   |
 | 2026-11-05 | STEP-6 SPK VALIDATION          | DAF/SPK type 2/3 reader (`src/sim/spk.ts`) added and compared against NAIF's MD5-verified `de440.bsp`/`de440s.bsp`; the first run failed by up to 526 km and proved the sim realized its ecliptic with the IAU 2006 obliquity while every Horizons vector sits on the IAU76/80 plane (0.042 arcsec), fixed in `9fd4922`; nine bodies then agree to 2.4e-4 m and 7.1e-8 mm/s and the test limits are set from that measurement. Full regression 86 files / **559** tests in 54.12 s; coverage re-measured at 63.73 % lines overall and 83.92 % for `spk.ts`; typecheck/lint/build exit 0; kernels stay out of Git and no CSPICE cross-check exists yet (OPEN-005/007). |
 | 2026-11-05 | STEP-7 RUNTIME EPHEMERIS       | Measured the ephemeris/display path against the MD5-verified `de440.bsp`: the tables themselves agree with the kernel to ≤0.127 km, but five bodies (Sun + outer planets, 9-day anchors) were frozen at their epoch vector because one date bracket was shared by all bodies — Jupiter off by 7.3e+8 km at +700 d, fixed to 8.2e-2 km by `b8f21d2`; SPK path chaining added in `0d9743c`; ±300 d now measures ≤1.0 km (Mercury 1.014e+2 km, limit set at 200 km) while the −1..+2 yr anchor span versus the claimed ±10/+50 yr window is recorded as AUDIT-51/OPEN-008 (1.1e+8–2.8e+9 km, 0.8–18.6 AU). Full regression 87 files / **571** tests in 51.52 s; typecheck/lint/build exit 0. |
+| 2026-11-05 | STEP-7b ANCHOR DENSITY         | A sparse velocity-free anchor at +365.25 d sat inside the dense 1.5-day span and forced the blended fallback: Earth 3.09e+5 km and Mercury 4.80e+5 km at +365 d. `e92467f` lets fine anchors win inside their own span, giving 1.83e-1 km (Earth) and 2.24e+1 km (Mercury) there, and the kernel sweep widened to −364..+724 d at 0.5 d: worst 8.011e+1 km (Mercury), every other body ≤ 1.3 km, velocities ≤ 1.856e-3 km/s. Full regression 87 files / **571** tests in 41.56 s; typecheck/lint/build exit 0; the coverage edge (+724 d onward) stays AUDIT-51/OPEN-008. |
