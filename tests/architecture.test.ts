@@ -61,3 +61,11 @@ it('observability/ is infrastructure with no app, browser, clock, or randomness 
     /Math\.random\(/,
   ]);
 });
+
+it('only the console log sink writes directly to console', () => {
+  for (const file of walk('src')) {
+    if (file.endsWith(join('observability', 'logger.ts'))) continue;
+    const src = readFileSync(file, 'utf8');
+    expect(src, `${file} bypasses the central log sink`).not.toMatch(/\bconsole\./);
+  }
+});

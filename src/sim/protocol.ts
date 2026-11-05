@@ -60,5 +60,8 @@ export interface Frame {
   stride: number;
   energyDrift: number;
   angMomDrift: number;
+  comDrift: number;
+  invariantOk: boolean;
+  invariantViolations: readonly string[];
   baryDist: Float64Array; // each body's distance to the system center of mass, AU
 }

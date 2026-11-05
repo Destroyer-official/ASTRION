@@ -88,6 +88,27 @@ describe('SimCore', () => {
     expect(f.pos).toEqual(model.state.pos);
   });
 
+  it('publishes bounded drift and center-of-mass invariants on every frame', () => {
+    const { core, first } = start();
+    expect(first!.comDrift).toBe(0);
+    expect(first!.invariantOk).toBe(true);
+
+    const f = core.handle({ type: 'advance', gen: 0, days: 100 })!;
+    expect(Number.isFinite(f.comDrift)).toBe(true);
+
+    const badPos = model.state.pos.slice();
+    badPos[0] = Number.NaN;
+    const bad = core.handle({
+      type: 'load',
+      gen: 1,
+      t: 0,
+      pos: badPos,
+      vel: model.state.vel.slice(),
+    })!;
+    expect(bad.invariantOk).toBe(false);
+    expect(bad.invariantViolations).toContain('non_finite');
+  });
+
   it('reply arrays are copies (transferring them cannot corrupt the core)', () => {
     const { core } = start();
     const a = core.handle({ type: 'advance', gen: 0, days: 0 })!;

@@ -5,6 +5,7 @@ import type { Frame, ToWorker } from './protocol';
 import type { SystemModel } from './registry';
 import { DEFAULT_CONFIG, type PhysicsConfig } from './config';
 import { hermite } from './hermite';
+import { HealthRegistry, Logger, NOOP_LOG_SINK } from '@/observability';
 
 export interface ClientOptions {
   maxDt: number;
@@ -27,6 +28,8 @@ export interface ClientOptions {
   chunkDays?: number;
   /** Max queued demand; excess is dropped so a fast slider slows the sim instead of freezing it. */
   maxBacklogDays?: number;
+  logger?: Logger;
+  health?: HealthRegistry;
 }
 
 export class SimClient {
@@ -36,6 +39,9 @@ export class SimClient {
   readonly baryDist: Float64Array;
   energyDrift = 0;
   angMomDrift = 0;
+  comDrift = 0;
+  invariantOk = true;
+  invariantViolations: readonly string[] = [];
   ready = false;
 
   config: PhysicsConfig;
@@ -72,12 +78,19 @@ export class SimClient {
     srp?: boolean;
     fixedDt?: number;
   } | null = null;
+  private readonly logger: Logger;
+  private readonly health: HealthRegistry;
+  private lastInvariantViolations = '';
   /** True after repeated worker crashes: the sim is parked, reload to recover. */
   workerDead = false;
 
   constructor(model: SystemModel, o: ClientOptions) {
     this.model = model;
     this.opts = o;
+    this.logger = o.logger ?? new Logger('sim', NOOP_LOG_SINK);
+    this.health = o.health ?? new HealthRegistry();
+    this.health.register('physics-worker');
+    this.health.register('simulation-state');
     this.state = cloneState(model.state);
     this.display = cloneState(model.state);
     this.baryDist = new Float64Array(this.state.n);
@@ -143,14 +156,21 @@ export class SimClient {
    * worker is parked (workerDead) instead of respawn-looping.
    */
   private handleWorkerError(e: unknown): void {
-    console.error('physics worker error', e);
-    if (this.failures >= 3) {
+    const willPark = this.failures >= 3;
+    this.logger.log('error', 'physics worker fault', this.logger.errorDetails(e, {
+      consecutiveFailures: this.failures + 1,
+      parked: willPark,
+    }));
+    if (willPark) {
       this.workerDead = true;
       this.seeking = false;
       this.seekTarget = null;
+      this.health.update('physics-worker', 'failed', 'worker parked after 3 faults');
+      this.health.update('simulation-state', 'failed', 'integration stopped');
       return;
     }
     this.failures++;
+    this.health.update('physics-worker', 'degraded', `restarting worker after fault ${this.failures}`);
     const resumeSeek = this.seekTarget;
     try {
       this.worker.terminate();
@@ -322,7 +342,8 @@ export class SimClient {
     this.inFlightDays = 0;
     this.ready = true;
     // Only real work proves health: admin replies after a respawn don't.
-    if (this.healthIgnore > 0) this.healthIgnore--;
+    const adminReply = this.healthIgnore > 0;
+    if (adminReply) this.healthIgnore--;
     else this.failures = 0;
 
     this.state.t = f.t;
@@ -340,6 +361,10 @@ export class SimClient {
     this.baryDist.set(f.baryDist);
     this.energyDrift = f.energyDrift;
     this.angMomDrift = f.angMomDrift;
+    this.comDrift = f.comDrift;
+    this.invariantOk = f.invariantOk;
+    this.invariantViolations = f.invariantViolations;
+    if (!adminReply) this.recordSimulationHealth(f);
     for (let o = 0; o + f.stride <= f.samples.length; o += f.stride) {
       this.history.pushRaw(f.samples[o]!, f.samples, o + 1);
     }
@@ -353,5 +378,30 @@ export class SimClient {
         this.seekTarget = null;
       }
     }
+  }
+
+  private recordSimulationHealth(f: Frame): void {
+    this.health.update('physics-worker', 'ok', 'frame received');
+
+    const violations = f.invariantViolations.join(',');
+    if (violations !== this.lastInvariantViolations) {
+      if (violations) {
+        this.logger.log('warn', 'simulation invariant violated', {
+          violations,
+          energyDrift: f.energyDrift,
+          angMomDrift: f.angMomDrift,
+          comDriftAu: f.comDrift,
+        });
+      } else {
+        this.logger.info('simulation invariants restored');
+      }
+      this.lastInvariantViolations = violations;
+    }
+
+    this.health.update(
+      'simulation-state',
+      f.invariantOk ? 'ok' : 'degraded',
+      violations || 'metrics within thresholds',
+    );
   }
 }

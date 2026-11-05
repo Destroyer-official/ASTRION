@@ -16,6 +16,7 @@ import { utcToTt, utcToTdb, getLeapSeconds } from '@/physics/time';
 import { periapsisToBMag, hyperbolicTurnAngle } from '@/physics/bplane';
 import { PLANET_SOI_AU } from '@/physics/flyby';
 import { universeBackbone } from '@/universe/universePhysicsBackbone';
+import type { ModuleHealth } from '@/observability';
 import { createUniversalCoordinate, METERS_PER_AU } from '@/universe/cosmicScaleEngine';
 
 export interface Option {
@@ -58,6 +59,10 @@ export interface PanelData {
   sunSpeedKms: number;
   energyDrift: number;
   angMomDrift: number;
+  comDriftAu?: number;
+  invariantOk?: boolean;
+  invariantViolations?: readonly string[];
+  moduleHealth?: readonly ModuleHealth[];
   rows: BodyRow[];
   busy: boolean;
   fps: number;
@@ -66,6 +71,15 @@ export interface PanelData {
   selectedFacts?: ComputedFacts | null;
   galaxyReadout?: GalaxyReadout | null;
   cameraDistanceAu?: number;
+}
+
+/** Compact one-line health summary; unknown modules do not mask a real fault. */
+function formatModuleHealth(rows: readonly ModuleHealth[]): string {
+  const problems = rows.filter((row) => row.status !== 'ok' && row.status !== 'unknown');
+  if (problems.length === 0) {
+    return rows.some((row) => row.status === 'unknown') ? 'PARTIAL' : 'ALL OK';
+  }
+  return problems.map((row) => `${row.module} ${row.status.toUpperCase()}`).join(', ');
 }
 
 /**
@@ -1340,6 +1354,13 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         `Sun speed      ${d.sunSpeedKms.toFixed(3)} km/s`,
         `|ΔE/E|         ${d.energyDrift.toExponential(2)}`,
         `|ΔL/L|         ${d.angMomDrift.toExponential(2)}`,
+        d.comDriftAu == null
+          ? ''
+          : `|ΔCM|          ${d.comDriftAu.toExponential(2)} AU`,
+        d.invariantOk == null
+          ? ''
+          : `Integrity      ${d.invariantOk ? 'OK' : `VIOLATION: ${(d.invariantViolations ?? []).join(', ')}`}`,
+        d.moduleHealth ? `Health         ${formatModuleHealth(d.moduleHealth)}` : '',
         `Render         ${d.fps.toFixed(0)} FPS (${(1000 / Math.max(1, d.fps)).toFixed(1)} ms) · quality Q${d.quality}`,
         d.busy ? 'SIMULATION BUSY' : '',
         d.workerFault ? 'WORKER FAULT — reload the page (sim parked safely)' : '',

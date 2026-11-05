@@ -10,6 +10,7 @@ import { buildForces } from './forces';
 import { loadSystem, buildModel, buildSolver, decomposeGlobal, type ModelData, type SolverData, PHYSICAL_MAP } from './registry';
 import { compose } from '@/physics/hierarchy';
 import { cloneState } from '@/physics/system';
+import { DEFAULT_INVARIANT_THRESHOLDS, evaluateSimulationMetrics, type InvariantThresholds } from '@/observability';
 
 function buildIntegrator(name?: PhysicsConfig['integrator']): Integrator {
   if (name === 'yoshida8' || name === 'truth8') return yoshida8(new Leapfrog());
@@ -32,6 +33,11 @@ export class SimCore {
 
   private prev = { t: 0, pos: new Float64Array(0), vel: new Float64Array(0) };
   private cur = { t: 0, pos: new Float64Array(0), vel: new Float64Array(0) };
+  private readonly invariantThresholds: InvariantThresholds;
+
+  constructor(invariantThresholds: InvariantThresholds = DEFAULT_INVARIANT_THRESHOLDS) {
+    this.invariantThresholds = invariantThresholds;
+  }
 
   handle(msg: ToWorker): Frame | null {
     if (msg.type === 'init') {
@@ -285,6 +291,10 @@ export class SimCore {
       rec = this.rec!,
       s = this.globalState ?? engine.state;
     const d = engine.diagnostics();
+    const invariants = evaluateSimulationMetrics(
+      { energyDrift: d.energyDrift, angMomDrift: d.angMomDrift, comDriftAu: d.comDriftAu },
+      this.invariantThresholds,
+    );
     const baryDist = new Float64Array(s.n);
     for (let i = 0; i < s.n; i++) {
       baryDist[i] = Math.hypot(s.pos[3 * i]!, s.pos[3 * i + 1]!, s.pos[3 * i + 2]!);
@@ -304,6 +314,9 @@ export class SimCore {
       stride: rec.stride,
       energyDrift: d.energyDrift,
       angMomDrift: d.angMomDrift,
+      comDrift: d.comDriftAu,
+      invariantOk: invariants.ok,
+      invariantViolations: invariants.violations.map((violation) => violation.name),
       baryDist,
     };
   }

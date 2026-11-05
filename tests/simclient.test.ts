@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadSystem } from '@/sim/registry';
 import { SimCore } from '@/sim/simCore';
-import { SimClient } from '@/sim/simClient';
+import { SimClient, type ClientOptions } from '@/sim/simClient';
 import type { ToWorker } from '@/sim/protocol';
+import { HealthRegistry } from '@/observability';
 import { PHASE1_BODIES } from './fixtures/phase1';
 
 /** In-process stand-in for the physics Web Worker: same SimCore, same messages. */
@@ -43,7 +44,7 @@ beforeAll(() => {
 
 const flush = (ms = 60) => new Promise((r) => setTimeout(r, ms));
 
-function makeClient() {
+function makeClient(overrides: Partial<ClientOptions> = {}) {
   const model = loadSystem(PHASE1_BODIES);
   const client = new SimClient(model, {
     maxDt: 1,
@@ -52,6 +53,7 @@ function makeClient() {
     historyIntervalDays: 5,
     chunkDays: 12,
     maxBacklogDays: 120,
+    ...overrides,
   });
   const worker = (client as unknown as { worker: FakeWorker }).worker;
   return { model, client, worker };
@@ -68,6 +70,24 @@ describe('SimClient worker protocol (fake worker)', () => {
     expect(bites.length).toBeGreaterThan(0);
     for (const d of bites) expect(Math.abs(d)).toBeLessThanOrEqual(12);
     expect(client.state.t).toBeGreaterThan(0);
+    client.dispose();
+  });
+
+  it('publishes worker and invariant health to an injected registry', async () => {
+    const changes: string[] = [];
+    const health = new HealthRegistry({
+      onChange: (_, next) => changes.push(`${next.module}:${next.status}`),
+    });
+    const { client } = makeClient({ health });
+    await flush();
+    client.request(20);
+    await flush();
+
+    expect(client.invariantOk).toBe(true);
+    expect(health.get('physics-worker').status).toBe('ok');
+    expect(health.get('simulation-state').status).toBe('ok');
+    expect(changes).toContain('physics-worker:ok');
+    expect(changes).toContain('simulation-state:ok');
     client.dispose();
   });
 

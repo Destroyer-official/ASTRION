@@ -15,9 +15,42 @@ import { relativeRows } from '@/sim/readout';
 import { computeBodyFacts } from '@/sim/facts';
 import { GALAXY_MODELS } from '@/data/galaxy';
 import { horizonsClient } from '@/sim/horizonsClient';
+import { CONSOLE_LOG_SINK, HealthRegistry, Logger, type ModuleHealth } from '@/observability';
 
 const HISTORY_CAP = 20_000;
 const MAX_JUMP_DAYS = 73_050;
+
+const logger = new Logger('astrion', CONSOLE_LOG_SINK);
+const health = new HealthRegistry({
+  onChange: (previous, next: ModuleHealth) => {
+    logger.log(
+      next.status === 'failed' ? 'error' : next.status === 'degraded' ? 'warn' : 'info',
+      'module health changed',
+      {
+        module: next.module,
+        previous,
+        status: next.status,
+        detail: next.detail ?? '',
+      },
+    );
+  },
+});
+health.register('render');
+health.register('ui');
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    logger.log('error', 'uncaught browser error', {
+      message: event.message,
+      filename: event.filename,
+      line: event.lineno,
+      column: event.colno,
+    });
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    logger.log('error', 'unhandled promise rejection', { reason: String(event.reason) });
+  });
+}
 
 // Load all 36 celestial "science" bodies: Sun, 8 planets, Pluto, 22 moons + 4 asteroids
 const model = loadSystem(ALL_BODIES);
@@ -51,6 +84,8 @@ const client = new SimClient(model, {
   relativity: true,
   quadrupole: true,
   fixedDt: 0.2,
+  logger: logger.child('sim'),
+  health,
 });
 
 const galaxySim = new GalaxySim();
@@ -210,6 +245,7 @@ const viewer = createViewer(document.getElementById('app')!, model, HISTORY_CAP,
     isApplyingPreset = false;
   },
 });
+health.update('render', 'ok', 'WebGL scene created');
 Object.assign(window, { __viewer: viewer, __galaxySim: galaxySim, __store: store });
 
 // Precompute full 500 Myr galactic orbit path and supply to viewer (0.1 Myr step, symmetrical past & future for live wake)
@@ -444,6 +480,7 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     };
   },
 });
+health.update('ui', 'ok', 'panel controls bound');
 
 store.subscribe((s, changed) => {
   if (changed === 'preset' && !isApplyingPreset) applyPreset(s.preset);
@@ -573,6 +610,10 @@ function tick(now: number) {
       sunSpeedKms: sunSpeedKms(s.frame),
       energyDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.energyDrift,
       angMomDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.angMomDrift,
+      comDriftAu: s.dynamicsMode === 'ephemeris' ? 0 : client.comDrift,
+      invariantOk: s.dynamicsMode === 'ephemeris' ? true : client.invariantOk,
+      invariantViolations: s.dynamicsMode === 'ephemeris' ? [] : client.invariantViolations,
+      moduleHealth: health.snapshot(),
       rows: relativeRows(client.display, model.names, sun),
       busy: client.busy,
       workerFault: client.workerDead,
@@ -587,7 +628,14 @@ function tick(now: number) {
 }
 
 if (typeof window !== 'undefined') {
-  Object.assign(window, { __viewer: viewer, __client: client, __store: store, __model: model });
+  Object.assign(window, {
+    __viewer: viewer,
+    __client: client,
+    __store: store,
+    __model: model,
+    __logger: logger,
+    __health: health,
+  });
 }
 
 requestAnimationFrame(tick);

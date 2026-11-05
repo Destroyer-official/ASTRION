@@ -6,6 +6,7 @@ export interface Diagnostics {
   t: number; // days
   energyDrift: number; // (E - E0) / |E0|
   angMomDrift: number; // |L - L0| / |L0|
+  comDriftAu: number; // displacement of the system center of mass from its reference
   baryDistAu: (i: number) => number;
 }
 
@@ -19,7 +20,9 @@ export class Engine {
   integrator: Integrator;
   private readonly initial: SystemState;
   private e0: number;
-  private l0: number;
+  private l0: readonly [number, number, number];
+  private l0Magnitude: number;
+  private com0: ReturnType<typeof centerOfMass>;
   carry = 0; // target time minus state time; always in (-dt, dt)
 
   constructor(
@@ -35,8 +38,11 @@ export class Engine {
     this.maxDt = maxDt;
     this.maxSteps = maxSteps;
     this.initial = cloneState(state);
-    this.e0 = totalEnergy(state);
-    this.l0 = Math.hypot(...angularMomentum(state));
+    this.e0 = 0;
+    this.l0 = [0, 0, 0];
+    this.l0Magnitude = 0;
+    this.com0 = { pos: [0, 0, 0], vel: [0, 0, 0] };
+    this.rebase();
   }
 
   /** Advance with fixed step dt. Deterministic, frame-rate independent. */
@@ -76,21 +82,28 @@ export class Engine {
 
   /** Re-baseline conservation diagnostics after loading an exact external state. */
   rebase(): void {
-    this.e0 = totalEnergy(this.state);
-    this.l0 = Math.hypot(...angularMomentum(this.state));
+    const s = this.state;
+    this.e0 = totalEnergy(s);
+    this.l0 = angularMomentum(s);
+    this.l0Magnitude = Math.hypot(this.l0[0], this.l0[1], this.l0[2]);
+    this.com0 = centerOfMass(s);
   }
 
   diagnostics(): Diagnostics {
     const s = this.state;
     const e = totalEnergy(s);
     const l = angularMomentum(s);
-    const li = angularMomentum(this.initial);
-    const dl = Math.hypot(l[0]! - li[0]!, l[1]! - li[1]!, l[2]! - li[2]!);
+    const dl = Math.hypot(l[0]! - this.l0[0], l[1]! - this.l0[1], l[2]! - this.l0[2]);
     const com = centerOfMass(s);
     return {
       t: s.t,
-      energyDrift: (e - this.e0) / Math.abs(this.e0),
-      angMomDrift: dl / this.l0,
+      energyDrift: Math.abs(this.e0) > 0 ? (e - this.e0) / Math.abs(this.e0) : 0,
+      angMomDrift: this.l0Magnitude > 0 ? dl / this.l0Magnitude : 0,
+      comDriftAu: Math.hypot(
+        com.pos[0]! - this.com0.pos[0]!,
+        com.pos[1]! - this.com0.pos[1]!,
+        com.pos[2]! - this.com0.pos[2]!,
+      ),
       baryDistAu: (i) =>
         Math.hypot(
           s.pos[3 * i]! - com.pos[0]!,
