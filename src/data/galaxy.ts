@@ -1,5 +1,15 @@
-/** Mean obliquity of the ecliptic at J2000 (IAU 2006): 84381.406 arcsec. */
-export const OBLIQUITY_J2000_RAD = ((84381.406 / 3600) * Math.PI) / 180;
+/**
+ * Obliquity that realizes the simulation's J2000 mean-ecliptic frame.
+ *
+ * Every state vector in `src/data/bodies` was produced by JPL Horizons with
+ * `REF_PLANE='ECLIPTIC'`, and Horizons documents that frame as "the IAU76/80
+ * obliquity of 84381.448 arcsec at J2000.0 relative to the ICRF reference
+ * frame" (https://ssd-api.jpl.nasa.gov/doc/horizons.html, fetched 2026-11-05).
+ * The modern IAU 2006 value is 84381.406 arcsec; using it here left the whole
+ * dataset rotated 0.042 arcsec away from the frame the code converted into,
+ * which is 526 km at Uranus. Measured in docs/VALIDATION_LOG.md.
+ */
+export const OBLIQUITY_J2000_RAD = ((84381.448 / 3600) * Math.PI) / 180;
 
 /**
  * Galactic axes expressed in ICRS (Hipparcos catalogue, vol. 1, eq. 1.5.11).

@@ -6,6 +6,7 @@ import { newtonianGravity } from '@/physics/forces/gravity';
 import { buildFrames } from '@/frames/registry';
 import { transformState } from '@/frames/transform';
 import { GALACTIC_AXES_IN_SIM, sunVelocitySim } from '@/frames/galactic';
+import { OBLIQUITY_J2000_RAD } from '@/data/galaxy';
 import { auDayToKms } from '@/data/constants';
 import type { SystemState } from '@/physics/types';
 import { PHASE1_BODIES } from './fixtures/phase1';
@@ -148,6 +149,18 @@ describe('frames', () => {
   it('cmb-aligned: Sun speed matches Planck dipole ~369.82 km/s', () => {
     const { V } = inFrame('cmb-aligned', evolve(1500));
     expect(Math.abs(kms(V, S) - 369.82)).toBeLessThan(0.05);
+  });
+});
+
+describe('simulation ecliptic frame', () => {
+  it('uses the obliquity JPL Horizons applies to its J2000 ECLIPTIC plane', () => {
+    // Horizons documents REF_PLANE='ECLIPTIC' at J2000 as "the IAU76/80 obliquity of
+    // 84381.448 arcsec at J2000.0 relative to the ICRF reference frame"
+    // (https://ssd-api.jpl.nasa.gov/doc/horizons.html, fetched 2026-11-05), and every
+    // vector in src/data/bodies was produced there. The DE440 comparison recorded in
+    // docs/VALIDATION_LOG.md measured the previous IAU 2006 value leaving the whole
+    // dataset rotated 0.042 arcsec — 526 km at Uranus.
+    expect((OBLIQUITY_J2000_RAD * 180 * 3600) / Math.PI).toBeCloseTo(84381.448, 6);
   });
 });
 

@@ -53,7 +53,9 @@ const nutTs = await readFile('src/data/nutation.ts', 'utf8');
 const sys3 = nutTs.match(/3: \[([\s\S]*?)\n  \],/)[1];
 const phases = [...sys3.matchAll(/\[([0-9.eE+-]+),\s*([0-9.eE+-]+),\s*([0-9.eE+-]+)\]/g)]
   .map((m) => m.slice(1, 4).map(Number));
-const OBL = ((84381.406 / 3600) * Math.PI) / 180;
+const galaxyTs = await readFile('src/data/galaxy.ts', 'utf8');
+const obliquityArcsec = Number(galaxyTs.match(/OBLIQUITY_J2000_RAD = \(\(([\d.]+) \/ 3600\)/)[1]);
+const OBL = ((obliquityArcsec / 3600) * Math.PI) / 180;
 
 function moonSubsolar(sunEcl, moonEcl, jd, useNutation) {
   const days = jd - 2451545.0;
