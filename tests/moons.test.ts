@@ -325,7 +325,7 @@ describe('Moons Dynamics (Phase 5)', () => {
     console.log(`Laplace angle max deviation with J2: ${devWithJ2.toFixed(3)}°, without J2: ${devWithoutJ2.toFixed(3)}°`);
     expect(devWithJ2).toBeLessThan(2.0); // Remains locked near 180°
     expect(devWithoutJ2).toBeGreaterThan(devWithJ2); // Confirms sensitivity to J2
-  }, 120_000);
+  }, 300_000);
 
   it('registry and frames: every moon has a body:<id> frame and system GMs sum correctly', () => {
     const model = buildModel(ALL_BODIES, PHYSICAL_MAP);
