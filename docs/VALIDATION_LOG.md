@@ -20,17 +20,17 @@ Conventions used by this log:
 
 ### Environment
 
-| Item | Observed |
-| :--- | :--- |
-| `node -v` | `v27.0.0-alpha.0.0.0` |
-| `npm -v` | `12.1.0` |
-| `npx --no-install tsc --version` | `Version 6.0.3` |
-| `npx --no-install vitest --version` | `vitest/5.0.3 win32-x64 node-v27.0.0-alpha.0.0.0` |
-| `npx --no-install vite --version` | `vite/8.3.3 win32-x64 node-v27.0.0-alpha.0.0.0` |
-| Platform | win32, x64 |
-| HEAD commit | `8391eaf8429d477ae58bdc5291460478a34d022b` |
-| HEAD subject | `feat(nasa): add NASA JPL Horizons DE441 live integration and NASA Eyes connection` |
-| HEAD author date | `Wed Oct 7 12:00:47 2026 +0530` |
+| Item                                | Observed                                                                            |
+| :---------------------------------- | :---------------------------------------------------------------------------------- |
+| `node -v`                           | `v27.0.0-alpha.0.0.0`                                                               |
+| `npm -v`                            | `12.1.0`                                                                            |
+| `npx --no-install tsc --version`    | `Version 6.0.3`                                                                     |
+| `npx --no-install vitest --version` | `vitest/5.0.3 win32-x64 node-v27.0.0-alpha.0.0.0`                                   |
+| `npx --no-install vite --version`   | `vite/8.3.3 win32-x64 node-v27.0.0-alpha.0.0.0`                                     |
+| Platform                            | win32, x64                                                                          |
+| HEAD commit                         | `8391eaf8429d477ae58bdc5291460478a34d022b`                                          |
+| HEAD subject                        | `feat(nasa): add NASA JPL Horizons DE441 live integration and NASA Eyes connection` |
+| HEAD author date                    | `Wed Oct 7 12:00:47 2026 +0530`                                                     |
 
 ### Working tree at the time of this baseline
 
@@ -81,10 +81,10 @@ Exit code `0`. **Result: PASS — 82 test files, 530 tests, 0 failed, 49.49 s.**
 
 Slowest suites observed in the same run:
 
-| Suite | Duration | Note |
-| :--- | :--- | :--- |
-| `tests/seek.test.ts` | 46,027 ms | 2 tests, both >11 s: "one message makes bounded progress" 11,717 ms and "chained seeks land exactly on a 600-day target" 34,304 ms |
-| remaining 81 suites | < 500 ms total | most are 3–25 ms |
+| Suite                | Duration       | Note                                                                                                                               |
+| :------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/seek.test.ts` | 46,027 ms      | 2 tests, both >11 s: "one message makes bounded progress" 11,717 ms and "chained seeks land exactly on a 600-day target" 34,304 ms |
+| remaining 81 suites  | < 500 ms total | most are 3–25 ms                                                                                                                   |
 
 `tests/seek.test.ts` alone accounts for 93 % of the wall-clock test time
 (46.0 s of 49.5 s). This is the CI budget risk recorded as AUDIT-44.
@@ -135,14 +135,14 @@ before any coverage gate is added.
 
 ### Baseline summary
 
-| Check | Result | Number |
-| :--- | :--- | :--- |
-| `npm run typecheck` | PASS | 0 errors |
-| `npm test` | PASS | 82 files / 530 tests / 0 failures / 49.49 s |
-| `npm run build` | PASS | main bundle 1,255.63 kB (390.46 kB gz) |
-| `npm run lint` | NOT AVAILABLE | no lint script exists |
-| coverage | NOT MEASURED | no coverage tooling configured |
-| working tree | DIRTY | 78 modified + 92 untracked paths |
+| Check               | Result        | Number                                      |
+| :------------------ | :------------ | :------------------------------------------ |
+| `npm run typecheck` | PASS          | 0 errors                                    |
+| `npm test`          | PASS          | 82 files / 530 tests / 0 failures / 49.49 s |
+| `npm run build`     | PASS          | main bundle 1,255.63 kB (390.46 kB gz)      |
+| `npm run lint`      | NOT AVAILABLE | no lint script exists                       |
+| coverage            | NOT MEASURED  | no coverage tooling configured              |
+| working tree        | DIRTY         | 78 modified + 92 untracked paths            |
 
 ---
 
@@ -154,17 +154,17 @@ yield the values or an assertion that would compute them. They are listed here s
 that no later step mistakes them for measurements. Each is cross-referenced in
 [AUDIT.md](./AUDIT.md) (findings AUDIT-17 … AUDIT-23, AUDIT-27 and AUDIT-28).
 
-| Claim in docs | Where | Why it is unverified |
-| :--- | :--- | :--- |
-| "Earth error < 100 km; outer planets < 1 km → **PASS (56 km)**" | `README.md:181` | The nearest assertion is `tests/production-truth.test.ts:82` `expect(errAu, ...).toBeLessThan(1e-3)` — a **150,000 km** bound, not 100 km or 1 km. The string `56` appears nowhere in the repo as a measured value. |
-| eclipse timing "**PASS (1.19 min)**" | `README.md:186` | `tests/eclipses.test.ts:114` asserts `toBeLessThan(20)` minutes. Neither 1.19 nor 2.35 is computed or stored. |
-| eclipse "timing error of only **2.35 minutes**" | `ARCHITECTURE.md:97` | Same as above, and it **contradicts** the README's 1.19 min for the same event. |
-| "Solar SSB wobble magnitude **788,469 km** at 11.4 m/s" | `README.md:189` | `tests/spice-truth.test.ts:87-88` only asserts `toBeGreaterThan(1e-4)` / `(1e-6)`. The literal `788,469` exists only in the README. |
-| "**77 test suites and 497 … tests**" | `README.md:177` | Measured: **82 files / 530 tests**. The same README also says "79 suites / 503 passed" at `README.md:9` and "79 suites, 503 tests" at `README.md:271` — three mutually inconsistent counts, none matching reality. |
-| "**100% GREEN (79 Test Suites, 503 Automated Verification Tests Passing)**" | `docs/NASA_COMPLIANCE.md:5` | Same mismatch, and it is presented next to a fabricated-looking Vitest output block (`NASA_COMPLIANCE.md:63-65`) claiming `Test Files 79 passed (79)` and `Duration 45.57s`, which no run in this log produced. |
+| Claim in docs                                                                   | Where                        | Why it is unverified                                                                                                                                                                                                                                                                                             |
+| :------------------------------------------------------------------------------ | :--------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Earth error < 100 km; outer planets < 1 km → **PASS (56 km)**"                 | `README.md:181`              | The nearest assertion is `tests/production-truth.test.ts:82` `expect(errAu, ...).toBeLessThan(1e-3)` — a **150,000 km** bound, not 100 km or 1 km. The string `56` appears nowhere in the repo as a measured value.                                                                                              |
+| eclipse timing "**PASS (1.19 min)**"                                            | `README.md:186`              | `tests/eclipses.test.ts:114` asserts `toBeLessThan(20)` minutes. Neither 1.19 nor 2.35 is computed or stored.                                                                                                                                                                                                    |
+| eclipse "timing error of only **2.35 minutes**"                                 | `ARCHITECTURE.md:97`         | Same as above, and it **contradicts** the README's 1.19 min for the same event.                                                                                                                                                                                                                                  |
+| "Solar SSB wobble magnitude **788,469 km** at 11.4 m/s"                         | `README.md:189`              | `tests/spice-truth.test.ts:87-88` only asserts `toBeGreaterThan(1e-4)` / `(1e-6)`. The literal `788,469` exists only in the README.                                                                                                                                                                              |
+| "**77 test suites and 497 … tests**"                                            | `README.md:177`              | Measured: **82 files / 530 tests**. The same README also says "79 suites / 503 passed" at `README.md:9` and "79 suites, 503 tests" at `README.md:271` — three mutually inconsistent counts, none matching reality.                                                                                               |
+| "**100% GREEN (79 Test Suites, 503 Automated Verification Tests Passing)**"     | `docs/NASA_COMPLIANCE.md:5`  | Same mismatch, and it is presented next to a fabricated-looking Vitest output block (`NASA_COMPLIANCE.md:63-65`) claiming `Test Files 79 passed (79)` and `Duration 45.57s`, which no run in this log produced.                                                                                                  |
 | "Native IAS15 (15th-order Radau) + Prince-Dormand RK8(9)" as part of the engine | `docs/NASA_COMPLIANCE.md:15` | `src/physics/integrators/ias15.ts`, `rk89.ts` and `compensated.ts` exist but are **imported by no runtime module** (verified by grep across `src/`: only self-references). The selectable integrators are `leapfrog / yoshida4 / yoshida6 / yoshida8 / truth8` (`src/sim/protocol.ts:18`, `src/ui/panel.ts:43`). |
-| `c = 173.1446326846693 AU/day` | `README.md:100` | Computed from `src/data/constants.ts:27`, the code yields `173.14463267424031`; `src/physics/light/lightTime.ts:17` comments the same `…67424`. The README digits are wrong at the 1e-8 level. |
-| "158 globular clusters" | `README.md:230` | Matches the default in `src/render/galaxyVisual.ts:226` but no Harris catalogue file or citation is present in the repo. |
+| `c = 173.1446326846693 AU/day`                                                  | `README.md:100`              | Computed from `src/data/constants.ts:27`, the code yields `173.14463267424031`; `src/physics/light/lightTime.ts:17` comments the same `…67424`. The README digits are wrong at the 1e-8 level.                                                                                                                   |
+| "158 globular clusters"                                                         | `README.md:230`              | Matches the default in `src/render/galaxyVisual.ts:226` but no Harris catalogue file or citation is present in the repo.                                                                                                                                                                                         |
 
 ## Scientific-accuracy baseline — what actually exists today
 
@@ -175,7 +175,7 @@ targets. The honest statement of the current baseline, from the run above:
   `tests/spice-truth.test.ts` validates cached kernel text (`gm_de440.tpc`,
   `pck00010.tpc`, `pck00011.tpc`) against SHA-256 digests recorded in
   `src/data/spice/provenance.json`, and pins body GMs to the kernel at 1e-12.
-  That is a *provenance and consistency* check, not a position comparison: no
+  That is a _provenance and consistency_ check, not a position comparison: no
   SPK binary kernel is present, so there is no Chebyshev SPK-vs-CSPICE position
   difference in km to report. The "well below 1 km" target therefore starts from
   **no measured value**, not from a failing one.
@@ -204,9 +204,9 @@ for redistributing Solar System Scope files.
 ### License check
 
 Source page: `https://www.solarsystemscope.com/textures/`, accessed 2026-11-04.
-The page states, verbatim: *"Distributed under Attribution 4.0 International
+The page states, verbatim: _"Distributed under Attribution 4.0 International
 license: You may use, adapt, and share these textures for any purpose, even
-commercially."* — i.e. CC BY 4.0, redistribution permitted **with attribution**.
+commercially."_ — i.e. CC BY 4.0, redistribution permitted **with attribution**.
 Condition satisfied, so the files are committable. Attribution is recorded in
 `public/textures/ATTRIBUTION.md` and `README.md` §7.1.
 
@@ -374,13 +374,13 @@ is no number to report and no §6 threshold can be evaluated yet.
 
 ### Tag summary
 
-| Check | Command | Exit | Real result |
-| :--- | :--- | ---: | :--- |
-| Typecheck | `npm run typecheck` | 0 | 0 errors |
-| Lint | `npm run lint` | **1** | Missing script: "lint" |
-| Tests | `npm test` | 0 | 82 files / 530 tests pass, 45.03 s |
-| Build | `npm run build` | 0 | 1,255.63 kB bundle (390.46 kB gz), chunk warning |
-| Coverage | — | — | not configured, no number |
+| Check     | Command             |  Exit | Real result                                      |
+| :-------- | :------------------ | ----: | :----------------------------------------------- |
+| Typecheck | `npm run typecheck` |     0 | 0 errors                                         |
+| Lint      | `npm run lint`      | **1** | Missing script: "lint"                           |
+| Tests     | `npm test`          |     0 | 82 files / 530 tests pass, 45.03 s               |
+| Build     | `npm run build`     |     0 | 1,255.63 kB bundle (390.46 kB gz), chunk warning |
+| Coverage  | —                   |     — | not configured, no number                        |
 
 Git references: branch `nasa-grade-work`, tag `baseline-pre-audit`, 14 commits on
 top of `8391eaf8429d477ae58bdc5291460478a34d022b`. Commits are area-grouped, so
@@ -429,8 +429,8 @@ recorded here because §0 rule 4 requires real evidence behind every number:
    Note these are kernel slot indices, not minor-planet numbers.
 
 A negative result worth keeping: `ARCHITECTURE.md:162` already cites ICRF3
-correctly (Charlot et al. 2020, *A&A* 644, A159), so that citation must not be
-"fixed". What *is* wrong there is `ARCHITECTURE.md:170`, which cites
+correctly (Charlot et al. 2020, _A&A_ 644, A159), so that citation must not be
+"fixed". What _is_ wrong there is `ARCHITECTURE.md:170`, which cites
 "IERS Bulletin C 2024" while the current bulletin is **C 72** — the table values
 themselves are still correct (last leap second 2017-01-01, TAI−UTC = 37 s).
 
@@ -557,15 +557,15 @@ itself and its scientific assertions were not changed. The next run exited `0`:
 
 First full-`src/**/*.ts` V8 coverage baseline, copied from that run:
 
-| Scope | Statements | Branches | Functions | Lines |
-| :--- | ---: | ---: | ---: | ---: |
-| All source | 62.89 % | 44.61 % | 62.55 % | 63.29 % |
-| `src/physics` | 92.67 % | 69.69 % | 94.37 % | 93.25 % |
-| `src/frames` | 100 % | 100 % | 100 % | 100 % |
-| `src/sim` | 81.98 % | 68.00 % | 84.67 % | 84.84 % |
-| `src/render` | 39.70 % | 28.05 % | 30.00 % | 39.95 % |
-| `src/ui` | 2.30 % | 2.32 % | 1.38 % | 2.61 % |
-| `src/universe` | 91.48 % | 87.19 % | 93.22 % | 92.24 % |
+| Scope          | Statements | Branches | Functions |   Lines |
+| :------------- | ---------: | -------: | --------: | ------: |
+| All source     |    62.89 % |  44.61 % |   62.55 % | 63.29 % |
+| `src/physics`  |    92.67 % |  69.69 % |   94.37 % | 93.25 % |
+| `src/frames`   |      100 % |    100 % |     100 % |   100 % |
+| `src/sim`      |    81.98 % |  68.00 % |   84.67 % | 84.84 % |
+| `src/render`   |    39.70 % |  28.05 % |   30.00 % | 39.95 % |
+| `src/ui`       |     2.30 % |   2.32 % |    1.38 % |  2.61 % |
+| `src/universe` |    91.48 % |  87.19 % |   93.22 % | 92.24 % |
 
 The JSON summary from the same run records 4,509 / 7,124 covered lines and
 1,362 / 3,053 covered branches. **No coverage threshold is claimed or enabled.**
@@ -699,14 +699,14 @@ Laplace resonance test: 122,391 ms
 
 Coverage after step 3c:
 
-| Scope | Statements | Branches | Functions | Lines |
-| :--- | ---: | ---: | ---: | ---: |
-| All source | 62.99 % | 44.74 % | 62.87 % | 63.41 % |
-| `src/observability` | 87.50 % | 71.11 % | 94.44 % | 91.66 % |
-| `src/physics` | 92.67 % | 69.69 % | 94.37 % | 93.25 % |
-| `src/frames` | 100 % | 100 % | 100 % | 100 % |
-| `src/sim` | 82.13 % | 68.37 % | 85.00 % | 84.92 % |
-| `src/ui` | 2.28 % | 2.24 % | 1.31 % | 2.60 % |
+| Scope               | Statements | Branches | Functions |   Lines |
+| :------------------ | ---------: | -------: | --------: | ------: |
+| All source          |    62.99 % |  44.74 % |   62.87 % | 63.41 % |
+| `src/observability` |    87.50 % |  71.11 % |   94.44 % | 91.66 % |
+| `src/physics`       |    92.67 % |  69.69 % |   94.37 % | 93.25 % |
+| `src/frames`        |      100 % |    100 % |     100 % |   100 % |
+| `src/sim`           |    82.13 % |  68.37 % |   85.00 % | 84.92 % |
+| `src/ui`            |     2.28 % |   2.24 % |    1.31 % |  2.60 % |
 
 The physics/frames target remains partially unmet, and `main.ts`, browser
 startup paths, and worker entry still have no browser-level execution coverage.
@@ -922,16 +922,84 @@ and 0.70°–1.00°. The displayed timing result was rounded from 71.495 s to 1.
 
 ---
 
+## 2026-11-05 — Step 5b: WGCCRE rotational properties
+
+Commit under test: `4d6aebb`
+(`test: add seeded WGCCRE rotational frame properties`).
+
+`fast-check@4.10.2` was added exactly as a development dependency. The suite seeds every
+run with `20261105` and executes 1,000 samples, so a counterexample can be reported and
+replayed rather than being a one-time random accident.
+
+The property suite checks, across every body that has a `RotationJson` model and a
+date from −50 to +50 years around J2000:
+
+- every row of `bodyToEcliptic()` is unit length;
+- row pairs are perpendicular;
+- row 2 equals row 0 × row 1, so the frame is right-handed;
+- converting a body-fixed vector to ecliptic axes and back preserves its components.
+
+A third proposed property was recorded as an invalid test before removal:
+full matrix closure after one sidereal period failed for Ariel, Triton, and Iapetus
+with residuals of `7.35e-7`, `2.08e-5`, and `1.02e-4`. Those are not integrator bugs:
+the spin pole and nutation terms also advance during the rotation period, so only
+planets with rapid spin and slow pole change nearly close. Loosening the test until it
+passed would have hidden the premise error, so that periodic-closure property was
+removed rather than weakened. Existing pointwise planet-period checks remain, and the
+new properties still cover all bodies.
+
+### Verification
+
+Targeted suite:
+
+```
+✓ tests/orientation-property.test.ts (2 tests) 96ms
+✓ tests/orientation.test.ts (27 tests) 69ms
+✓ tests/pck-rotation.test.ts (58 tests) 33ms
+
+Test Files  3 passed (3)
+     Tests  87 passed (87)
+  Duration  476ms
+```
+
+Full local regression on `4d6aebb`:
+
+```
+ Test Files  84 passed (84)
+      Tests  544 passed (544)
+   Duration  40.66s (tests 95%, import 3%, transform 2%)
+
+✓ 157 modules transformed.
+dist/assets/physics.worker-C1FoAVmf.js     62.65 kB
+dist/assets/index-QGQ_31-l.js           1,260.04 kB │ gzip: 392.24 kB
+✓ built in 406ms
+```
+
+`npm run typecheck` and `npm run lint` also exited `0`. The large-chunk warning remains
+open. Coverage was not re-run after this commit; the step-3c coverage table remains the
+last recorded baseline.
+
+### Validation status
+
+PCK values are already independently checked against the SHA-256-pinned `pck00011.tpc`
+snapshot in `tests/pck-rotation.test.ts`. These properties do not replace that source
+comparison; they prove that the implementation’s frame algebra remains valid over the
+tested time and body ranges. WGCCRE validity ranges themselves are not yet enforced by
+the UI, which remains a production-readiness gap.
+
+---
+
 ## Entries
 
-| Date | Type | Summary |
-| :--- | :--- | :--- |
-| 2026-11-04 | BASELINE | First full measurement: typecheck 0 errors; 82 files / 530 tests pass in 49.49 s; build succeeds with a 1,255.63 kB bundle; lint and coverage not available; working tree dirty (78 M / 92 untracked); 9 documented accuracy claims not reproducible. |
-| 2026-11-04 | ASSET-VERIFY | Textures: CC BY 4.0 confirmed on the provider page; `tests/textures-manifest.test.ts` 10/10 pass; independent Python SHA-256 check 9/9 match, 0 mismatch, files unmodified. |
-| 2026-11-04 | BASELINE TAG | `baseline-pre-audit` after 14 grouped commits; tree verified identical (318/321 unchanged, 3 intentional edits, 0 lost); typecheck 0, tests 82/530, build OK, **lint exit 1 (no lint script)**, coverage unmeasured. |
-| 2026-11-04 | STEP-2 RESEARCH | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C. |
-| 2026-11-04 | STEP-3a BOUNDARY | Guard widened to cover `universe` (failed first, as proof), physics→universe cycle removed; 82 files / **531** tests pass, typecheck 0, build 0. |
-| 2026-11-05 | STEP-3b QUALITY GATES | ESLint and V8 coverage added; first lint found 37 errors, fixed; clean install and production checks pass; 82 files / 531 tests; overall 63.29 % lines, physics 93.25 % lines / 69.69 % branches, frames 100 %; 0 runtime audit findings, 10 moderate dev-only minimatch advisories remain. |
-| 2026-11-05 | STEP-3c OBSERVABILITY | Central logger, health registry, and finite/energy/angular-momentum/barycenter invariant checks added and wired through worker frames; first core run found 2 real defects, fixed; 83 files / 539 tests pass in 43.66 s, coverage 153.58 s after a 120→300 s explicit slow-test fix; overall 63.41 % lines, observability 91.66 % lines / 71.11 % branches. |
-| 2026-11-05 | STEP-4a SOURCE TRUTH | Physical constants consolidated with an automated duplicate-literal boundary test; panel GMs/radii now derive from loaded body data; galactic model presets labeled LSR/R0-only; full regression 83 files / **540** tests, typecheck/lint/build exit 0; README, ARCHITECTURE and compliance docs rewritten to remove certification and unrecorded numerical claims. |
-| 2026-11-05 | STEP-5 TIME SCALES | Removed the fixed TDB−UTC shortcut, completed the periodic TDB↔TT inverse, routed all Date↔JD conversions through UTC→TAI→TT→TDB, corrected panel scale labels, and added 2 tests; full regression 83 files / **542** tests in 41.32s, typecheck/lint/build exit 0. Retained observed eclipse output: 1.19-minute timing error and 0.891° minimum separation on this run. |
+| Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
+| :--------- | :----------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-11-04 | BASELINE                       | First full measurement: typecheck 0 errors; 82 files / 530 tests pass in 49.49 s; build succeeds with a 1,255.63 kB bundle; lint and coverage not available; working tree dirty (78 M / 92 untracked); 9 documented accuracy claims not reproducible.                                                                                                                     |
+| 2026-11-04 | ASSET-VERIFY                   | Textures: CC BY 4.0 confirmed on the provider page; `tests/textures-manifest.test.ts` 10/10 pass; independent Python SHA-256 check 9/9 match, 0 mismatch, files unmodified.                                                                                                                                                                                               |
+| 2026-11-04 | BASELINE TAG                   | `baseline-pre-audit` after 14 grouped commits; tree verified identical (318/321 unchanged, 3 intentional edits, 0 lost); typecheck 0, tests 82/530, build OK, **lint exit 1 (no lint script)**, coverage unmeasured.                                                                                                                                                      |
+| 2026-11-04 | STEP-2 RESEARCH                | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C.                                                                                                                                                                   |
+| 2026-11-04 | STEP-3a BOUNDARY               | Guard widened to cover `universe` (failed first, as proof), physics→universe cycle removed; 82 files / **531** tests pass, typecheck 0, build 0.                                                                                                                                                                                                                          |
+| 2026-11-05 | STEP-3b QUALITY GATES          | ESLint and V8 coverage added; first lint found 37 errors, fixed; clean install and production checks pass; 82 files / 531 tests; overall 63.29 % lines, physics 93.25 % lines / 69.69 % branches, frames 100 %; 0 runtime audit findings, 10 moderate dev-only minimatch advisories remain.                                                                               |
+| 2026-11-05 | STEP-3c OBSERVABILITY          | Central logger, health registry, and finite/energy/angular-momentum/barycenter invariant checks added and wired through worker frames; first core run found 2 real defects, fixed; 83 files / 539 tests pass in 43.66 s, coverage 153.58 s after a 120→300 s explicit slow-test fix; overall 63.41 % lines, observability 91.66 % lines / 71.11 % branches.               |
+| 2026-11-05 | STEP-4a SOURCE TRUTH           | Physical constants consolidated with an automated duplicate-literal boundary test; panel GMs/radii now derive from loaded body data; galactic model presets labeled LSR/R0-only; full regression 83 files / **540** tests, typecheck/lint/build exit 0; README, ARCHITECTURE and compliance docs rewritten to remove certification and unrecorded numerical claims.       |
+| 2026-11-05 | STEP-5 TIME SCALES             | Removed the fixed TDB−UTC shortcut, completed the periodic TDB↔TT inverse, routed all Date↔JD conversions through UTC→TAI→TT→TDB, corrected panel scale labels, and added 2 tests; full regression 83 files / **542** tests in 41.32s, typecheck/lint/build exit 0. Retained observed eclipse output: 1.19-minute timing error and 0.891° minimum separation on this run. |
+| 2026-11-05 | STEP-5b ORIENTATION PROPERTIES | Added seeded fast-check tests for right-handedness, orthonormality and body/ecliptic round-trips across every rotating body over ±50 years; an invalid full-matrix sidereal-closure property was removed after counterexamples. Full regression 84 files / **544** tests in 40.66s; typecheck/lint/build exit 0; large bundle and WGCCRE-range enforcement remain open.   |
