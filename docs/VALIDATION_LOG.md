@@ -390,6 +390,52 @@ snapshot, and it means `git bisect` across these 14 commits is not meaningful.
 
 ---
 
+## 2026-11-04 — Step 2 (research): checks after adding docs/RESEARCH.md
+
+Change under test: one new file, `docs/RESEARCH.md`. No source, test, data or
+config file was modified, so this is a confirmation run rather than a new
+baseline.
+
+Commands and real output:
+
+- `npm run typecheck` → **exit code 0** (no diagnostics).
+- `npm test` → **exit code 0**
+
+```
+ Test Files  82 passed (82)
+      Tests  530 passed (530)
+   Duration  37.86s (tests 95%, import 3%, transform 2%)
+```
+
+Identical counts to the BASELINE and BASELINE TAG entries (82 / 530); duration
+varied 49.49 s → 45.03 s → 37.86 s across the three runs, which is machine noise,
+not a regression. `npm run lint` remains exit 1 (no lint script) and coverage
+remains unmeasured — both unchanged by this step and still open as AUDIT-37/38.
+
+Two facts from the research that change what the repo may legitimately claim,
+recorded here because §0 rule 4 requires real evidence behind every number:
+
+1. **DE441 is not the newest ephemeris.** `de442.bsp` (dated 2025-02-06) is newest
+   in the NAIF directory, and DE441 is a two-part long-span historical solution
+   rather than a DE440 successor. The README badge, README §1/§2/§2.5 and the HEAD
+   commit message all present "DE440 / DE441" as current. Not yet corrected — that
+   is step 4 work, and no code was changed during research.
+2. **The asteroid perturber list is now sourced, not guessed.** ASSIST v1.2.0 uses
+   the Sun, Moon, planets and **16 massive asteroids** from `sb441-n16.bsp`; the
+   enumeration was read from `assist/ephem.py` (slot indices 11–26: Camilla, Ceres,
+   Cybele, Davida, Eunomia, Euphrosyne, Europa, Hygiea, Interamnia, Iris, Juno,
+   Pallas, Psyche, Sylvia, Thisbe, Vesta). This repo ships 4 asteroids, so the force
+   model in mission §4 is incomplete by 12 bodies — a measured gap, not an opinion.
+   Note these are kernel slot indices, not minor-planet numbers.
+
+A negative result worth keeping: `ARCHITECTURE.md:162` already cites ICRF3
+correctly (Charlot et al. 2020, *A&A* 644, A159), so that citation must not be
+"fixed". What *is* wrong there is `ARCHITECTURE.md:170`, which cites
+"IERS Bulletin C 2024" while the current bulletin is **C 72** — the table values
+themselves are still correct (last leap second 2017-01-01, TAI−UTC = 37 s).
+
+---
+
 ## Entries
 
 | Date | Type | Summary |
@@ -397,3 +443,4 @@ snapshot, and it means `git bisect` across these 14 commits is not meaningful.
 | 2026-11-04 | BASELINE | First full measurement: typecheck 0 errors; 82 files / 530 tests pass in 49.49 s; build succeeds with a 1,255.63 kB bundle; lint and coverage not available; working tree dirty (78 M / 92 untracked); 9 documented accuracy claims not reproducible. |
 | 2026-11-04 | ASSET-VERIFY | Textures: CC BY 4.0 confirmed on the provider page; `tests/textures-manifest.test.ts` 10/10 pass; independent Python SHA-256 check 9/9 match, 0 mismatch, files unmodified. |
 | 2026-11-04 | BASELINE TAG | `baseline-pre-audit` after 14 grouped commits; tree verified identical (318/321 unchanged, 3 intentional edits, 0 lost); typecheck 0, tests 82/530, build OK, **lint exit 1 (no lint script)**, coverage unmeasured. |
+| 2026-11-04 | STEP-2 RESEARCH | `docs/RESEARCH.md` added; typecheck 0 / 82 files / 530 tests / 37.86 s; DE442 is newest (DE441 claim wrong); ASSIST 16-asteroid perturber list sourced; `ARCHITECTURE.md:170` cites a stale Bulletin C. |
