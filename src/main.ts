@@ -533,7 +533,7 @@ let qualityLevel = 0;
 let qualityTimer = 0;
 let qualityUpStreak = 0;
 const bootTime = performance.now();
-function tick(now: number) {
+function frame(now: number) {
   const dtReal = Math.min((now - last) / 1000, 0.1);
   last = now;
   const s = store.get();
@@ -629,7 +629,34 @@ function tick(now: number) {
       cameraDistanceAu: viewer.getCameraDistance(),
     });
   }
-  requestAnimationFrame(tick);
+}
+
+let loopFaults = 0;
+
+/**
+ * The frame loop must never stop. Until now a single throw inside render or the
+ * readout killed the only requestAnimationFrame call, leaving a frozen canvas with
+ * nothing said about it. Faults are logged, reported through module health, and
+ * counted; the next frame is always scheduled.
+ */
+function tick(now: number) {
+  try {
+    frame(now);
+    if (loopFaults > 0) {
+      health.update('render', 'ok', `frame loop recovered after ${loopFaults} fault(s)`);
+      loopFaults = 0;
+    }
+  } catch (error) {
+    loopFaults++;
+    // Report the first fault and then every 60th, so a persistent fault stays
+    // visible without flooding the console at frame rate.
+    if (loopFaults === 1 || loopFaults % 60 === 0) {
+      logger.log('error', 'animation frame failed', { faults: loopFaults, error: String(error) });
+    }
+    health.update('render', 'degraded', `${loopFaults} frame fault(s), last: ${String(error)}`);
+  } finally {
+    requestAnimationFrame(tick);
+  }
 }
 
 if (typeof window !== 'undefined') {
