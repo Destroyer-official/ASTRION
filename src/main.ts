@@ -370,22 +370,48 @@ function applyFrameDefaults(id: string): void {
 const travelPos = new Float64Array(model.state.n * 3);
 const travelVel = new Float64Array(model.state.n * 3);
 
-const seekToJd = async (jd: number) => {
+function clampToEphemerisWindow(days: number): { days: number; warning: string | null } {
+  const w = ephemeris.validatedWindow();
+  if (!w) {
+    return {
+      days,
+      warning: 'Ephemeris validation window unavailable — absolute positions are not certified.',
+    };
+  }
+  if (days >= w.min && days <= w.max) return { days, warning: null };
+
+  const clampedDays = Math.max(w.min, Math.min(w.max, days));
+  const requested = jdToDate(model.epochJd + days).toISOString().slice(0, 10);
+  const applied = jdToDate(model.epochJd + clampedDays).toISOString().slice(0, 10);
+  logger.log('warn', 'date clamped to validated ephemeris window', {
+    requested,
+    applied,
+    requestedDays: days,
+    appliedDays: clampedDays,
+  });
+  return {
+    days: clampedDays,
+    warning: `Date ${requested} is outside the validated ephemeris window; clamped to ${applied}.`,
+  };
+}
+
+const seekToJd = async (jd: number): Promise<string | null> => {
   travelToken++;
   viewer.cancelFlight();
-  const days = Math.max(-MAX_JUMP_DAYS, Math.min(MAX_JUMP_DAYS, jd - model.epochJd));
+  let days = Math.max(-MAX_JUMP_DAYS, Math.min(MAX_JUMP_DAYS, jd - model.epochJd));
+  let warning: string | null = null;
   if (store.get().dynamicsMode === 'ephemeris') {
-    // Ephemeris mode: jump display directly and evaluate the interpolated
-    // position & velocity from the local anchor tables.
+    // Ephemeris mode: jump directly within the measured dense-anchor span only.
+    const gated = clampToEphemerisWindow(days);
+    days = gated.days;
+    warning = gated.warning;
     client.display.t = days;
     ephemeris.interpolate(days, client.display.pos, client.display.vel);
   } else {
     // Instant exact travel: seed the live N-body state from the local Horizons
     // anchor tables (0 ms, 100% offline-safe) or from the live JPL Horizons API
-    // when the tables cannot answer. Note the measured caveat: only -1..+2 yr is
-    // densely anchored, so interpolation there is sub-km, while the ±10/±50 yr
-    // corner anchors in between are years apart and the blend inherits their gap
-    // (VALIDATION_LOG step 7, AUDIT-51).
+    // when the tables cannot answer. N-body propagation remains available, but
+    // its measured error grows with the horizon (VALIDATION_LOG steps 7/8).
     const win = ephemeris.window();
     const isWithinWindow = days >= win.min && days <= win.max;
 
@@ -416,6 +442,7 @@ const seekToJd = async (jd: number) => {
     if (!ok) client.seek(days);
   }
   client.history.clear();
+  return warning;
 };
 
 const panel = createPanel(document.getElementById('panel')!, store, {
@@ -435,6 +462,16 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     })),
   galaxyModels: GALAXY_MODELS,
   validationTable,
+  ephemerisCoverage: (() => {
+    const w = ephemeris.validatedWindow();
+    if (!w) return null;
+    return {
+      minDays: w.min,
+      maxDays: w.max,
+      fromDate: jdToDate(model.epochJd + w.min).toISOString().slice(0, 10),
+      toDate: jdToDate(model.epochJd + w.max).toISOString().slice(0, 10),
+    };
+  })(),
   onReset: () => {
     travelToken++;
     viewer.cancelFlight();
@@ -501,7 +538,14 @@ store.subscribe((s, changed) => {
     }
   }
   if (changed === 'dynamicsMode' && s.dynamicsMode === 'ephemeris') {
-    ephemeris.interpolate(client.display.t, client.display.pos, client.display.vel);
+    const gated = clampToEphemerisWindow(client.display.t);
+    client.display.t = gated.days;
+    if (gated.warning) {
+      logger.log('warn', 'ephemeris mode entered outside validated window', {
+        warning: gated.warning,
+      });
+    }
+    ephemeris.interpolate(gated.days, client.display.pos, client.display.vel);
   }
   if (changed === 'dynamicsMode') {
     // Sim-drifted and ephemeris-truth positions differ: never connect them.
@@ -565,10 +609,9 @@ function frame(now: number) {
   if (s.dynamicsMode === 'ephemeris') {
     if (s.playing) {
       client.display.t += s.speed * dtReal * (s.reversed ? -1 : 1);
-      // The anchor table ends: clamp the date instead of freezing the planets
-      // while the readout keeps advancing (silent clamp = wrong date on screen).
-      const w = ephemeris.window();
-      client.display.t = Math.max(w.min, Math.min(w.max, client.display.t));
+      // Playback stops at the measured dense-anchor boundary rather than
+      // advancing the displayed date into a year-long interpolation chord.
+      client.display.t = clampToEphemerisWindow(client.display.t).days;
     }
     ephemeris.interpolate(client.display.t, client.display.pos, client.display.vel);
     // Trails need a live history in ephemeris mode too (the worker is idle here).

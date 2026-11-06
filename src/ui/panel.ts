@@ -39,9 +39,15 @@ export interface PanelContext {
   presets: Option[];
   galaxyModels: readonly GalaxyModel[];
   validationTable: ValidationRow[];
+  ephemerisCoverage?: {
+    minDays: number;
+    maxDays: number;
+    fromDate: string;
+    toDate: string;
+  } | null;
   onReset(): void;
-  onSeekDate(d: Date): void;
-  onNow(): void;
+  onSeekDate(d: Date): string | null | Promise<string | null>;
+  onNow(): string | null | Promise<string | null>;
   onReseedHorizons?(): Promise<{ live: boolean; source: string }> | void;
   onOpenEyes?(): void;
   onGalaxyReset?(): void;
@@ -186,6 +192,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <button id="go">Go</button>
           <button id="now" title="Sync live to current real-world UTC time">Now (Live)</button>
         </div>
+        <div id="ephCoverageStatus" role="status" aria-live="polite" style="display:none; margin-top:2px; font-size:10px; line-height:1.35; color:#bae6fd;"></div>
 
         <!-- Professional NASA Navigation Dropdown & Camera Zoom Slider -->
         <div style="display: grid; gap: 8px; margin-top: 4px;">
@@ -403,6 +410,8 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
   `;
   const factsTitle = q<HTMLElement>('#factsTitle');
   const factsContent = q<HTMLElement>('#factsContent');
+  const ephCoverageStatus = q<HTMLElement>('#ephCoverageStatus');
+  let coverageNoticeUntil = 0;
   q<HTMLButtonElement>('#closeFacts').onclick = () => store.set('selected', null);
 
   fill(frameSel, ctx.frames);
@@ -511,6 +520,24 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
       dynamicsStatus.className = 'status-badge badge-sim';
     }
 
+    const coverage = ctx.ephemerisCoverage;
+    const defaultCoverage = coverage
+      ? `Ephemeris validated from ${coverage.fromDate} to ${coverage.toDate} UTC. Dates outside this range are clamped.`
+      : 'Ephemeris validation window unavailable — contact maintainers before relying on absolute positions.';
+    ephCoverageStatus.style.display = s.dynamicsMode === 'ephemeris' ? 'block' : 'none';
+    if (s.dynamicsMode === 'ephemeris' && coverage) {
+      dateIn.min = coverage.fromDate;
+      dateIn.max = coverage.toDate;
+    } else if (s.dynamicsMode === 'ephemeris') {
+      dateIn.removeAttribute('min');
+      dateIn.removeAttribute('max');
+    } else {
+      dateIn.removeAttribute('min');
+      dateIn.removeAttribute('max');
+    }
+    ephCoverageStatus.textContent =
+      Date.now() < coverageNoticeUntil ? ephCoverageStatus.textContent : defaultCoverage;
+
     play.textContent = s.playing ? 'Pause' : 'Play';
     rev.textContent = s.reversed ? 'Backward' : 'Forward';
     speed.value = String(Math.log10(s.speed));
@@ -593,10 +620,18 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
   // Playback & input actions
   play.onclick = () => store.set('playing', !store.get().playing);
   rev.onclick = () => store.set('reversed', !store.get().reversed);
+  const showCoverageNotice = (message: string | null) => {
+    if (!message) return;
+    ephCoverageStatus.textContent = message;
+    coverageNoticeUntil = Date.now() + 6_000;
+  };
+  const seekAndReport = async (result: string | null | Promise<string | null>) => {
+    showCoverageNotice(await result);
+  };
   q('#reset').onclick = ctx.onReset;
-  q('#now').onclick = ctx.onNow;
+  q('#now').onclick = () => void seekAndReport(ctx.onNow());
   q('#go').onclick = () => {
-    if (dateIn.value) ctx.onSeekDate(new Date(`${dateIn.value}T00:00:00Z`));
+    if (dateIn.value) void seekAndReport(ctx.onSeekDate(new Date(`${dateIn.value}T00:00:00Z`)));
   };
   const realtimeBtn = q<HTMLButtonElement>('#realtimeBtn');
   if (realtimeBtn) {
