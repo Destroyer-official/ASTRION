@@ -53,7 +53,8 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Load all 36 celestial "science" bodies: Sun, 8 planets, Pluto, 22 moons + 4 asteroids
+// The full science set asserted by tests/registry.test.ts: Sun, 8 planets, Pluto,
+// 22 moons and the 16 SB441-N16 massive-asteroid perturbers (48 bodies).
 const model = loadSystem(ALL_BODIES);
 const ephemeris = new EphemerisProvider(model);
 const validationTable = ephemeris.getValidationTable();

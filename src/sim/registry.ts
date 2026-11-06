@@ -29,8 +29,8 @@ export const PLANET_BODIES: BodyJson[] = Object.values(bodyFiles);
 export const MOON_BODIES: BodyJson[] = Object.values(moonFiles);
 export const DWARF_BODIES: BodyJson[] = Object.values(dwarfFiles);
 export const ASTEROID_BODIES: BodyJson[] = Object.values(asteroidFiles);
-// The four most massive main-belt asteroids ride along in production N-body:
-// their pull moves Mars ~10 km/decade and Jupiter ~20 km/decade (measured).
+// All 16 JPL SB441-N16 / ASSIST massive-asteroid perturbers ride along in production
+// N-body. Measured effects live in docs/VALIDATION_LOG.md, not in this comment.
 export const ALL_BODIES: BodyJson[] = [...PLANET_BODIES, ...DWARF_BODIES, ...MOON_BODIES, ...ASTEROID_BODIES];
 
 const physicalFiles = import.meta.glob<PhysicalJson>('/src/data/physical/*.json', {
