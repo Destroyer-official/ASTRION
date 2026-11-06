@@ -194,8 +194,12 @@ This is a browser-behavior audit, not certification of the user interface.
 - External network requests are blocked; true cold-start operation without the local
   application server is not claimed because no service-worker offline application
   cache exists.
-- The large-chunk warning remains open: the production main chunk measured
-  1,261.98 kB raw and 393.09 kB gzipped.
+- The large-chunk warning that applied to every audit run up to this one was closed on
+  2026-11-06: the production build now emits a `three` chunk (576.96 kB / 142.15 kB
+  gzip) and an app chunk (715.73 kB / 257.23 kB gzip) instead of the single
+  1,261.98 kB → 1,292.67 kB main chunk, and the split artifact passed the same 31
+  checks served by `vite preview` (VALIDATION_LOG step 16). The gzip total is
+  unchanged, and no load-time or frame-rate budget has been measured yet.
 - Playwright coverage is wired into `.github/workflows/ci.yml` by commit `952b238`,
   but no successful GitHub Actions run is claimed from this local record.
 - The exact ephemeral screenshots live in the gitignored directory

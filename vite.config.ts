@@ -13,6 +13,18 @@ export default defineConfig({
     },
   },
   worker: { format: 'es' },
+  build: {
+    rollupOptions: {
+      output: {
+        // Three.js is the bulk of the shipped bytes and changes far less often
+        // than the simulation code, so it belongs in its own cacheable chunk.
+        // Rolldown requires the function form of manualChunks.
+        manualChunks(id: string) {
+          if (id.includes('node_modules/three')) return 'three';
+        },
+      },
+    },
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     coverage: {
