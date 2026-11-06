@@ -1542,7 +1542,7 @@ checks failed:  0
       a11y: 41 controls, 0 unnamed, 0 out of the tab order, 1 headings, 3 aria-live regions, lang="en"
       exercised: 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 numbers, 1 dates
 PASS  Horizons failure falls back to local truth — Local DE440 (live unavailable)
-PASS  ephemeris mode displays its validated coverage note — Ephemeris validated from 2025-10-05 to 2028-09-28 UTC. Dates outside this range are clamped.
+PASS  ephemeris mode displays its validated coverage note — Ephemeris validated from 2025-10-05 to 2028-09-28 UTC. Dates outside this range are clamped. Dates outside this range are clamped.
 PASS  ephemeris date picker exposes measured bounds — 2025-10-05 → 2028-09-28
 PASS  out-of-range ephemeris seek clamps to the validated edge — 2028-09-28
 PASS  clamped ephemeris seek is announced — Date 2028-09-29 is outside the validated ephemeris window; clamped to 2028-09-28.
@@ -1670,6 +1670,148 @@ reproducibility stays open (AUDIT-35 partial).
 
 ---
 
+## 2026-11-06 — Step 12: official DE kernel provenance and per-kernel tolerances
+
+Committed in `de30914`. `src/data/spice/de-kernel-provenance.json` records the byte
+sizes, MD5 values, official coverage ranges and `Last-Modified` stamps that
+`scripts/verify-spk.mjs` now checks for `de440.bsp`, `de440s.bsp`, `de442.bsp` and
+`de442s.bsp`, plus the observation that the live Horizons API answers with center
+source DE441. The SPK tests separate an ephemeris-solution difference from a reader
+defect: DE440 keeps its exact tolerance, while DE442 is gated by the divergence
+measured against the DE441-sourced Horizons cache and written into the test itself
+(`tests/validation/ephemeris-vs-de440.test.ts:34`: worst Uranus 1.426 km, Neptune
+385.7 km, measured 2026-11-06). No kernel binary is committed (OPEN-005).
+
+---
+
+## 2026-11-06 — Step 13: current leap-second and continuous-UTC provenance
+
+Committed in `06edbf4`. `LEAP_SECOND_PROVENANCE` in `src/physics/time.ts` pins the
+check date (2026-11-06), IERS Bulletin C 72 (issued 2026-07-06: no leap second on
+2026-12-31), the last transition in the IERS table (2017-01-01T00:00:00Z,
+TAI−UTC = 37 s) and BIPM Resolution 5 of the 28th CGPM (continuous UTC effective
+2027-05-20, |UT1−UTC| target 3600 s). `tests/time.test.ts` asserts each value, so a
+future bulletin or table change fails the suite instead of passing silently.
+
+---
+
+## 2026-11-06 — Step 14: the full 16-body massive-asteroid perturber set
+
+`src/data/asteroids/` went from 4 bodies to the complete JPL `SB441-N16`/ASSIST
+set of 16, so production integrates 48 gravitating bodies. Two generator scripts
+are now part of the tree and are the only sanctioned way to regenerate this data:
+
+- `scripts/fetch-asteroid-perturbers.mjs` — barycentric state vectors from JPL
+  Horizons (`CENTER=500@0`, ecliptic/ICRF, JD 2461319.5 TDB), GM from the
+  checksummed `gm_de440.tpc`, mean radius from the Horizons `RAD` field, with the
+  source string recorded in every file.
+- `scripts/fetch-asteroid-physical.mjs` — bulk physical metadata from the JPL
+  Small-Body Database API, each value copied verbatim together with the reference
+  string the API attaches to that field.
+
+Defects found while generating, and fixed:
+
+1. The vector parser first read the heliocentric ICRF block out of the Horizons
+   header instead of the `$$SOE…$$EOE` table, which made Juno's barycentric x look
+   like 1.020082 AU instead of 1.939182 AU. Slicing the vector table fixed all 12
+   files.
+2. Asteroid 52 Europa generated with id `europa` and collided with Jupiter's moon
+   (`Duplicate body id "europa"` threw out of `buildDefs`). It is now
+   `asteroid-52` / "Europa (asteroid)", and `tests/registry.test.ts` asserts id
+   uniqueness across the whole 48-body system.
+3. The generator cross-checks Horizons `RAD` against the independent SSD effective
+   diameter for each body; no mismatch was reported, and
+   `tests/sizes.test.ts` now asserts the two sources agree to better than 2 %.
+
+No spin state was invented for the 12 new bodies: neither the NAIF PCK nor the SSD
+API publishes a ratified pole for them, so their physical files omit `rotation` and
+state that in the facts panel and in OPEN-010.
+
+What the added masses are actually worth was measured rather than asserted.
+`tests/perturber-impact.test.ts` integrates Sun + 8 planets + 4 legacy asteroids and
+Sun + 8 planets + all 16 perturbers from an identical state for 20 years with the
+production force set (gravity + 1PN + solar $J_2$, Yoshida-4, dt = 1 d) and compares
+the planets; the same test re-runs at dt = 2 d to show the difference is not a
+step-size artifact:
+
+```text
+$ npx vitest run tests/perturber-impact.test.ts
+earth: 1.051 km after 20 yr (baseline 1.051 km)
+mars: 2.111 km after 20 yr (baseline 2.111 km)
+jupiter: 5.682 km after 20 yr (baseline 5.682 km)
+saturn: 1.827 km after 20 yr (baseline 1.827 km)
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Duration  813ms
+```
+
+Full regression after the change:
+
+```text
+$ npm run typecheck
+exit 0
+
+$ npm run lint
+exit 0
+
+$ npx vitest run
+ Test Files  90 passed (90)
+      Tests  589 passed (589)
+   Duration  53.89s
+
+$ npm run build
+dist/assets/physics.worker-CwINsGw0.js     83.65 kB
+dist/assets/index-CUBeKWQ1.css              6.60 kB │ gzip:   2.23 kB
+dist/assets/index-CNhp8jTl.js           1,292.67 kB │ gzip: 399.38 kB
+exit 0
+```
+
+Hierarchical N-body truth at +1 year against the cached Horizons/DE440 reference,
+with all 16 perturbers integrated:
+
+```text
+$ npx vitest run tests/production-truth.test.ts tests/load.test.ts
+sun          err        0 km
+mercury      err      107 km
+venus        err        8 km
+earth        err       56 km
+mars         err        0 km
+jupiter      err        0 km
+saturn       err        0 km
+uranus       err        0 km
+neptune      err        0 km
+ Test Files  2 passed (2)
+      Tests  4 passed (4)
+```
+
+The assertion these numbers are checked against is a 150,000 km envelope, so the
+passing test is far looser than the measurement above; the measured column is the
+one to read, and tightening that envelope is open work, not a certification.
+
+Browser audit re-run against the dev server with the 48-body system (the new
+bodies reach the UI: the Lambert origin/target selectors now cycle 46 options each):
+
+```text
+$ npm run audit:ui
+      exercised: 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 numbers, 1 dates
+      a11y: 41 controls, 0 unnamed, 0 out of the tab order, 1 headings, 3 aria-live regions
+PASS  ephemeris mode displays its validated coverage note — Ephemeris validated from 2025-10-05 to 2028-09-28 UTC. Dates outside this range are clamped.
+PASS  controls respond without errors or freezes
+PASS  startup makes no external network requests
+
+=== UI AUDIT SUMMARY ===
+checks passed: 31
+checks failed: 0
+```
+
+Bundle cost of the added bodies is visible and measured: main chunk
+1,267.87 kB → 1,292.67 kB (395.22 → 399.38 kB gzip), physics worker
+62.65 kB → 83.65 kB. The >500 kB chunk warning from the build remains open
+(no code splitting yet), as do the coverage thresholds.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1691,3 +1833,6 @@ reproducibility stays open (AUDIT-35 partial).
 | 2026-11-06 | STEP-9 EPHEMERIS GATE        | Product decision implemented to resolve AUDIT-51/OPEN-008 by hard-gating ephemeris dates to measured dense coverage. Provider exposes validated intersection **−365…+724 d**; browser showed **2025-10-05 → 2028-09-28**, clamps +1 day with accessible announcement, and sets date input bounds. First derived window collapsed to zero because the epoch anchor was mistaken for dense coverage; browser audit caught it. Full browser audit **31/31**; verify:prod typecheck/lint 0, **88 files / 577 tests** in 38.31s, build 1,264.09 kB / 393.87 kB gzip. Underlying sparse tables unchanged; N-body mode remains available beyond the gate. |
 | 2026-11-06 | STEP-10 CI UI GATE           | Same production build preview served at 127.0.0.1:4173 passed **31/31 browser checks** in 6.2s desktop / 5.5s mobile boot. Workflow YAML parsed successfully. Added dedicated `browser-ui-audit` job with `npm ci`, matching Chromium, production preview startup and failure artifacts (`952b238`). No successful Actions run is claimed; coverage thresholds and cross-browser/screen-reader/visual assurance remain open. |
 | 2026-11-06 | STEP-11 STATE SNAPSHOTS      | Versioned deterministic state snapshots added in `04ff903`: body order, epoch, time, GM, Float64 vectors and physics config are canonicalized little-endian and SHA-256-hashed; loader rejects version/length/finite/epoch/order/mass mismatch. First canonical-buffer allocation bug was caught by tests and fixed. Focused 2 files / **13 tests**; full typecheck/lint exit 0, **89 files / 582 tests** in 40.54s, build 1,267.87 kB / 395.22 kB gzip. Restored fake-worker hash equals source. Render screenshot determinism remains open. |
+| 2026-11-06 | STEP-12 KERNEL PROVENANCE    | `de30914` added `src/data/spice/de-kernel-provenance.json` (sizes, MD5, coverage, Last-Modified for de440/de440s/de442/de442s, live Horizons center source DE441) and per-kernel test tolerances, so a DE441-vs-DE442 solution difference is no longer reported as a reader defect. DE440 keeps its exact limit; DE442 limits come from the measured Uranus 1.426 km / Neptune 385.7 km divergence recorded in the test. No kernel binary committed. |
+| 2026-11-06 | STEP-13 TIME PROVENANCE      | `06edbf4` pinned `LEAP_SECOND_PROVENANCE`: check date 2026-11-06, IERS Bulletin C 72 (2026-07-06, no leap second on 2026-12-31), last table transition 2017-01-01 with TAI−UTC = 37 s, and BIPM Resolution 5 (continuous UTC from 2027-05-20, UT1−UTC target 3600 s); `tests/time.test.ts` asserts each value. |
+| 2026-11-06 | STEP-14 ASTEROID PERTURBERS  | Massive-asteroid set 4 → **16** (full JPL `SB441-N16`/ASSIST list), production system now **48 bodies**, generated by `scripts/fetch-asteroid-perturbers.mjs` + `scripts/fetch-asteroid-physical.mjs`. Fixed a heliocentric/barycentric parser defect and an `europa` id collision found by the loader; SSD↔Horizons radius cross-check passed for all 12. No spin pole invented for the perturbers (OPEN-010). Measured +1 yr barycenter errors: 0/107/8/56/0/0/0/0/0 km (Sun…Neptune) against a loose 150,000 km envelope; the 12 added masses move Earth 1.051 km, Mars 2.111 km, Jupiter 5.682 km, Saturn 1.827 km over 20 yr (`tests/perturber-impact.test.ts`, dt-convergence checked). Regression: typecheck/lint 0, **90 files / 589 tests** in 53.89 s, build 1,292.67 kB / 399.38 kB gzip (worker 83.65 kB), browser audit **31/31**. Chunk-splitting and envelope tightening remain open. |

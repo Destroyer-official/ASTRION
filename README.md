@@ -26,10 +26,11 @@ Limitations) and [`docs/OPEN_QUESTIONS.md`](./docs/OPEN_QUESTIONS.md).
 platform for trajectory exploration, celestial mechanics study, and astronomical
 visualization. What it actually integrates:
 
-1. **Symplectic N-body simulation** (leapfrog, Yoshida 4/6/8) of the Sun, 8 planets,
-   22 moons, Pluto/Charon and 4 asteroids in Float64 (AU, day, AU³/day²) inside an
-   isolated Web Worker, with optional 1st post-Newtonian (1PN) relativity and
-   solar/planetary $J_2$ quadrupole perturbations.
+1. **Symplectic N-body simulation** (leapfrog, Yoshida 4/6/8) of 48 gravitating bodies —
+   the Sun, 8 planets, 22 moons (Luna and Charon included), the dwarf planet Pluto and
+   all 16 massive asteroids in the JPL `SB441-N16`/ASSIST perturber set — in Float64
+   (AU, day, AU³/day²) inside an isolated Web Worker, with optional 1st post-Newtonian
+   (1PN) relativity and solar/planetary $J_2$ quadrupole perturbations.
 2. **Ephemeris mode** built on **cached JPL Horizons anchor tables** plus a **live
    Horizons API query when reachable** — not a bundled binary DE440/DE441/DE442 SPK
    kernel. GM/radii constants are pinned to the NAIF **DE440** text kernel
@@ -340,7 +341,8 @@ Additionally, but **implemented and unit-tested only — not wired into the runt
 src/
 ├── data/                  # Physical constants, NAIF SPICE GM/PCK tables, nutation series
 │   ├── spice/             # NAIF text kernels: gm_de440.tpc, pck00010.tpc, pck00011.tpc + provenance.json
-│   ├── physical/          # 36 physical parameter JSON definitions (Sun, planets, moons)
+│   ├── physical/          # 48 physical parameter JSON definitions (Sun, planets, moons, dwarf planet, asteroids)
+│   ├── asteroids/         # 16 SB441-N16 massive-asteroid perturbers (vectors + GM + radius, all provenanced)
 │   └── constants.ts       # Gaussian constant k, AU_KM, speed of light, TDB conversions
 ├── physics/               # Pure mathematical engine (Zero DOM, zero Three.js, deterministic)
 │   ├── integrators/       # leapfrog, yoshida4/6/8 (runtime); ias15/compensated/rk89 unit-tested only

@@ -79,8 +79,16 @@ How to read this file:
 > AUDIT-25 are closed for their documented-code wording/constant portions. AUDIT-26 is
 > honestly labeled but still needs true model-specific potentials; AUDIT-27's ephemeris
 > wording is corrected, but validity-range enforcement and a binary-SPK comparison are
-> still open. Remaining work also includes measured SPK/JPL error tables and the 12
-> absent asteroid perturbers.
+> still open. Remaining work at that time also included measured SPK/JPL error
+> tables and the 12 absent asteroid perturbers.
+
+> **Perturber-set update, 2026-11-06:** the 12 absent asteroid perturbers are no
+> longer absent. `src/data/asteroids/` now carries the full 16-body JPL
+> `SB441-N16`/ASSIST set (`scripts/fetch-asteroid-perturbers.mjs` regenerates the
+> state vectors from JPL Horizons; GM values come from the checksummed
+> `gm_de440.tpc`), so production integrates 48 gravitating bodies. Measured effect
+> and command output are recorded in `docs/VALIDATION_LOG.md`; the spin-state gap on
+> the 12 new bodies is recorded as OPEN-010 in `docs/OPEN_QUESTIONS.md`.
 
 > **UI documentation update, 2026-11-06:** `docs/UI_AUDIT.md` is now present and the
 > browser audit was executed locally at 31/31 checks. AUDIT-30 is thereby narrowed:
@@ -196,7 +204,9 @@ How to read this file:
 > Not yet satisfied: an independent CSPICE cross-check and a multi-epoch sweep across
 > the kernel span (OPEN-007), the ephemeris-mode anchor coverage behind AUDIT-51 /
 > OPEN-008, enforced kernel/WGCCRE validity ranges, model-specific galactic
-> potentials, the complete 16-asteroid perturber set, and runtime IAS15 selection.
+> potentials, the ephemeris-mode anchor coverage behind AUDIT-51 / OPEN-008, and
+> runtime IAS15 selection. The 16-asteroid perturber set listed here in earlier
+> drafts was completed on 2026-11-06 (see VALIDATION_LOG).
 >
 > Step 7 (`0d9743c`, `b8f21d2`, `e92467f`) measured the runtime ephemeris path against
 > the same kernel: the shipped anchor tables reproduce `de440.bsp` to ≤ 0.127 km, five
