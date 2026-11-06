@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { AU_KM } from '@/data/constants';
@@ -61,6 +61,52 @@ describe('Dual Mode: JPL Horizons DE440 Ephemeris Provider', () => {
     expect(ephem.interpolate(w.max + 10_000, pos)).toBe(false); // clamped, flagged
     expect(ephem.interpolate(w.min - 10_000, pos)).toBe(false);
     expect(ephem.interpolate(100, pos)).toBe(true);
+  });
+
+  it('separates the full anchor span from the validated dense-coverage span', () => {
+    const validated = ephem.validatedWindow();
+    expect(validated).toEqual({ min: -365, max: 724 });
+    expect(ephem.window().max).toBeGreaterThan(validated!.max);
+
+    expect(ephem.isWithinValidatedWindow(-365)).toBe(true);
+    expect(ephem.isWithinValidatedWindow(724)).toBe(true);
+    expect(ephem.isWithinValidatedWindow(-366)).toBe(false);
+    expect(ephem.isWithinValidatedWindow(725)).toBe(false);
+    expect(ephem.isWithinValidatedWindow(3652.5)).toBe(false);
+  });
+
+  it('does not add interpolation anchors from live vectors outside the validated window', async () => {
+    const horizons = await import('@/sim/horizonsClient');
+    const spy = vi.spyOn(horizons.horizonsClient, 'fetchSystem').mockResolvedValue(
+      Object.fromEntries(
+        model.ids.slice(0, 8).map((id) => [
+          id,
+          {
+            bodyId: id,
+            command: 'test',
+            epochJd: model.epochJd + 731,
+            dateStr: 'test',
+            positionKm: [1, 2, 3],
+            velocityKms: [0, 0, 0],
+            positionAu: [1, 2, 3],
+            velocityAuDay: [0, 0, 0],
+            source: 'test',
+          },
+        ]),
+      ) as never,
+    );
+    const clone = {
+      ...model.state,
+      t: 0,
+      pos: new Float64Array(model.state.pos),
+      vel: new Float64Array(model.state.vel),
+    };
+
+    const result = await ephem.reseedLive(731, clone);
+    expect(result.live).toBe(true);
+    expect(clone.t).toBe(731);
+    expect(ephem.validatedWindow()).toEqual({ min: -365, max: 724 });
+    spy.mockRestore();
   });
 
   it('dense anchors + velocity Hermite kill inner-planet aliasing (leave-one-out)', () => {

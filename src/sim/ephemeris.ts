@@ -11,6 +11,11 @@ import type { SystemState } from '@/physics/types';
 import type { SystemModel } from './registry';
 import { horizonsClient } from './horizonsClient';
 
+export interface EphemerisWindow {
+  min: number;
+  max: number;
+}
+
 export interface ValidationRow {
   offsetYears: number;
   offsetDays: number;
@@ -27,6 +32,8 @@ interface AnchorSample {
   vels?: Record<string, number[]>;
   /** True for the dense table and the epoch anchor, which sample every 1.5/9 d. */
   fine?: boolean;
+  /** True only for multi-sample dense/live vectors, excluding the one epoch anchor. */
+  dense?: boolean;
 }
 
 /** One body's own anchor series. The shipped tables mix densities (inner planets
@@ -56,6 +63,7 @@ export class EphemerisProvider {
   private readonly model: SystemModel;
   private readonly anchors: AnchorSample[];
   private tracks: Map<string, BodyTrack>;
+  private fineSpans = new Map<string, { min: number; max: number }>();
   private validationCache: ValidationRow[] | null = null;
 
   constructor(model: SystemModel) {
@@ -91,7 +99,7 @@ export class EphemerisProvider {
         bodies[id] = pv.p;
         vels[id] = pv.v;
       }
-      return { offsetDays: s.jd - model.epochJd, bodies, vels, fine: true };
+      return { offsetDays: s.jd - model.epochJd, bodies, vels, fine: true, dense: true };
     });
     this.anchors = [
       ...rawSamples,
@@ -110,6 +118,7 @@ export class EphemerisProvider {
     type Node = { t: number; p: readonly number[]; v: readonly number[]; hasV: boolean };
     const collected = new Map<string, Node[]>();
     const fineSpan = new Map<string, { min: number; max: number }>();
+    this.fineSpans = fineSpan;
 
     const add = (id: string, node: Node) => {
       const nodes = collected.get(id);
@@ -122,6 +131,7 @@ export class EphemerisProvider {
       for (const [id, position] of Object.entries(anchor.bodies)) {
         const velocity = anchor.vels?.[id];
         add(id, { t: anchor.offsetDays, p: position, v: velocity ?? [0, 0, 0], hasV: Boolean(velocity) });
+        if (!anchor.dense) continue;
         const span = fineSpan.get(id);
         if (!span) fineSpan.set(id, { min: anchor.offsetDays, max: anchor.offsetDays });
         else {
@@ -163,11 +173,34 @@ export class EphemerisProvider {
    * Supported time window [minDays, maxDays] relative to the epoch.
    * Outside it, interpolate() clamps to the edge anchor.
    */
-  window(): { min: number; max: number } {
+  window(): EphemerisWindow {
     return {
       min: this.anchors[0]!.offsetDays,
       max: this.anchors[this.anchors.length - 1]!.offsetDays,
     };
+  }
+
+  /**
+   * The date range common to every body with dense anchors. Outside it, the
+   * shipped table relies on sparse corner anchors separated by years, which was
+   * measured to 0.8–18.6 AU of interpolation error against DE440 (VALIDATION_LOG
+   * step 7b).
+   */
+  validatedWindow(): EphemerisWindow | null {
+    if (this.fineSpans.size === 0) return null;
+    let min = -Infinity;
+    let max = Infinity;
+    for (const span of this.fineSpans.values()) {
+      min = Math.max(min, span.min);
+      max = Math.min(max, span.max);
+    }
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) return null;
+    return { min, max };
+  }
+
+  isWithinValidatedWindow(offsetDays: number): boolean {
+    const w = this.validatedWindow();
+    return Boolean(w && offsetDays >= w.min && offsetDays <= w.max);
   }
 
   /**
@@ -295,11 +328,14 @@ export class EphemerisProvider {
 
   /**
    * Reseeds simulation state from live NASA JPL Horizons API vectors if online,
-   * falling back to local DE440 anchor tables.
+   * falling back to local DE440 anchors. Live vectors outside the dense measured
+   * window may initialize the N-body state, but are not added as interpolation
+   * anchors because a single point would create year-wide Hermite chords.
    */
   async reseedLive(targetDays: number, state: SystemState): Promise<{ live: boolean; source: string }> {
     const targetJd = this.model.epochJd + targetDays;
     const targetDate = jdToDate(targetJd);
+    const supportedForAnchors = this.isWithinValidatedWindow(targetDays);
 
     try {
       const liveVectors = await horizonsClient.fetchSystem(this.model.ids, targetDate);
@@ -325,11 +361,13 @@ export class EphemerisProvider {
         }
         state.t = targetDays;
 
-        this.anchors.push({ offsetDays: targetDays, bodies: newBodies, vels: newVels, fine: true });
-        this.anchors.sort((a, b) => a.offsetDays - b.offsetDays);
-        // The per-body tracks are built once in the constructor; fresh live anchors
-        // must extend them or interpolation keeps using only the shipped tables.
-        this.tracks = this.buildTracks();
+        if (supportedForAnchors) {
+          this.anchors.push({ offsetDays: targetDays, bodies: newBodies, vels: newVels, fine: true, dense: true });
+          this.anchors.sort((a, b) => a.offsetDays - b.offsetDays);
+          // The per-body tracks are built once in the constructor; fresh live anchors
+          // must extend them or interpolation keeps using only the shipped tables.
+          this.tracks = this.buildTracks();
+        }
 
         return { live: true, source: liveVectors['sun']?.source ?? 'JPL Horizons (ephemeris not reported)' };
       }
