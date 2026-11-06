@@ -4,6 +4,12 @@ import { History } from './history';
 import type { Frame, ToWorker } from './protocol';
 import type { SystemModel } from './registry';
 import { DEFAULT_CONFIG, type PhysicsConfig } from './config';
+import {
+  createSimSnapshot,
+  hashSimSnapshot,
+  validateSimSnapshot,
+  type SimSnapshot,
+} from './snapshot';
 import { hermite } from './hermite';
 import { HealthRegistry, Logger, NOOP_LOG_SINK } from '@/observability';
 
@@ -292,6 +298,46 @@ export class SimClient {
     } finally {
       this.fetching = false;
     }
+  }
+
+  /** Capture all state the solver needs for a later deterministic replay. */
+  snapshot(): SimSnapshot {
+    return createSimSnapshot(this.model, this.state, this.config);
+  }
+
+  /** Stable SHA-256 of the snapshot's canonical byte form. */
+  hashSnapshot(snapshot: SimSnapshot = this.snapshot()): Promise<string> {
+    validateSimSnapshot(snapshot);
+    return hashSimSnapshot(snapshot);
+  }
+
+  /**
+   * Load a validated snapshot. The body order and masses must belong to this
+   * model; position and velocity are loaded as one exact state, and physics
+   * configuration is reapplied rather than assumed from the live client.
+   */
+  restoreSnapshot(snapshot: SimSnapshot): void {
+    validateSimSnapshot(snapshot);
+    if (snapshot.ids.length !== this.model.ids.length ||
+      snapshot.ids.some((id, index) => id !== this.model.ids[index])) {
+      throw new Error('snapshot body order does not match this model');
+    }
+    if (snapshot.epochJd !== this.model.epochJd) {
+      throw new Error(`snapshot epoch ${snapshot.epochJd} does not match model epoch ${this.model.epochJd}`);
+    }
+    for (let i = 0; i < snapshot.n; i++) {
+      if (snapshot.gm[i] !== this.model.state.gm[i]) {
+        throw new Error(`snapshot mass for "${snapshot.ids[i]}" does not match this model`);
+      }
+    }
+
+    this.state.t = snapshot.t;
+    this.state.gm.set(snapshot.gm);
+    this.state.pos.set(snapshot.pos);
+    this.state.vel.set(snapshot.vel);
+    this.load(snapshot.t, snapshot.pos.slice(), snapshot.vel.slice());
+    this.snapDisplay(snapshot.t, snapshot.pos, snapshot.vel);
+    this.setPhysics({ config: snapshot.config });
   }
 
   /** Dynamically configure physics models and integrators in the worker. */

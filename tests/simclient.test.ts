@@ -129,6 +129,44 @@ describe('SimClient worker protocol (fake worker)', () => {
     client.dispose();
   }, 60_000);
 
+  it('restores an advanced snapshot into another worker with an identical hash', async () => {
+    const { client: source } = makeClient();
+    await flush();
+    source.request(20);
+    await flush();
+
+    const snapshot = source.snapshot();
+    const sourceHash = await source.hashSnapshot(snapshot);
+
+    const { client: restored } = makeClient();
+    await flush();
+    restored.restoreSnapshot(snapshot);
+    await flush();
+
+    expect(restored.state.pos).toEqual(snapshot.pos);
+    expect(restored.state.vel).toEqual(snapshot.vel);
+    expect(restored.state.t).toBeCloseTo(snapshot.t, 12);
+    expect(await restored.hashSnapshot()).toBe(sourceHash);
+
+    source.dispose();
+    restored.dispose();
+  });
+
+  it('refuses snapshots from another model epoch or body order', async () => {
+    const { client } = makeClient();
+    await flush();
+    const snapshot = client.snapshot();
+
+    expect(() => client.restoreSnapshot({ ...snapshot, epochJd: snapshot.epochJd + 1 })).toThrowError(/epoch/i);
+    expect(() =>
+      client.restoreSnapshot({
+        ...snapshot,
+        ids: [...snapshot.ids].reverse(),
+      }),
+    ).toThrowError(/body order/i);
+    client.dispose();
+  });
+
   it('survives a worker crash: respawns, reseeds, resumes', async () => {
     FakeWorker.constructed = 0;
     const { client } = makeClient();
