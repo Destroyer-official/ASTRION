@@ -56,15 +56,18 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-05 local run: 84 files / 544 tests; GitHub Actions status is not claimed here.**
+- **2026-11-06 local run: 88 files / 575 tests; GitHub Actions status is not claimed here.**
   In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
-  exited 0 (full transcripts, including the step 3c run recorded at 83 files / 539 tests,
-  are in [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
-- **Coverage (measured 2026-11-05 at step 3c, during the 539-test run — not re-run since):**
-  all sources 63.41 % lines; `src/physics` 93.25 % lines / 69.69 % branches;
-  `src/frames` 100 % lines/branches; coverage thresholds are **not enabled**.
-- No CI run, Playwright audit, or binary-SPK-vs-CSPICE position comparison has been
-  performed; anything requiring them is listed as unverified in §3.
+  exited 0 (full transcripts are in
+  [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
+- **Coverage (last measured 2026-11-05 at step 6):**
+  all sources 63.73 % lines; `src/physics` 93.25 % lines / 69.69 % branches;
+  `src/frames` 100 % lines/branches; `src/sim/spk.ts` 83.92 % lines; coverage thresholds
+  are **not enabled**.
+- A real-browser UI audit was run locally and passed **27/27 checks** at desktop and
+  mobile viewports; results and limitations are in
+  [`docs/UI_AUDIT.md`](./docs/UI_AUDIT.md). That audit is not yet wired into CI, and no
+  binary-SPK-vs-CSPICE position comparison has been performed.
 
 The layered design at a glance (truth ladder):
 
@@ -242,7 +245,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-05 local run: **84 files / 544 tests**; no CI claim) enforces the
+The suite (2026-11-06 local run: **88 files / 575 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is _not_ a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -287,7 +290,9 @@ measured error figure, and no tighter value is retained anywhere.
 - **Render counts** such as 158 globular clusters are procedural defaults in
   `src/render/galaxyVisual.ts:226`, not catalogue-derived values (no Harris catalogue
   ships in the repo).
-- **E2E / browser behavior** — Playwright scripts exist but are manual; nothing gates them.
+- **E2E / browser behavior** — the local `npm run audit:ui` gate passed 27/27 checks,
+  but it is not yet run in CI, uses one Chromium-family engine, and does not assert a
+  screen-reader transcript or visual baselines.
 - **Textures are third-party CC BY 4.0 artistically rendered maps, not spacecraft
   measurements**; no physical quantity is sampled from their pixels (§8.1).
 
@@ -390,11 +395,15 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-05 local run: 84 files / 544 tests)
+npm test                 # vitest run (2026-11-06 local run: 88 files / 575 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build
 npm run build            # tsc --noEmit && vite build
+
+# UI audit: start a dev server in one terminal, run the audit in another.
+npm run dev -- --host 127.0.0.1
+UI_URL=http://127.0.0.1:5173/ npm run audit:ui
 ```
 
 No GitHub Actions run of these commands is claimed here; the transcripts that exist are

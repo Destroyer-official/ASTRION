@@ -1380,6 +1380,119 @@ $ npm run build                      ->  dist/assets/index-DdywkBh8.js 1,260.56 
 
 ---
 
+## 2026-11-06 — Step 8: full-browser UI audit and UI resilience fixes
+
+Commits under this measurement:
+
+- `fc7f622` — `fix(ui): report sync fallbacks and preserve fact controls`
+- `30b92ca` — `test(ui): make the browser audit deterministic and exhaustive`
+- `90f1520` — `test(ui): exercise every visible form control in the audit`
+
+Commands:
+
+```bash
+npm run dev -- --host 127.0.0.1
+UI_URL=http://127.0.0.1:5173/ npm run audit:ui
+```
+
+The first runs exposed harness gaps as well as application defects. Hidden internal
+controls were being cycled, closed tool sections were skipped, and browser-wide
+offline mode blocked the local Vite server as well as external services. The audit
+was made deterministic by expanding tool sections, skipping intentionally hidden
+bindings, mocking only `/api/horizons`, reporting every control and option, waiting
+for asynchronous button completion, and distinguishing external-network isolation
+from full offline boot.
+
+The application changes were driven by real failures:
+
+1. `reseedBtn` treated any result object as success. When live Horizons vectors were
+   unavailable, the button displayed `✓ Synced` although interpolation had fallen back
+   to the local DE440 tables. It now reports `Local DE440 (live unavailable)`, and an
+   unexpected handler error reports `Sync failed — state unchanged`. The button is
+   disabled for the duration of the request.
+2. The selected-body card rewrote its complete `innerHTML` on every telemetry refresh.
+   Its close button was therefore destroyed and recreated about ten times per second.
+   Playwright observed this as a detached-click timeout, and it would also discard
+   keyboard focus. The close control is now persistent; only title text and dynamic
+   fact content update, and the button has accessible name
+   `Close selected body facts`.
+
+Final full-browser result:
+
+```text
+engine: system chrome
+--- desktop 1440x900: canvas after 6840 ms
+PASS  desktop: app becomes visible within 15 s — 6840 ms
+PASS  desktop: clean console during startup
+      layout: canvas 1440x900, panel 366px at top 14, document 1440x900 in 1440x900
+PASS  desktop: WebGL canvas present
+PASS  desktop: no horizontal overflow — scrollWidth 1440 vs client 1440
+PASS  desktop: canvas spans the window — 1440px
+      a11y: 41 controls, 0 unnamed, 0 out of the tab order, 1 headings, 2 aria-live regions, lang="en", title="ASTRION — High-Precision Ephemeris & Relativistic Astrodynamics Engine"
+PASS  the panel exposes its control surface — 41 controls
+PASS  every control has an accessible name
+PASS  element ids are unique
+PASS  document language declared — en
+PASS  no image without alt text — 0
+PASS  dynamic readout is announced via aria-live — 2 regions
+PASS  panel text meets WCAG AA contrast
+PASS  Horizons failure falls back to local truth — Local DE440 (live unavailable)
+PASS  catalog search returns results — 1 result(s)
+PASS  search selection updates the app state — mars
+PASS  search clear empties the catalog query — ""
+PASS  controls respond without errors or freezes
+      exercised: 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 numbers, 1 dates
+PASS  after an injected render fault: animation loop still advancing — 3 frames
+PASS  the injected fault was reported, not swallowed — 2 new console messages
+PASS  startup makes no external network requests
+PASS  app boots with external network blocked
+PASS  external-network-isolated boot: animation loop still advancing — 4 frames
+--- mobile 390x844: canvas after 6457 ms
+PASS  mobile: app becomes visible within 15 s — 6457 ms
+PASS  mobile: clean console during startup
+      layout: canvas 390x844, panel 362px at top 14, document 390x844 in 390x844
+PASS  mobile: WebGL canvas present
+PASS  mobile: no horizontal overflow — scrollWidth 390 vs client 390
+PASS  mobile: panel stays inside the viewport — 362px wide, top 14
+
+=== UI AUDIT SUMMARY ===
+checks passed: 27
+checks failed: 0
+```
+
+Contrast measurements from the same run:
+
+| Selector | Ratio | Font size |
+| :------- | ----: | :-------- |
+| `#readout` | 11.28:1 | 11.5 px |
+| `#panel` | 18.84:1 | 16 px |
+| `#date` | 16.9:1 | 12 px |
+| `#speedLabel` | 9.8:1 | 11 px |
+| `#dynamicsStatus` | 12.6:1 | 11 px |
+| `#focus` | 16.9:1 | 12 px |
+
+Full regression on the exact final code state:
+
+```text
+$ npm run verify:prod
+npm run typecheck      exit 0
+npm run lint           exit 0
+ Test Files  88 passed (88)
+      Tests  575 passed (575)
+   Duration  41.95s
+
+dist/index.html                             0.89 kB │ gzip:   0.52 kB
+dist/assets/physics.worker-R7tVMuKV.js     62.65 kB
+dist/assets/index-CUBeKWQ1.css              6.60 kB │ gzip:   2.23 kB
+dist/assets/index-Bm1GFIB9.js           1,261.98 kB │ gzip: 393.09 kB
+```
+
+Coverage was not re-measured during this UI step. The audit is local and manual;
+the Playwright gate is not yet wired into CI. Full details and limitations are in
+[`docs/UI_AUDIT.md`](./UI_AUDIT.md).
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1397,3 +1510,4 @@ $ npm run build                      ->  dist/assets/index-DdywkBh8.js 1,260.56 
 | 2026-11-05 | STEP-6 SPK VALIDATION          | DAF/SPK type 2/3 reader (`src/sim/spk.ts`) added and compared against NAIF's MD5-verified `de440.bsp`/`de440s.bsp`; the first run failed by up to 526 km and proved the sim realized its ecliptic with the IAU 2006 obliquity while every Horizons vector sits on the IAU76/80 plane (0.042 arcsec), fixed in `9fd4922`; nine bodies then agree to 2.4e-4 m and 7.1e-8 mm/s and the test limits are set from that measurement. Full regression 86 files / **559** tests in 54.12 s; coverage re-measured at 63.73 % lines overall and 83.92 % for `spk.ts`; typecheck/lint/build exit 0; kernels stay out of Git and no CSPICE cross-check exists yet (OPEN-005/007). |
 | 2026-11-05 | STEP-7 RUNTIME EPHEMERIS       | Measured the ephemeris/display path against the MD5-verified `de440.bsp`: the tables themselves agree with the kernel to ≤0.127 km, but five bodies (Sun + outer planets, 9-day anchors) were frozen at their epoch vector because one date bracket was shared by all bodies — Jupiter off by 7.3e+8 km at +700 d, fixed to 8.2e-2 km by `b8f21d2`; SPK path chaining added in `0d9743c`; ±300 d now measures ≤1.0 km (Mercury 1.014e+2 km, limit set at 200 km) while the −1..+2 yr anchor span versus the claimed ±10/+50 yr window is recorded as AUDIT-51/OPEN-008 (1.1e+8–2.8e+9 km, 0.8–18.6 AU). Full regression 87 files / **571** tests in 51.52 s; typecheck/lint/build exit 0. |
 | 2026-11-05 | STEP-7b ANCHOR DENSITY         | A sparse velocity-free anchor at +365.25 d sat inside the dense 1.5-day span and forced the blended fallback: Earth 3.09e+5 km and Mercury 4.80e+5 km at +365 d. `e92467f` lets fine anchors win inside their own span, giving 1.83e-1 km (Earth) and 2.24e+1 km (Mercury) there, and the kernel sweep widened to −364..+724 d at 0.5 d: worst 8.011e+1 km (Mercury), every other body ≤ 1.3 km, velocities ≤ 1.856e-3 km/s. Full regression 87 files / **571** tests in 41.56 s; typecheck/lint/build exit 0; the coverage edge (+724 d onward) stays AUDIT-51/OPEN-008. |
+| 2026-11-06 | STEP-8 FULL UI AUDIT         | Real Chromium audit at 1440×900 and 390×844: **27 checks passed / 0 failed**; exercised 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 number fields, 1 date field and catalog search; measured AA contrast, unique IDs, 41 named visible controls, 2 live regions, clean startup, fault recovery and zero startup external requests. Fixed false success on live-sync fallback (`fc7f622`) and detached facts-card close control; made hidden-control/offline audit logic correct (`30b92ca`, `90f1520`). Full `verify:prod`: typecheck/lint 0, 88 files / **575** tests in 41.95s, build 1,261.98 kB raw / 393.09 kB gzip. Playwright remains manual-only; no CI or screen-reader claim. |
