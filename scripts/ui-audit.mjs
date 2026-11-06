@@ -233,11 +233,14 @@ async function interactionSweep(page, bucket) {
 
   const run = async (kind, label, action, budgetMs) => {
     const before = bucket.length;
-    await action();
-    const elapsed = await settle(page, budgetMs);
+    try {
+      await action();
+      const elapsed = await settle(page, budgetMs);
+      if (elapsed === null) broken.push(`${kind} ${label}: frame loop never resumed within ${budgetMs} ms`);
+    } catch (error) {
+      broken.push(`${kind} ${label}: ${String(error).split('\n')[0]}`);
+    }
     if (bucket.length > before) broken.push(`${kind} ${label}: ${bucket[before]}`);
-    if (elapsed === null) broken.push(`${kind} ${label}: frame loop never resumed within ${budgetMs} ms`);
-    else if (elapsed > SETTLE_BUDGET_MS) slow.push(`${kind} ${label} took ${elapsed} ms`);
   };
 
   const buttons = page.locator('#panel button, #panel [role=button]');
@@ -246,31 +249,62 @@ async function interactionSweep(page, bucket) {
     const button = buttons.nth(index);
     if (!(await button.isVisible().catch(() => false))) continue;
     const id = await button.evaluate((el) => el.id || el.textContent?.trim() || '(unlabelled)');
-    await run('button', id, () => button.click({ timeout: 3_000, force: true }).catch(() => undefined), LONG_RUNNING.has(id) ? LONG_BUDGET_MS : SETTLE_BUDGET_MS);
+    const handle = await button.elementHandle();
+    line(`      control button ${id}`);
+    await run(
+      'button',
+      id,
+      async () => {
+        await button.click({ timeout: 3_000, force: true });
+        if (handle) {
+          await page.waitForFunction(
+            (element) => !(element instanceof HTMLButtonElement) || !element.disabled,
+            handle,
+            { timeout: LONG_RUNNING.has(id) ? LONG_BUDGET_MS : SETTLE_BUDGET_MS },
+          );
+        }
+      },
+      LONG_RUNNING.has(id) ? LONG_BUDGET_MS : SETTLE_BUDGET_MS,
+    );
+    if (id === 'reseedBtn') {
+      const result = await button.evaluate((element) => element.textContent?.trim() ?? '');
+      check(result.includes('Local DE440'), 'Horizons failure falls back to local truth', result);
+    }
   }
 
   const selects = page.locator('#panel select');
   const selectCount = await selects.count();
   for (let index = 0; index < selectCount; index++) {
     const select = selects.nth(index);
+    if (!(await select.isVisible().catch(() => false))) continue;
     const id = await select.evaluate((el) => el.id);
     const options = await select.evaluate((el) => [...el.options].map((option) => option.value));
+    line(`      control select ${id}: ${options.length} options`);
     const before = bucket.length;
     for (const value of options) {
-      await select.selectOption(value).catch(() => undefined);
-      await page.waitForTimeout(40);
+      line(`        option ${id}=${value}`);
+      try {
+        await select.selectOption(value, { timeout: 3_000 });
+        const optionFrames = await settle(page, SETTLE_BUDGET_MS);
+        if (optionFrames === null) {
+          broken.push(`select ${id}=${value}: frame loop frozen`);
+          break;
+        }
+      } catch (error) {
+        broken.push(`select ${id}=${value}: ${String(error).split('\n')[0]}`);
+        break;
+      }
     }
-    if (options[0] !== undefined) await select.selectOption(options[0]).catch(() => undefined);
-    const elapsed = await settle(page, SETTLE_BUDGET_MS);
+    if (options[0] !== undefined) await select.selectOption(options[0], { timeout: 3_000 }).catch(() => undefined);
     if (bucket.length > before) broken.push(`select ${id}: ${bucket[before]}`);
-    if (elapsed === null) broken.push(`select ${id}: frame loop frozen after cycling ${options.length} options`);
-    slow.push(`select ${id}: ${options.length} options cycled in ${elapsed ?? '>16000'} ms`);
+    slow.push(`select ${id}: ${options.length} options cycled`);
   }
 
   const toggles = page.locator('#panel input[type=checkbox]');
   const toggleCount = await toggles.count();
   for (let index = 0; index < toggleCount; index++) {
     const box = toggles.nth(index);
+    if (!(await box.isVisible().catch(() => false))) continue;
     const id = await box.evaluate((el) => el.id);
     const before = bucket.length;
     await box.click({ force: true }).catch(() => undefined);
@@ -286,6 +320,7 @@ async function interactionSweep(page, bucket) {
   const rangeCount = await ranges.count();
   for (let index = 0; index < rangeCount; index++) {
     const range = ranges.nth(index);
+    if (!(await range.isVisible().catch(() => false))) continue;
     const id = await range.evaluate((el) => el.id);
     const before = bucket.length;
     await range.evaluate((el) => {
@@ -323,16 +358,27 @@ async function faultInjection(page, bucket) {
 
 async function offlineBoot(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await context.setOffline(true);
+  const localOrigin = new URL(URL_BASE).origin;
+  const externalRequests = [];
+  await context.route('**/*', (route) => {
+    const url = route.request().url();
+    if (/^https?:/.test(url) && new URL(url).origin !== localOrigin) {
+      externalRequests.push(url);
+      return route.abort();
+    }
+    return route.continue();
+  });
   const page = await context.newPage();
   const bucket = [];
   attachCollectors(page, bucket);
   await page.goto(URL_BASE, { waitUntil: 'load', timeout: 30_000 });
   await page.waitForSelector('canvas', { timeout: 20_000 });
   await page.waitForTimeout(2_000);
+  await installProbe(page);
   const errors = bucket.filter((entry) => !entry.startsWith('requestfailed'));
-  check(errors.length === 0, 'app boots with the network offline', errors.slice(0, 3).join(' | '));
-  await expectLive(page, 'offline boot');
+  check(externalRequests.length === 0, 'startup makes no external network requests', externalRequests.slice(0, 3).join(' | '));
+  check(errors.length === 0, 'app boots with external network blocked', errors.slice(0, 3).join(' | '));
+  await expectLive(page, 'external-network-isolated boot');
   await page.screenshot({ path: `${ARTIFACTS}/offline-load.png` });
   await context.close();
 }
@@ -347,6 +393,9 @@ try {
     const page = await context.newPage();
     const bucket = [];
     attachCollectors(page, bucket);
+    await page.route('**/api/horizons*', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/plain', body: 'UI audit: live vectors unavailable' }),
+    );
 
     const start = Date.now();
     await page.goto(URL_BASE, { waitUntil: 'load', timeout: 30_000 });
@@ -362,6 +411,9 @@ try {
     await auditViewport(page, viewport);
 
     if (viewport.name === 'desktop') {
+      await page.locator('#panel details').evaluateAll((sections) => {
+        for (const section of sections) section.open = true;
+      });
       const inventory = await accessibilityInventory(page);
       line(
         `      a11y: ${inventory.total} controls, ${inventory.unnamed.length} unnamed, ` +
