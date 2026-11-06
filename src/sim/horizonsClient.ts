@@ -219,7 +219,7 @@ export class HorizonsClient {
   getEyesUrl(date: Date, target = 'home'): string {
     const iso = date.toISOString().slice(0, 19);
     const t = target === 'sun' || target === 'barycenter' ? 'home' : target;
-    return `https://eyes.nasa.gov/apps/solar-system/#/${t}?time=${encodeURIComponent(iso)}`;
+    return `https://eyes.nasa.gov/apps/solar-system/#/${encodeURIComponent(t)}?time=${encodeURIComponent(iso)}`;
   }
 }
 

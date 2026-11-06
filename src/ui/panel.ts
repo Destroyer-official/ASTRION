@@ -266,7 +266,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <label>Symplectic Integrator
               <select id="integrator" aria-label="Symplectic integrator" style="width: 100%; font-size: 10px; padding: 3px 5px; background: #0f172a; border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 2px;">
-                <option value="yoshida8">Yoshida 8th-Order Symplectic (Truth / ~10⁻¹⁵ Energy Drift)</option>
+                <option value="yoshida8">Yoshida 8th-Order Symplectic (21-stage)</option>
                 <option value="yoshida6" selected>Yoshida 6th-Order Symplectic (Default 7-Stage)</option>
                 <option value="yoshida4">Yoshida 4th-Order Symplectic (Balanced)</option>
                 <option value="leapfrog">2nd-Order Verlet / Leapfrog (Standard)</option>

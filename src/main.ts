@@ -497,7 +497,7 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     const curDate = jdToDate(model.epochJd + client.display.t);
     const target = store.get().selected || 'home';
     const eyesUrl = horizonsClient.getEyesUrl(curDate, target);
-    window.open(eyesUrl, '_blank');
+    window.open(eyesUrl, '_blank', 'noopener,noreferrer');
   },
   onGalaxyReset: () => galaxySim.reset(),
   onGalaxyCamera: (cam) =>
