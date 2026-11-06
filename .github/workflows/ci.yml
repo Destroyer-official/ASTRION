@@ -46,3 +46,70 @@ jobs:
           name: dist
           path: dist
           retention-days: 7
+
+  browser-ui-audit:
+    name: Full-browser UI audit (Playwright Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install the matching Chromium browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Start local preview server
+        run: |
+          nohup npm run preview -- --host 127.0.0.1 --port 4173 \
+            >/tmp/astrion-preview.log 2>&1 &
+          echo $! > /tmp/astrion-preview.pid
+          for attempt in $(seq 1 60); do
+            if curl --silent --fail --max-time 1 http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/astrion-preview.log
+          exit 1
+
+      - name: Run UI audit
+        env:
+          UI_URL: http://127.0.0.1:4173/
+        run: npm run audit:ui
+
+      - name: Upload preview log when startup fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-log
+          path: /tmp/astrion-preview.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload UI audit artifacts when the audit fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-audit-artifacts
+          path: ui-audit-artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Stop local preview server
+        if: always()
+        run: |
+          if [ -f /tmp/astrion-preview.pid ]; then
+            kill "$(cat /tmp/astrion-preview.pid)" || true
+          fi
