@@ -4,8 +4,29 @@ import { DAY_S, JD_J2000, JD_UNIX_EPOCH } from '@/data/constants';
  * Standard IERS leap second step table (TAI - UTC in seconds).
  * Dates given as Julian Date of the step epoch (00:00:00 UTC).
  *
- * Source: IERS Bulletin C & IAU SOFA time standards.
+ * Sources checked 2026-11-06:
+ * - IERS Bulletin C 72 (2026-07-06): no leap second at the end of December 2026.
+ * - IERS Leap_Second.dat, last transition 2017-01-01, TAI-UTC = 37 s.
+ * - BIPM Resolution 5 of the 28th CGPM (adopted 2026-10-15): continuous UTC
+ *   effective 2027-05-20, with a target maximum |UT1-UTC| of 3,600 s.
  */
+export const LEAP_SECOND_PROVENANCE = {
+  checkedAtUtc: '2026-11-06',
+  bulletinC: { number: 72, issued: '2026-07-06', decision: 'no leap second on 2026-12-31' },
+  iersTable: {
+    url: 'https://hpiers.obspm.fr/iers/bul/bulc/Leap_Second.dat',
+    lastTransitionUtc: '2017-01-01T00:00:00Z',
+    taiMinusUtcS: 37,
+  },
+  futurePolicy: {
+    authority: 'BIPM Resolution 5, 28th CGPM (2026)',
+    adopted: '2026-10-15',
+    effective: '2027-05-20',
+    decision: 'continuous UTC; no further leap-second steps under that policy',
+    maxUt1MinusUtcS: 3_600,
+  },
+} as const;
+
 export const LEAP_SECONDS_TABLE: ReadonlyArray<{ jdUtc: number; deltaAt: number }> = [
   { jdUtc: 2441317.5, deltaAt: 10 }, // 1972-01-01
   { jdUtc: 2441499.5, deltaAt: 11 }, // 1972-07-01

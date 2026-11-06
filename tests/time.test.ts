@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   getLeapSeconds,
+  LEAP_SECONDS_TABLE,
+  LEAP_SECOND_PROVENANCE,
   utcToTai,
   taiToUtc,
   taiToTt,
@@ -49,6 +51,17 @@ describe('SOFA / IERS High-Precision Time Standards', () => {
     // Verify JdPair <-> scalar JD conversion
     const pair = jdToPair(jd2026);
     expect(pairToJd(pair)).toBeCloseTo(jd2026, 12);
+  });
+
+  it('pins current leap-second and future continuous-UTC provenance', () => {
+    const last = LEAP_SECONDS_TABLE[LEAP_SECONDS_TABLE.length - 1]!;
+
+    expect(last.deltaAt).toBe(37);
+    expect(getLeapSeconds(2461319.5)).toBe(37);
+    expect(LEAP_SECOND_PROVENANCE.bulletinC).toMatchObject({ number: 72 });
+    expect(LEAP_SECOND_PROVENANCE.iersTable.taiMinusUtcS).toBe(37);
+    expect(LEAP_SECOND_PROVENANCE.futurePolicy.effective).toBe('2027-05-20');
+    expect(LEAP_SECOND_PROVENANCE.futurePolicy.maxUt1MinusUtcS).toBe(3_600);
   });
 
   it('verifies TT - TAI is exactly 32.184 seconds using two-part JdPair', () => {
