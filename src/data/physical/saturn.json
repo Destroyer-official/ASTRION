@@ -12,8 +12,7 @@
   "texture": "/textures/saturn.jpg",
   "ring": {
     "innerKm": 74500,
-    "outerKm": 140220,
-    "texture": "/textures/saturn_ring.png"
+    "outerKm": 140220
   },
   "facts": {
     "Mass": "5.683 × 10²⁶ kg",

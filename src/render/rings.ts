@@ -1,6 +1,13 @@
 import * as THREE from 'three';
-import type { RingDef } from '@/data/rotational';
 import { createSaturnRingTexture } from './textures';
+
+/** Ring geometry in kilometers from the planet's center, plus its visual parameters. */
+export interface RingDef {
+  innerRadiusKm: number;
+  outerRadiusKm: number;
+  color: string;
+  opacity: number;
+}
 
 /**
  * Creates a planetary ring mesh (Saturn, Uranus, Neptune).

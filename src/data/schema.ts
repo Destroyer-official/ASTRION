@@ -36,7 +36,7 @@ export interface PhysicalJson {
   flattening?: number; // (a - c) / a
   j2?: number; // used by Phase 5 moons
   texture?: string; // /textures/earth.jpg
-  ring?: { innerKm: number; outerKm: number; texture: string };
+  ring?: { innerKm: number; outerKm: number };
   facts?: Record<string, string>;
   /** Where the values in this file came from, copied verbatim at generation time. */
   source?: string;
