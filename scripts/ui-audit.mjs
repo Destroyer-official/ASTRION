@@ -245,9 +245,11 @@ async function interactionSweep(page, bucket) {
 
   const buttons = page.locator('#panel button, #panel [role=button]');
   const buttonCount = await buttons.count();
+  let visibleButtons = 0;
   for (let index = 0; index < buttonCount; index++) {
     const button = buttons.nth(index);
     if (!(await button.isVisible().catch(() => false))) continue;
+    visibleButtons++;
     const id = await button.evaluate((el) => el.id || el.textContent?.trim() || '(unlabelled)');
     const handle = await button.elementHandle();
     line(`      control button ${id}`);
@@ -274,9 +276,11 @@ async function interactionSweep(page, bucket) {
 
   const selects = page.locator('#panel select');
   const selectCount = await selects.count();
+  let visibleSelects = 0;
   for (let index = 0; index < selectCount; index++) {
     const select = selects.nth(index);
     if (!(await select.isVisible().catch(() => false))) continue;
+    visibleSelects++;
     const id = await select.evaluate((el) => el.id);
     const options = await select.evaluate((el) => [...el.options].map((option) => option.value));
     line(`      control select ${id}: ${options.length} options`);
@@ -302,9 +306,11 @@ async function interactionSweep(page, bucket) {
 
   const toggles = page.locator('#panel input[type=checkbox]');
   const toggleCount = await toggles.count();
+  let visibleToggles = 0;
   for (let index = 0; index < toggleCount; index++) {
     const box = toggles.nth(index);
     if (!(await box.isVisible().catch(() => false))) continue;
+    visibleToggles++;
     const id = await box.evaluate((el) => el.id);
     const before = bucket.length;
     await box.click({ force: true }).catch(() => undefined);
@@ -318,9 +324,11 @@ async function interactionSweep(page, bucket) {
 
   const ranges = page.locator('#panel input[type=range]');
   const rangeCount = await ranges.count();
+  let visibleRanges = 0;
   for (let index = 0; index < rangeCount; index++) {
     const range = ranges.nth(index);
     if (!(await range.isVisible().catch(() => false))) continue;
+    visibleRanges++;
     const id = await range.evaluate((el) => el.id);
     const before = bucket.length;
     await range.evaluate((el) => {
@@ -335,9 +343,74 @@ async function interactionSweep(page, bucket) {
     if (!value) broken.push(`range ${id}: empty value after input`);
   }
 
+  const numbers = page.locator('#panel input[type=number]');
+  const numberCount = await numbers.count();
+  let visibleNumbers = 0;
+  for (let index = 0; index < numberCount; index++) {
+    const input = numbers.nth(index);
+    if (!(await input.isVisible().catch(() => false))) continue;
+    visibleNumbers++;
+    const info = await input.evaluate((el) => ({ id: el.id, min: el.min, max: el.max }));
+    const target = String((Number(info.min) + Number(info.max)) / 2);
+    const before = bucket.length;
+    await run('number', info.id, async () => {
+      await input.fill(target, { timeout: 3_000 });
+      await input.evaluate((element) => element.dispatchEvent(new Event('change', { bubbles: true })));
+      const value = await input.inputValue();
+      if (value !== target) throw new Error(`expected ${target}, received ${value}`);
+    }, SETTLE_BUDGET_MS);
+    if (bucket.length > before) broken.push(`number ${info.id}: ${bucket[before]}`);
+  }
+
+  const dates = page.locator('#panel input[type=date]');
+  const dateCount = await dates.count();
+  let visibleDates = 0;
+  for (let index = 0; index < dateCount; index++) {
+    const input = dates.nth(index);
+    if (!(await input.isVisible().catch(() => false))) continue;
+    visibleDates++;
+    const id = await input.evaluate((el) => el.id);
+    await run('date', id, () => input.fill('2026-12-01', { timeout: 3_000 }), SETTLE_BUDGET_MS);
+  }
+
+  const searchInput = page.locator('#cosmicSearchInput');
+  if (await searchInput.isVisible().catch(() => false)) {
+    const before = bucket.length;
+    try {
+      await searchInput.fill('Mars', { timeout: 3_000 });
+      const results = page.locator('#cosmicSearchResults .search-item');
+      const resultCount = await results.count();
+      check(resultCount > 0, 'catalog search returns results', `${resultCount} result(s)`);
+      await page.keyboard.press('Enter');
+      await settle(page, SETTLE_BUDGET_MS);
+      const selected = await page.evaluate(() => window.__store?.get()?.selected);
+      check(Boolean(selected), 'search selection updates the app state', String(selected));
+      await page.locator('#cosmicSearchClear').click({ timeout: 3_000 });
+      const cleared = await searchInput.inputValue();
+      check(cleared === '', 'search clear empties the catalog query', JSON.stringify(cleared));
+      await settle(page, SETTLE_BUDGET_MS);
+    } catch (error) {
+      broken.push(`search input: ${String(error).split('\n')[0]}`);
+    }
+    if (bucket.length > before) broken.push(`search input: ${bucket[before]}`);
+  }
+
   check(broken.length === 0, 'controls respond without errors or freezes', broken.slice(0, 8).join(' | '));
+  line(
+    `      exercised: ${visibleButtons} buttons, ${visibleSelects} selects, ${visibleToggles} checkboxes, ` +
+      `${visibleRanges} ranges, ${visibleNumbers} numbers, ${visibleDates} dates`,
+  );
   if (slow.length > 0) line(`      slow interactions: ${slow.slice(0, 12).join(', ')}`);
-  return { buttonCount, selectCount, toggleCount, rangeCount, broken, slow };
+  return {
+    buttonCount: visibleButtons,
+    selectCount: visibleSelects,
+    toggleCount: visibleToggles,
+    rangeCount: visibleRanges,
+    numberCount: visibleNumbers,
+    dateCount: visibleDates,
+    broken,
+    slow,
+  };
 }
 
 async function faultInjection(page, bucket) {
