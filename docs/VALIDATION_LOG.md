@@ -1614,6 +1614,62 @@ until Actions actually reports it.
 
 ---
 
+## 2026-11-06 — Step 11: deterministic state snapshot, hash and replay loader
+
+Commit: `04ff903` (`feat(sim): add deterministic state snapshots and hashing`)
+
+Added:
+
+- `src/sim/snapshot.ts` — versioned body order, epoch, simulation time, GM,
+  position, velocity and physics configuration; canonical little-endian binary
+  encoding, JSON serialization, validation and SHA-256 hashing;
+- `SimClient.snapshot()`, `SimClient.hashSnapshot()` and
+  `SimClient.restoreSnapshot()` — worker-side dump, stable hash and validated load;
+- `tests/snapshot.test.ts` and two new SimClient tests.
+
+Tests first produced the expected import failure, then:
+
+```text
+$ npm run test -- tests/snapshot.test.ts tests/simclient.test.ts
+ ✓ tests/snapshot.test.ts (3 tests)
+ ✓ tests/simclient.test.ts (10 tests)
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Duration  2.28s
+```
+
+An initial canonical-buffer allocation missed the header length prefix and threw
+`RangeError: offset is out of bounds`; the buffer calculation was corrected and the
+test reran green.
+
+Full regression:
+
+```text
+$ npm run typecheck
+exit 0
+
+$ npm run lint
+exit 0
+
+$ npm test
+ Test Files  89 passed (89)
+      Tests  582 passed (582)
+   Duration  40.54s
+
+$ npm run build
+dist/assets/physics.worker-R7tVMuKV.js     62.65 kB
+dist/assets/index-311MOOUf.js           1,267.87 kB │ gzip: 395.22 kB
+exit 0
+```
+
+The state path is now reproducible and auditable: the same model snapshot restores
+to a fresh worker with identical Float64 state and the same SHA-256 digest. The
+snapshot itself does not yet expose a user-facing save/load button; this is debug and
+assurance tooling. Render randomization remains outside the snapshot and screenshot
+reproducibility stays open (AUDIT-35 partial).
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1634,3 +1690,4 @@ until Actions actually reports it.
 | 2026-11-06 | STEP-8 FULL UI AUDIT         | Real Chromium audit at 1440×900 and 390×844: **27 checks passed / 0 failed**; exercised 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 number fields, 1 date field and catalog search; measured AA contrast, unique IDs, 41 named visible controls, 2 live regions, clean startup, fault recovery and zero startup external requests. Fixed false success on live-sync fallback (`fc7f622`) and detached facts-card close control; made hidden-control/offline audit logic correct (`30b92ca`, `90f1520`). Full `verify:prod`: typecheck/lint 0, 88 files / **575** tests in 41.95s, build 1,261.98 kB raw / 393.09 kB gzip. Playwright remains manual-only; no CI or screen-reader claim. |
 | 2026-11-06 | STEP-9 EPHEMERIS GATE        | Product decision implemented to resolve AUDIT-51/OPEN-008 by hard-gating ephemeris dates to measured dense coverage. Provider exposes validated intersection **−365…+724 d**; browser showed **2025-10-05 → 2028-09-28**, clamps +1 day with accessible announcement, and sets date input bounds. First derived window collapsed to zero because the epoch anchor was mistaken for dense coverage; browser audit caught it. Full browser audit **31/31**; verify:prod typecheck/lint 0, **88 files / 577 tests** in 38.31s, build 1,264.09 kB / 393.87 kB gzip. Underlying sparse tables unchanged; N-body mode remains available beyond the gate. |
 | 2026-11-06 | STEP-10 CI UI GATE           | Same production build preview served at 127.0.0.1:4173 passed **31/31 browser checks** in 6.2s desktop / 5.5s mobile boot. Workflow YAML parsed successfully. Added dedicated `browser-ui-audit` job with `npm ci`, matching Chromium, production preview startup and failure artifacts (`952b238`). No successful Actions run is claimed; coverage thresholds and cross-browser/screen-reader/visual assurance remain open. |
+| 2026-11-06 | STEP-11 STATE SNAPSHOTS      | Versioned deterministic state snapshots added in `04ff903`: body order, epoch, time, GM, Float64 vectors and physics config are canonicalized little-endian and SHA-256-hashed; loader rejects version/length/finite/epoch/order/mass mismatch. First canonical-buffer allocation bug was caught by tests and fixed. Focused 2 files / **13 tests**; full typecheck/lint exit 0, **89 files / 582 tests** in 40.54s, build 1,267.87 kB / 395.22 kB gzip. Restored fake-worker hash equals source. Render screenshot determinism remains open. |

@@ -56,7 +56,7 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-06 local run: 88 files / 577 tests; GitHub Actions status is not claimed here.**
+- **2026-11-06 local run: 89 files / 582 tests; GitHub Actions status is not claimed here.**
   In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
   exited 0 (full transcripts are in
   [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
@@ -246,7 +246,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-06 local run: **88 files / 577 tests**; no CI claim) enforces the
+The suite (2026-11-06 local run: **89 files / 582 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is _not_ a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -273,6 +273,9 @@ measured error figure, and no tighter value is retained anywhere.
 | [`tests/validation/spk-real.test.ts`](./tests/validation/spk-real.test.ts)                            | Against the MD5-verified kernel selected by `SPK_KERNEL`: nine Horizons reference vectors agree with the reader to `1e-3 m` position and `1e-6 mm/s` velocity (measured worst 2.384e-4 m / 7.11e-8 mm/s) | `npm run verify:spk`, VALIDATION_LOG step 6         |
 | [`tests/validation/ephemeris-vs-de440.test.ts`](./tests/validation/ephemeris-vs-de440.test.ts)          | Runtime ephemeris interpolation over the gated dense span −364…+724 d at 0.5 d: every tested body within 200 km (measured worst Mercury 8.011e+1 km, all others ≤1.3 km)                      | `npm run verify:spk`, VALIDATION_LOG steps 7/7b     |
 | [`tests/validation/prediction-vs-de440.test.ts`](./tests/validation/prediction-vs-de440.test.ts)        | Default N-body forward/backward prediction against `de440.bsp`: +1 yr < 2,000 km, +10 yr < 200,000 km, +50 yr < 5,000,000 km, −10 yr < 200,000 km                                             | `npm run verify:spk`, VALIDATION_LOG step 7c        |
+| [`tests/snapshot.test.ts`](./tests/snapshot.test.ts)                                                    | SimSnapshot state round-trips through its canonical serialization; SHA-256 is stable and changes when state changes; version/length/non-finite shape errors are rejected                                                                 | `tests/snapshot.test.ts`                           |
+| [`tests/simclient.test.ts`](./tests/simclient.test.ts)                                                  | A live worker snapshot restores into another worker with bit-equal position/velocity and the same hash; epoch/body-order mismatches throw                                         | `tests/simclient.test.ts`                          |
+| [`tests/determinism.test.ts`](./tests/determinism.test.ts)                                              | Fixed-step integration results are bit-identical regardless of message chunking                                                                                                  | `:14-21`                                           |
 | [`tests/ephemeris.test.ts`](./tests/ephemeris.test.ts)                                                | Full anchor span remains distinct from validated dense window `−365…+724 d`; live anchors outside the validated window cannot extend interpolation                                              | `:66-110`                                          |
 | [`tests/textures-manifest.test.ts`](./tests/textures-manifest.test.ts) + VALIDATION_LOG 2026-11-04   | all 9 texture files match manifest SHA-256 and byte length; independent Python re-hash 9/9; provider license confirmed CC BY 4.0                                                            | asset-verify entry in `docs/VALIDATION_LOG.md`   |
 
@@ -354,6 +357,7 @@ src/
 │   ├── simClient.ts       # Main-thread client, request chaining, interpolation
 │   ├── ephemeris.ts       # Hermite evaluator over cached Horizons anchors (+ live reseed)
 │   ├── horizonsClient.ts  # Direct REST API client for JPL Horizons system
+│   ├── snapshot.ts        # Versioned state dump/load validation and SHA-256 hash
 │   ├── track.ts           # Continuous orbit history and gap-guarded trail generator
 │   └── facts.ts           # Detailed physical telemetry facts card generator
 ├── render/                # Three.js visualization pipeline (GPU shaders, textures)
@@ -402,7 +406,7 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-06 local run: 88 files / 577 tests)
+npm test                 # vitest run (2026-11-06 local run: 89 files / 582 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build
