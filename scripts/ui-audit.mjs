@@ -58,6 +58,14 @@ async function launch() {
   }
 }
 
+function isAppFailure(entry) {
+  return entry.startsWith('error:') || entry.startsWith('pageerror:') || entry.startsWith('requestfailed:');
+}
+
+function appFailuresSince(bucket, before) {
+  return bucket.slice(before).filter(isAppFailure);
+}
+
 function attachCollectors(page, bucket) {
   page.on('console', (message) => {
     if (message.type() === 'error' || message.type() === 'warning') bucket.push(`${message.type()}: ${message.text()}`);
@@ -240,7 +248,8 @@ async function interactionSweep(page, bucket) {
     } catch (error) {
       broken.push(`${kind} ${label}: ${String(error).split('\n')[0]}`);
     }
-    if (bucket.length > before) broken.push(`${kind} ${label}: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`${kind} ${label}: ${errors[0]}`);
   };
 
   const buttons = page.locator('#panel button, #panel [role=button]');
@@ -300,7 +309,8 @@ async function interactionSweep(page, bucket) {
       }
     }
     if (options[0] !== undefined) await select.selectOption(options[0], { timeout: 3_000 }).catch(() => undefined);
-    if (bucket.length > before) broken.push(`select ${id}: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`select ${id}: ${errors[0]}`);
     slow.push(`select ${id}: ${options.length} options cycled`);
   }
 
@@ -318,7 +328,8 @@ async function interactionSweep(page, bucket) {
     await page.waitForTimeout(120);
     await box.click({ force: true }).catch(() => undefined);
     const second = await box.evaluate((el) => el.checked);
-    if (bucket.length > before) broken.push(`checkbox ${id}: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`checkbox ${id}: ${errors[0]}`);
     if (first === second) broken.push(`checkbox ${id}: state did not toggle (${first})`);
   }
 
@@ -339,7 +350,8 @@ async function interactionSweep(page, bucket) {
     });
     await page.waitForTimeout(150);
     const value = await range.evaluate((el) => el.value);
-    if (bucket.length > before) broken.push(`range ${id}: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`range ${id}: ${errors[0]}`);
     if (!value) broken.push(`range ${id}: empty value after input`);
   }
 
@@ -359,7 +371,8 @@ async function interactionSweep(page, bucket) {
       const value = await input.inputValue();
       if (value !== target) throw new Error(`expected ${target}, received ${value}`);
     }, SETTLE_BUDGET_MS);
-    if (bucket.length > before) broken.push(`number ${info.id}: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`number ${info.id}: ${errors[0]}`);
   }
 
   const dates = page.locator('#panel input[type=date]');
@@ -392,7 +405,8 @@ async function interactionSweep(page, bucket) {
     } catch (error) {
       broken.push(`search input: ${String(error).split('\n')[0]}`);
     }
-    if (bucket.length > before) broken.push(`search input: ${bucket[before]}`);
+    const errors = appFailuresSince(bucket, before);
+    if (errors.length > 0) broken.push(`search input: ${errors[0]}`);
   }
 
   check(broken.length === 0, 'controls respond without errors or freezes', broken.slice(0, 8).join(' | '));
@@ -411,6 +425,69 @@ async function interactionSweep(page, bucket) {
     broken,
     slow,
   };
+}
+
+async function ephemerisCoverageAudit(page, bucket) {
+  const before = bucket.length;
+  try {
+    const mode = await page.evaluate(() => window.__store?.get()?.dynamicsMode);
+    if (mode !== 'ephemeris') {
+      await page.locator('#toggleDynamics').click({ timeout: 3_000 });
+      await page.waitForFunction(() => window.__store?.get()?.dynamicsMode === 'ephemeris', undefined, {
+        timeout: SETTLE_BUDGET_MS,
+      });
+    }
+
+    const coverage = await page.evaluate(() => {
+      const date = document.querySelector('#date');
+      const status = document.querySelector('#ephCoverageStatus');
+      return {
+        min: date?.getAttribute('min') ?? '',
+        max: date?.getAttribute('max') ?? '',
+        status: status?.textContent?.trim() ?? '',
+        visible: status ? getComputedStyle(status).display !== 'none' : false,
+      };
+    });
+    check(coverage.visible, 'ephemeris mode displays its validated coverage note', coverage.status);
+    check(
+      /^\d{4}-\d{2}-\d{2}$/.test(coverage.min) && /^\d{4}-\d{2}-\d{2}$/.test(coverage.max),
+      'ephemeris date picker exposes measured bounds',
+      `${coverage.min} → ${coverage.max}`,
+    );
+
+    if (!coverage.max) throw new Error('validated coverage maximum is missing');
+    const outside = new Date(`${coverage.max}T00:00:00Z`);
+    outside.setUTCDate(outside.getUTCDate() + 1);
+    const outsideIso = outside.toISOString().slice(0, 10);
+    await page.locator('#date').fill(outsideIso, { timeout: 3_000 });
+    await page.locator('#go').click({ timeout: 3_000 });
+    await page.waitForFunction(
+      () => document.querySelector('#ephCoverageStatus')?.textContent?.includes('outside'),
+      undefined,
+      { timeout: SETTLE_BUDGET_MS },
+    );
+    await page.waitForFunction(
+      (expected) => document.querySelector('#date')?.value === expected,
+      coverage.max,
+      { timeout: SETTLE_BUDGET_MS },
+    );
+    const result = await page.evaluate(() => ({
+      input: document.querySelector('#date')?.value ?? '',
+      status: document.querySelector('#ephCoverageStatus')?.textContent?.trim() ?? '',
+      simulationDays: window.__viewer ? undefined : undefined,
+    }));
+    check(result.input === coverage.max, 'out-of-range ephemeris seek clamps to the validated edge', result.input);
+    check(/outside|clamped/i.test(result.status), 'clamped ephemeris seek is announced', result.status);
+    await page.locator('#date').fill(coverage.max, { timeout: 3_000 });
+    await page.locator('#go').click({ timeout: 3_000 });
+    await settle(page, SETTLE_BUDGET_MS);
+  } catch (error) {
+    check(false, 'ephemeris coverage gate responds', String(error).split('\n')[0]);
+  }
+  const errors = appFailuresSince(bucket, before);
+  if (errors.length > 0) {
+    check(false, 'ephemeris coverage gate stays console-clean', errors[0]);
+  }
 }
 
 async function faultInjection(page, bucket) {
@@ -503,6 +580,7 @@ try {
       await installProbe(page);
       await contrastAudit(page);
       await interactionSweep(page, bucket);
+      await ephemerisCoverageAudit(page, bucket);
       await faultInjection(page, bucket);
       await offlineBoot(browser);
     }
