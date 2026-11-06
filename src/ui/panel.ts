@@ -394,6 +394,17 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
   const out = q<HTMLPreElement>('#readout');
   const solarGalaxyModel = q<HTMLSelectElement>('#solarGalaxyModel') as HTMLSelectElement | null;
 
+  factsBox.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <strong id="factsTitle" style="font-size:1.15em;color:#ffd700;"></strong>
+      <button id="closeFacts" aria-label="Close selected body facts" style="padding:1px 6px;font-size:0.8em;">✕</button>
+    </div>
+    <div id="factsContent"></div>
+  `;
+  const factsTitle = q<HTMLElement>('#factsTitle');
+  const factsContent = q<HTMLElement>('#factsContent');
+  q<HTMLButtonElement>('#closeFacts').onclick = () => store.set('selected', null);
+
   fill(frameSel, ctx.frames);
   fill(focusSel, ctx.focuses);
 
@@ -558,12 +569,15 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     );
   reseedBtn.onclick = async () => {
     const orig = reseedBtn.textContent;
+    reseedBtn.disabled = true;
     reseedBtn.textContent = 'Syncing Horizons...';
     try {
       const res = await ctx.onReseedHorizons?.();
-      reseedBtn.textContent = res ? '✓ Horizons Synced' : '✓ Synced';
+      reseedBtn.textContent = res?.live ? '✓ Horizons Synced' : 'Local DE440 (live unavailable)';
     } catch {
-      reseedBtn.textContent = '✓ Synced';
+      reseedBtn.textContent = 'Sync failed — state unchanged';
+    } finally {
+      reseedBtn.disabled = false;
     }
     setTimeout(() => {
       reseedBtn.textContent = orig;
@@ -1429,11 +1443,8 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         }
 
         factsBox.style.display = 'block';
-        factsBox.innerHTML = `
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <strong style="font-size:1.15em;color:#ffd700;">${sf.name}</strong>
-            <button id="closeFacts" style="padding:1px 6px;font-size:0.8em;">✕</button>
-          </div>
+        factsTitle.textContent = sf.name;
+        factsContent.innerHTML = `
           <div style="font-size:0.85em;line-height:1.45;margin-top:6px;">
             <div style="background:rgba(56,189,248,0.1);border-left:3px solid #38bdf8;padding:4px 8px;border-radius:4px;margin-bottom:8px;">
               <div><strong>Equatorial Radius:</strong> ${sf.radiusKm.toLocaleString('en-US', { maximumFractionDigits: 1 })} km</div>
@@ -1490,8 +1501,6 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
             ${telecomHtml}
           </div>
         `;
-        const closeBtn = q<HTMLButtonElement>('#closeFacts');
-        if (closeBtn) closeBtn.onclick = () => store.set('selected', null);
       } else {
         factsBox.style.display = 'none';
       }
