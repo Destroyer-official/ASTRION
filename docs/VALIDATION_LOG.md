@@ -1812,6 +1812,111 @@ Bundle cost of the added bodies is visible and measured: main chunk
 
 ---
 
+## 2026-11-06 — Step 15: coverage gate, dead-data removal, and the process-document set
+
+Three things that had been asserted in prose but never enforced, plus the record of a
+validation suite that existed without ever being logged.
+
+**1. Forward-prediction output that was never recorded.** `tests/validation/perturber`
+work aside, `tests/validation/prediction-vs-de440.test.ts` (added in `cefb890`) had been
+cited by `README.md` as "VALIDATION_LOG step 7c" — a step that does not exist. It was
+executed with the MD5-verified `de440.bsp` in the gitignored cache on this tree, and the
+output is now the retained measurement:
+
+```text
++1 yr (366 steps of 0.9980 d): sun 0.2 km, jupiter 0.3 km, saturn 0.0 km, neptune 0.1 km, uranus 0.0 km, earth 117.4 km, venus 36.3 km, mars 1.0 km, mercury 928.6 km
++10 yr (3653 steps of 0.9999 d): sun 2.1 km, jupiter 27.6 km, saturn 4.6 km, neptune 6.7 km, uranus 1.5 km, earth 1964.7 km, venus 3801.0 km, mars 130.7 km, mercury 96680.4 km
++50 yr (18263 steps of 1.0000 d): sun 21.7 km, jupiter 145.0 km, saturn 62.6 km, neptune 196.1 km, uranus 28.3 km, earth 27430.3 km, venus 94978.6 km, mars 3778.1 km, mercury 2183766.3 km
+-10 yr (3653 steps of -0.9999 d): sun 4.5 km, jupiter 24.1 km, saturn 5.0 km, neptune 6.3 km, uranus 1.8 km, earth 1959.0 km, venus 3752.2 km, mars 167.6 km, mercury 100602.2 km
+```
+
+These are the 48-body numbers; the test's own budgets (+1 yr < 2,000 km, +10 yr and
+−10 yr < 200,000 km, +50 yr < 5,000,000 km) hold with Mercury as the limiting body at
+every horizon.
+
+**2. Coverage measured and then gated.** `npm run test:coverage` was run on this tree
+and the per-directory results became the floors in `vite.config.ts`, each set a few
+points under the measurement so the gate is a ratchet rather than an aspiration:
+
+```text
+$ npm run test:coverage
+ Test Files  90 passed (90)
+      Tests  589 passed (589)
+All files          |   64.27 |    47.05 |   65.04 |   64.76 |
+ src/data          |     100 |      100 |     100 |     100 |
+ src/frames        |     100 |      100 |     100 |     100 |
+ src/observability |    87.5 |    71.11 |   94.44 |   91.66 |
+ src/physics       |   92.68 |    69.69 |   94.47 |   93.26 |
+ src/render        |    39.7 |    28.05 |      30 |   39.95 |
+ src/sim           |   85.74 |    73.12 |   89.61 |   88.96 |
+ src/ui            |    2.62 |     2.17 |     2.43 |     2.8 |
+ src/universe      |    91.5 |    87.19 |   93.22 |   92.26 |
+ src/workers       |       0 |        0 |       0 |       0 |
+exit 0
+```
+
+The `src/physics` row above is the reporter's own directory row and excludes its
+subdirectories; aggregated over `src/physics/**` the measurement is 93.35 % statements /
+72.53 % branches / 93.42 % functions, and that aggregate is what the threshold compares
+against. No floor is placed on `render`/`ui`/`main`/`workers`, because that layer is
+exercised by the browser audit rather than by Vitest — recorded here so the 2.62 % is
+not mistaken for an oversight.
+
+**3. Dead and dangling data removed.**
+
+- `src/data/moons.ts` and `src/data/rotational.ts` deleted: a grep for their exports
+  (`MOON_DATA`, `moonPeriod`, `moonSemiMajorAxis`, `moonInclination`,
+  `ROTATIONAL_DATA`, `RotationalElements`) found zero importers anywhere in `src/` or
+  `tests/`; both are superseded by `src/data/moons/*.json` and
+  `src/data/physical/*.json`. Their only surviving content was the `RingDef`
+  interface, which moved to its single consumer `src/render/rings.ts:4-9`.
+- `src/data/physical/saturn.json` lost `ring.texture: "/textures/saturn_ring.png"`.
+  `public/textures/` contains no PNG at all, the manifest does not list one, the file
+  has no Git history, and no code reads `ring.texture` — a field that advertised an
+  asset that never existed. The `PhysicalJson.ring` type in `src/data/schema.ts` no
+  longer declares it.
+- `src/ui/panel.ts:269` no longer offers "Yoshida 8th-Order Symplectic (Truth /
+  ~10⁻¹⁵ Energy Drift)". Nothing measures Yoshida-8 energy drift at that level — the
+  only retained figure is `tests/rk89.test.ts:40` at `< 1e-11` for a two-body orbit —
+  so the option now reads "(21-stage)", which `src/physics/integrators/yoshida.ts:14-20`
+  actually constructs.
+- `src/main.ts:500` opens the NASA Eyes link with `noopener,noreferrer` and
+  `src/sim/horizonsClient.ts:222` percent-encodes the target segment.
+
+**4. Process documents added** (closing most of AUDIT-30): `CHANGELOG.md`,
+`SECURITY.md`, `TROUBLESHOOTING.md`, and `docs/READINESS_REPORT.md`, with
+`docs/NASA_COMPLIANCE.md`, `docs/AUDIT.md` (new AUDIT-52 for the two-sources-of-truth
+ring geometry) and `docs/OPEN_QUESTIONS.md` (new OPEN-011) refreshed to match.
+`CONTRIBUTING.md` and `CODE_OF_CONDUCT.md` are still absent.
+
+Final regression on the resulting tree:
+
+```text
+$ npm run typecheck
+exit 0
+
+$ npm run lint
+exit 0
+
+$ npx vitest run
+ Test Files  90 passed (90)
+      Tests  589 passed (589)
+   Duration  55.93s
+
+$ npm run audit:ui
+=== UI AUDIT SUMMARY ===
+checks passed: 31
+checks failed: 0
+```
+
+Still open after this step: no observed GitHub Actions run (OPEN-009), Firefox/WebKit
+and screen-reader assurance, visual-regression baselines, code splitting for the
+1.29 MB chunk, IAS15 reachability (task #17), Uranus/Neptune ring provenance
+(OPEN-011), and tightening the 150,000 km truth envelope now that the measurements are
+recorded.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1836,3 +1941,4 @@ Bundle cost of the added bodies is visible and measured: main chunk
 | 2026-11-06 | STEP-12 KERNEL PROVENANCE    | `de30914` added `src/data/spice/de-kernel-provenance.json` (sizes, MD5, coverage, Last-Modified for de440/de440s/de442/de442s, live Horizons center source DE441) and per-kernel test tolerances, so a DE441-vs-DE442 solution difference is no longer reported as a reader defect. DE440 keeps its exact limit; DE442 limits come from the measured Uranus 1.426 km / Neptune 385.7 km divergence recorded in the test. No kernel binary committed. |
 | 2026-11-06 | STEP-13 TIME PROVENANCE      | `06edbf4` pinned `LEAP_SECOND_PROVENANCE`: check date 2026-11-06, IERS Bulletin C 72 (2026-07-06, no leap second on 2026-12-31), last table transition 2017-01-01 with TAI−UTC = 37 s, and BIPM Resolution 5 (continuous UTC from 2027-05-20, UT1−UTC target 3600 s); `tests/time.test.ts` asserts each value. |
 | 2026-11-06 | STEP-14 ASTEROID PERTURBERS  | Massive-asteroid set 4 → **16** (full JPL `SB441-N16`/ASSIST list), production system now **48 bodies**, generated by `scripts/fetch-asteroid-perturbers.mjs` + `scripts/fetch-asteroid-physical.mjs`. Fixed a heliocentric/barycentric parser defect and an `europa` id collision found by the loader; SSD↔Horizons radius cross-check passed for all 12. No spin pole invented for the perturbers (OPEN-010). Measured +1 yr barycenter errors: 0/107/8/56/0/0/0/0/0 km (Sun…Neptune) against a loose 150,000 km envelope; the 12 added masses move Earth 1.051 km, Mars 2.111 km, Jupiter 5.682 km, Saturn 1.827 km over 20 yr (`tests/perturber-impact.test.ts`, dt-convergence checked). Regression: typecheck/lint 0, **90 files / 589 tests** in 53.89 s, build 1,292.67 kB / 399.38 kB gzip (worker 83.65 kB), browser audit **31/31**. Chunk-splitting and envelope tightening remain open. |
+| 2026-11-06 | STEP-15 COVERAGE + DOCS      | Coverage measured (64.27 % stmts / 47.05 % branches / 65.04 % funcs overall; `src/data` and `src/frames` 100 %; `src/physics/**` 93.35 % / 72.53 %; `src/sim` 85.74 % / 73.12 %; `src/ui` 2.62 %) and **ratcheted thresholds enabled** in `vite.config.ts`; `npm run test:coverage` exits 0. Deleted unreferenced `src/data/moons.ts` + `src/data/rotational.ts`, removed `saturn.json`'s `ring.texture` pointing at a never-existing PNG, replaced the unmeasured "~10⁻¹⁵ Energy Drift" integrator label, and added `noopener,noreferrer` + percent-encoding to the NASA Eyes link. Recorded the previously uncited `prediction-vs-de440` output (+1 yr Earth 117.4 / Mercury 928.6 km; +50 yr Mercury 2.1837663e+6 km). Added `CHANGELOG.md`, `SECURITY.md`, `TROUBLESHOOTING.md`, `docs/READINESS_REPORT.md`; AUDIT-52 and OPEN-011 opened for two-source ring geometry. Regression: typecheck/lint 0, **90 files / 589 tests** in 55.93 s, browser audit **31/31**. CONTRIBUTING/CODE_OF_CONDUCT and an observed CI run remain missing. |

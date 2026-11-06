@@ -57,14 +57,20 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-06 local run: 89 files / 582 tests; GitHub Actions status is not claimed here.**
-  In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
-  exited 0 (full transcripts are in
+- **2026-11-06 local run: 90 files / 589 tests in 53.89 s; GitHub Actions status is not
+  claimed here.** That count includes the kernel-gated suites under
+  `tests/validation/`, which ran because the MD5-verified DE kernels were present in the
+  gitignored cache — on a machine without them those suites skip, so the count is
+  machine-dependent by design. In the same local context `npm run typecheck`,
+  `npm run lint` and `npm run build` each exited 0 (full transcripts are in
   [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
-- **Coverage (last measured 2026-11-05 at step 6):**
-  all sources 63.73 % lines; `src/physics` 93.25 % lines / 69.69 % branches;
-  `src/frames` 100 % lines/branches; `src/sim/spk.ts` 83.92 % lines; coverage thresholds
-  are **not enabled**.
+- **Coverage (measured 2026-11-06, `npm run test:coverage`):** whole tree 64.28 %
+  statements / 47.05 % branches / 65.05 % functions; `src/data` and `src/frames` 100 %;
+  `src/physics/**` 93.35 % / 72.53 %; `src/universe` 91.50 % / 87.20 %; `src/sim`
+  85.75 % / 73.13 %; `src/observability` 87.50 % / 71.11 %; `src/render` 39.71 % /
+  28.05 %; `src/ui` 2.62 % / 2.17 %. Per-directory thresholds are now **enabled** in
+  `vite.config.ts` as a ratchet set a few points below these measurements; no floor is
+  placed on `render`/`ui` because that layer is exercised by the browser audit instead.
 - A real-browser UI audit was run locally and passed **31/31 checks** at desktop and
   mobile viewports; results and limitations are in
   [`docs/UI_AUDIT.md`](./docs/UI_AUDIT.md). The gate is wired into CI, but no Actions
@@ -238,7 +244,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ### 2.8 Time Systems & Ephemeris Epoch
 
-- **Time scales:** $\text{TT} - \text{TAI} = 32.184\text{ s}$ exactly; the last leap second was inserted **2017-01-01**, giving $\text{TAI} - \text{UTC} = 37\text{ s}$, hence $\text{TT} - \text{UTC} = 69.184\text{ s}$. `src/data/constants.ts` uses this as the TDB↔UTC offset (`TDB_MINUS_UTC_S = 69.184`), ignoring the TDB − TT periodic term (< ±1.7 ms). `tests/time.test.ts` asserts the historical leap-second table (10 s in 1972, 32 s at J2000, 37 s in 2026), TT − UTC ≈ 69.184 s, and TDB − TT within ±1.75 ms (Fairhead & Bretagnon 1990 series).
+- **Time scales:** $\text{TT} - \text{TAI} = 32.184\text{ s}$ exactly; the last leap second was inserted **2017-01-01**, giving $\text{TAI} - \text{UTC} = 37\text{ s}$, hence $\text{TT} - \text{UTC} = 69.184\text{ s}$ today. That figure is **computed** from the leap-second table by `src/physics/time.ts`, not stored as an offset: every `Date`↔`JD` conversion runs the full UTC→TAI→TT→TDB chain in both directions (`5775d66` removed the fixed `TDB_MINUS_UTC_S` shortcut that the data layer used to apply). `tests/time.test.ts` asserts the historical table (10 s in 1972, 32 s at J2000, 37 s in 2026), TT − TAI exactly, TT − UTC ≈ 69.184 s at the 2026 epoch, the TDB − TT periodic term within ±1.7 ms (Fairhead & Bretagnon 1990 series), the series inversion, and UTC↔TDB round-trips.
 - **Currency:** per `docs/RESEARCH.md` §2, IERS **Bulletin C 72** (accessed 2026-11-04) confirmed no leap second through end-2026 and `naif0012.tls` is documented valid at least to 2027-07-01. Whether a newer bulletin has since changed the table is tracked as OPEN-004 in `docs/OPEN_QUESTIONS.md` — the value must be re-verified, not assumed.
 - **Julian Date Epoch:** standard J2000.0 at $\text{JD} = 2451545.0$ (2000 January 1, 12:00:00 TT; defined as TT per RESEARCH §3, used as the TDB-based computational epoch).
 - **1:1 Real-Time Mode:** simulation advances at $1/86400\text{ days/s}$ (one sim second per wall second) when selected in the UI.
@@ -247,7 +253,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-06 local run: **89 files / 582 tests**; no CI claim) enforces the
+The suite (2026-11-06 local run: **90 files / 589 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is _not_ a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -273,7 +279,7 @@ measured error figure, and no tighter value is retained anywhere.
 | [`tests/spk.test.ts`](./tests/spk.test.ts)                                                           | Synthetic DAF/SPK type 2/3 parsing, velocity and J2000→ecliptic behavior, including segment-path chaining and malformed-header rejection                                                     | `tests/spk.test.ts`                                |
 | [`tests/validation/spk-real.test.ts`](./tests/validation/spk-real.test.ts)                            | Against the MD5-verified kernel selected by `SPK_KERNEL`: nine Horizons reference vectors agree with the reader to `1e-3 m` position and `1e-6 mm/s` velocity (measured worst 2.384e-4 m / 7.11e-8 mm/s) | `npm run verify:spk`, VALIDATION_LOG step 6         |
 | [`tests/validation/ephemeris-vs-de440.test.ts`](./tests/validation/ephemeris-vs-de440.test.ts)          | Runtime ephemeris interpolation over the gated dense span −364…+724 d at 0.5 d: every tested body within 200 km (measured worst Mercury 8.011e+1 km, all others ≤1.3 km)                      | `npm run verify:spk`, VALIDATION_LOG steps 7/7b     |
-| [`tests/validation/prediction-vs-de440.test.ts`](./tests/validation/prediction-vs-de440.test.ts)        | Default N-body forward/backward prediction against `de440.bsp`: +1 yr < 2,000 km, +10 yr < 200,000 km, +50 yr < 5,000,000 km, −10 yr < 200,000 km                                             | `npm run verify:spk`, VALIDATION_LOG step 7c        |
+| [`tests/validation/prediction-vs-de440.test.ts`](./tests/validation/prediction-vs-de440.test.ts)        | Default N-body forward/backward prediction against `de440.bsp`: +1 yr < 2,000 km, +10 yr < 200,000 km, +50 yr < 5,000,000 km, −10 yr < 200,000 km                                             | `npm run verify:spk`, VALIDATION_LOG step 15        |
 | [`tests/snapshot.test.ts`](./tests/snapshot.test.ts)                                                    | SimSnapshot state round-trips through its canonical serialization; SHA-256 is stable and changes when state changes; version/length/non-finite shape errors are rejected                                                                 | `tests/snapshot.test.ts`                           |
 | [`tests/simclient.test.ts`](./tests/simclient.test.ts)                                                  | A live worker snapshot restores into another worker with bit-equal position/velocity and the same hash; epoch/body-order mismatches throw                                         | `tests/simclient.test.ts`                          |
 | [`tests/determinism.test.ts`](./tests/determinism.test.ts)                                              | Fixed-step integration results are bit-identical regardless of message chunking                                                                                                  | `:14-21`                                           |
@@ -408,7 +414,7 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-06 local run: 89 files / 582 tests)
+npm test                 # vitest run (2026-11-06 local run: 90 files / 589 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build
