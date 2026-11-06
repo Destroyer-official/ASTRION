@@ -7,8 +7,8 @@
 // redistribution terms for the binary kernels are unresolved (OPEN-005), so they
 // must never enter source control. The MD5 digests below were read from
 // https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/aa_checksums.txt
-// (fetched 2026-11-05) and are compared after every download, so a cached file is
-// proven byte-identical to NAIF's copy rather than merely the same length.
+// and rechecked on 2026-11-06, together with the published coverage summaries and
+// HTTP Last-Modified/Content-Length metadata.
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { mkdir, rename, stat, writeFile } from 'node:fs/promises';
@@ -17,9 +17,30 @@ import { spawnSync } from 'node:child_process';
 const BASE_URL = 'https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/';
 
 const KERNELS = {
-  'de440.bsp': { bytes: 119_799_808, md5: 'c9d581bfd84209dbeee8b1583939b148' },
-  'de440s.bsp': { bytes: 32_726_016, md5: '3917ee56769db332790c751e2168843d' },
-  'de442.bsp': { bytes: 119_771_136, md5: '446656322267e7b819a26cb08a0d8718' },
+  'de440.bsp': {
+    bytes: 119_799_808,
+    md5: 'c9d581bfd84209dbeee8b1583939b148',
+    coverage: '1549-12-31T00:00:00/2650-01-25T00:00:00',
+    lastModified: '2020-12-21T19:39:26Z',
+  },
+  'de440s.bsp': {
+    bytes: 32_726_016,
+    md5: '3917ee56769db332790c751e2168843d',
+    coverage: '1849-12-26T00:00:00/2150-01-22T00:00:00',
+    lastModified: '2020-12-21T19:39:26Z',
+  },
+  'de442.bsp': {
+    bytes: 119_771_136,
+    md5: '446656322267e7b819a26cb08a0d8718',
+    coverage: '1549-12-31T00:00:00/2650-01-25T00:00:00',
+    lastModified: '2025-02-06T17:36:42Z',
+  },
+  'de442s.bsp': {
+    bytes: 32_701_440,
+    md5: 'cc49327e06088124c0e39d8dde9f0b58',
+    coverage: '1849-12-26T00:00:00/2150-01-22T00:00:00',
+    lastModified: '2025-02-06T17:36:42Z',
+  },
 };
 
 const name = process.env.SPK_KERNEL ?? 'de440.bsp';
@@ -63,7 +84,10 @@ const md5 = await digest(destination, 'md5');
 if (md5 !== expected.md5) {
   throw new Error(`MD5 mismatch: ${md5} != NAIF's ${expected.md5} for ${destination}`);
 }
-console.log(`${destination}: ${expected.bytes} bytes, MD5 ${md5} (matches NAIF aa_checksums.txt)`);
+console.log(
+  `${destination}: ${expected.bytes} bytes, MD5 ${md5}; coverage ${expected.coverage}; ` +
+    `NAIF Last-Modified ${expected.lastModified}`,
+);
 console.log(`SHA-256 ${await digest(destination, 'sha256')} (local integrity record)`);
 
 const test = spawnSync(

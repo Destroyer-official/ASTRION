@@ -1,0 +1,90 @@
+{
+  "fetchedAtUtc": "2026-11-06T12:54:17Z",
+  "source": "https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/",
+  "provenanceRecords": [
+    "aa_checksums.txt",
+    "aa_summaries.txt",
+    "HTTP HEAD"
+  ],
+  "note": "This is local integrity and validity metadata. NAIF publishes MD5 for these kernels; the SHA-256 values are computed by scripts/verify-spk.mjs after MD5 verification and are not official NAIF signatures.",
+  "kernels": {
+    "de440.bsp": {
+      "family": "DE440",
+      "bytes": 119799808,
+      "md5": "c9d581bfd84209dbeee8b1583939b148",
+      "lastModified": "2020-12-21T19:39:26Z",
+      "coverageFrom": "1549-12-31T00:00:00",
+      "coverageTo": "2650-01-25T00:00:00",
+      "horizonsComparison": {
+        "basis": "Same-solution cached Horizons vectors; independently confirmed by de440s.bsp",
+        "maxPositionM": 0.001,
+        "maxVelocityMmS": 0.000001
+      }
+    },
+    "de440s.bsp": {
+      "family": "DE440",
+      "bytes": 32726016,
+      "md5": "3917ee56769db332790c751e2168843d",
+      "lastModified": "2020-12-21T19:39:26Z",
+      "coverageFrom": "1849-12-26T00:00:00",
+      "coverageTo": "2150-01-22T00:00:00",
+      "horizonsComparison": {
+        "basis": "Same-solution cached Horizons vectors; independently confirmed against de440.bsp",
+        "maxPositionM": 0.001,
+        "maxVelocityMmS": 0.000001
+      }
+    },
+    "de442.bsp": {
+      "family": "DE442",
+      "bytes": 119771136,
+      "md5": "446656322267e7b819a26cb08a0d8718",
+      "lastModified": "2025-02-06T17:36:42Z",
+      "coverageFrom": "1549-12-31T00:00:00",
+      "coverageTo": "2650-01-25T00:00:00",
+      "horizonsComparison": {
+        "basis": "DE441 source returned by the Horizons API on 2026-11-06 versus DE442; this is a solution difference, not a reader-error tolerance",
+        "maxPositionM": {
+          "sun": 150,
+          "mercury": 160,
+          "venus": 150,
+          "earth": 145,
+          "mars": 90,
+          "jupiter": 16000,
+          "saturn": 250,
+          "uranus": 1200000,
+          "neptune": 350000
+        },
+        "maxVelocityMmS": 3
+      }
+    },
+    "de442s.bsp": {
+      "family": "DE442",
+      "bytes": 32701440,
+      "md5": "cc49327e06088124c0e39d8dde9f0b58",
+      "lastModified": "2025-02-06T17:36:42Z",
+      "coverageFrom": "1849-12-26T00:00:00",
+      "coverageTo": "2150-01-22T00:00:00",
+      "horizonsComparison": {
+        "basis": "DE441 source returned by the Horizons API on 2026-11-06 versus DE442; this is a solution difference, not a reader-error tolerance",
+        "maxPositionM": {
+          "sun": 150,
+          "mercury": 160,
+          "venus": 150,
+          "earth": 145,
+          "mars": 90,
+          "jupiter": 16000,
+          "saturn": 250,
+          "uranus": 1200000,
+          "neptune": 350000
+        },
+        "maxVelocityMmS": 3
+      }
+    }
+  },
+  "currentHorizonsApi": {
+    "retrievedAtUtc": "2026-11-06T04:59:51Z",
+    "centerSource": "DE441",
+    "sourceUrl": "https://ssd.jpl.nasa.gov/api/horizons.api",
+    "observedFrom": "Uranus (799), CENTER=500@0, VECTORS, ICRF/ecliptic"
+  }
+}

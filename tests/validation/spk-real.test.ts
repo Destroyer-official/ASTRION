@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AU_KM, DAY_S, JD_J2000 } from '@/data/constants';
+import kernelProvenance from '@/data/spice/de-kernel-provenance.json';
 import { SpkFile } from '@/sim/spk';
 
 const kernelName = process.env.SPK_KERNEL ?? 'de440.bsp';
@@ -20,6 +21,16 @@ const TARGETS: Array<{ name: string; path: string; target: number; center: numbe
   { name: 'neptune', path: 'bodies/neptune.json', target: 8, center: 0 },
 ];
 
+interface HorizonsComparisonPolicy {
+  basis: string;
+  maxPositionM: number | Record<string, number>;
+  maxVelocityMmS: number;
+}
+
+type KernelProvenance = {
+  kernels: Record<string, { horizonsComparison: HorizonsComparisonPolicy }>;
+};
+
 const dataPath = (path: string) => fileURLToPath(new URL(`../../src/data/${path}`, import.meta.url));
 
 describe.skipIf(!hasKernel)(`SPK reader against cached Horizons states (${kernelName})`, () => {
@@ -34,20 +45,13 @@ describe.skipIf(!hasKernel)(`SPK reader against cached Horizons states (${kernel
     context = `${kernelName} ${bytes.length} bytes, ${spk.segments.length} segments`;
   });
 
-  // Measured 2026-11-05 against de440.bsp and de440s.bsp (identical results):
-  // worst position residual 2.38e-4 m (Saturn/Uranus), worst velocity residual
-  // 7.11e-8 mm/s (Earth). Both limits sit just above those maxima and just below
-  // the 16-digit precision of the cached Horizons vectors, which quantise at
-  // ~0.29 mm at Uranus' distance. Breaking either limit means the reader, the
-  // unit handling, or the frame convention changed: the 2026-11-05 run that
-  // preceded the obliquity fix in src/data/galaxy.ts failed here by 526 km at
-  // Uranus, which is how the frame mismatch was found.
-  const MAX_POSITION_M = 1e-3;
-  const MAX_VELOCITY_MM_S = 1e-6;
+  const policy = (kernelProvenance as KernelProvenance).kernels[kernelName]?.horizonsComparison;
+  if (!policy) throw new Error(`no provenance policy for ${kernelName}`);
+  const maxVelocityMmSLimit = policy.maxVelocityMmS as number;
 
   it.each(TARGETS)(
-    '$name barycentric state matches the cached Horizons vector',
-    async ({ path, target, center }) => {
+    '$name barycentric state is inside its kernel-source acceptance envelope',
+    async ({ name, path, target, center }) => {
       const reference = JSON.parse(readFileSync(dataPath(path), 'utf8')) as {
         initial: { type: 'vectors'; epochJd: number; position: number[]; velocity: number[] };
       };
@@ -62,6 +66,13 @@ describe.skipIf(!hasKernel)(`SPK reader against cached Horizons states (${kernel
       const velocityErrorsMmS = state.vel.map((kmS, axis) => (kmS - velocityKmS[axis]!) * 1_000_000);
       const maxPositionM = Math.max(...positionErrorsM.map(Math.abs));
       const maxVelocityMmS = Math.max(...velocityErrorsMmS.map(Math.abs));
+      const maxPositionLimit = typeof policy.maxPositionM === 'number'
+        ? policy.maxPositionM
+        : policy.maxPositionM[name];
+      if (typeof maxPositionLimit !== 'number') {
+        throw new Error(`no provenance position limit for ${name} in ${kernelName}`);
+      }
+
       console.log(
         `${context}\n` +
           `${path.padEnd(22)} pos ${positionErrorsM.map((m) => fmt(m, 1)).join(' ')} m  max ${maxPositionM.toExponential(3)} m` +
@@ -69,8 +80,8 @@ describe.skipIf(!hasKernel)(`SPK reader against cached Horizons states (${kernel
           `${maxVelocityMmS.toExponential(3)} mm/s`,
       );
 
-      expect(maxPositionM).toBeLessThan(MAX_POSITION_M);
-      expect(maxVelocityMmS).toBeLessThan(MAX_VELOCITY_MM_S);
+      expect(maxPositionM).toBeLessThan(maxPositionLimit);
+      expect(maxVelocityMmS).toBeLessThan(maxVelocityMmSLimit);
     },
   );
 });
