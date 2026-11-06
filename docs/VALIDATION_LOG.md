@@ -1493,6 +1493,84 @@ the Playwright gate is not yet wired into CI. Full details and limitations are i
 
 ---
 
+## 2026-11-06 — Step 9: ephemeris coverage gate
+
+Commits:
+
+- `cd614ba` — `feat(sim): expose the validated dense ephemeris coverage`
+- `0512753` — `feat(ui): gate ephemeris dates to validated coverage`
+- `6649aba` — `test(ui): audit the ephemeris coverage boundary`
+
+Decision: after step 7b measured $5.4\times10^{6}$ km at +729 d and
+1.1e+8–2.8e+9 km beyond the dense window, the user chose to gate the UI rather
+than regenerate large tables or bundle a kernel. This changes the product scope
+honestly: dates the tables cannot answer are refused.
+
+Coverage is derived from multi-sample dense anchors, not from the one epoch
+anchor. The initial version of `validatedWindow()` used every `fine` anchor and
+collapsed to `{0,0}` because the epoch anchor contains all 36 bodies while the
+dense table contains 10. The browser audit caught the resulting single-day date
+picker, exposing the defect before commit. The final code marks dense anchors
+separately.
+
+Provider measurement:
+
+```text
+validated dense window: -365 … +724 days
+full anchor span:       -3652.5 … +18262.5 days
+boundary tests:
+  -365 true, -366 false
+  +724 true, +725 false
+  +3652.5 false
+```
+
+Behavior implemented:
+
+- ephemeris-mode `Go` and `Now` requests clamp to the validated window;
+- switching into ephemeris mode clamps the current simulation date;
+- ephemeris playback stops at the validated boundary;
+- the date input receives `min` and `max`;
+- a live-region status displays the range and a six-second clamp message;
+- out-of-window live Horizons vectors may seed N-body state but are not appended
+  as interpolation anchors.
+
+Browser audit final output:
+
+```text
+checks passed: 31
+checks failed:  0
+      a11y: 41 controls, 0 unnamed, 0 out of the tab order, 1 headings, 3 aria-live regions, lang="en"
+      exercised: 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 numbers, 1 dates
+PASS  Horizons failure falls back to local truth — Local DE440 (live unavailable)
+PASS  ephemeris mode displays its validated coverage note — Ephemeris validated from 2025-10-05 to 2028-09-28 UTC. Dates outside this range are clamped.
+PASS  ephemeris date picker exposes measured bounds — 2025-10-05 → 2028-09-28
+PASS  out-of-range ephemeris seek clamps to the validated edge — 2028-09-28
+PASS  clamped ephemeris seek is announced — Date 2028-09-29 is outside the validated ephemeris window; clamped to 2028-09-28.
+PASS  controls respond without errors or freezes
+PASS  after an injected render fault: animation loop still advancing — 3 frames
+PASS  startup makes no external network requests
+PASS  app boots with external network blocked
+```
+
+Production regression:
+
+```text
+$ npm run verify:prod
+npm run typecheck      exit 0
+npm run lint           exit 0
+ Test Files  88 passed (88)
+      Tests  577 passed (577)
+   Duration  38.31s
+dist/assets/physics.worker-R7tVMuKV.js     62.65 kB
+dist/assets/index-CQZ86ZUQ.js           1,264.09 kB │ gzip: 393.87 kB
+```
+
+Coverage was not re-measured. AUDIT-51 and OPEN-008 are narrowed/resolved by this
+UI gate. The underlying sparse tables do not become more accurate, and N-body
+mode remains the only path beyond the ephemeris gate.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1511,3 +1589,4 @@ the Playwright gate is not yet wired into CI. Full details and limitations are i
 | 2026-11-05 | STEP-7 RUNTIME EPHEMERIS       | Measured the ephemeris/display path against the MD5-verified `de440.bsp`: the tables themselves agree with the kernel to ≤0.127 km, but five bodies (Sun + outer planets, 9-day anchors) were frozen at their epoch vector because one date bracket was shared by all bodies — Jupiter off by 7.3e+8 km at +700 d, fixed to 8.2e-2 km by `b8f21d2`; SPK path chaining added in `0d9743c`; ±300 d now measures ≤1.0 km (Mercury 1.014e+2 km, limit set at 200 km) while the −1..+2 yr anchor span versus the claimed ±10/+50 yr window is recorded as AUDIT-51/OPEN-008 (1.1e+8–2.8e+9 km, 0.8–18.6 AU). Full regression 87 files / **571** tests in 51.52 s; typecheck/lint/build exit 0. |
 | 2026-11-05 | STEP-7b ANCHOR DENSITY         | A sparse velocity-free anchor at +365.25 d sat inside the dense 1.5-day span and forced the blended fallback: Earth 3.09e+5 km and Mercury 4.80e+5 km at +365 d. `e92467f` lets fine anchors win inside their own span, giving 1.83e-1 km (Earth) and 2.24e+1 km (Mercury) there, and the kernel sweep widened to −364..+724 d at 0.5 d: worst 8.011e+1 km (Mercury), every other body ≤ 1.3 km, velocities ≤ 1.856e-3 km/s. Full regression 87 files / **571** tests in 41.56 s; typecheck/lint/build exit 0; the coverage edge (+724 d onward) stays AUDIT-51/OPEN-008. |
 | 2026-11-06 | STEP-8 FULL UI AUDIT         | Real Chromium audit at 1440×900 and 390×844: **27 checks passed / 0 failed**; exercised 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 number fields, 1 date field and catalog search; measured AA contrast, unique IDs, 41 named visible controls, 2 live regions, clean startup, fault recovery and zero startup external requests. Fixed false success on live-sync fallback (`fc7f622`) and detached facts-card close control; made hidden-control/offline audit logic correct (`30b92ca`, `90f1520`). Full `verify:prod`: typecheck/lint 0, 88 files / **575** tests in 41.95s, build 1,261.98 kB raw / 393.09 kB gzip. Playwright remains manual-only; no CI or screen-reader claim. |
+| 2026-11-06 | STEP-9 EPHEMERIS GATE        | Product decision implemented to resolve AUDIT-51/OPEN-008 by hard-gating ephemeris dates to measured dense coverage. Provider exposes validated intersection **−365…+724 d**; browser showed **2025-10-05 → 2028-09-28**, clamps +1 day with accessible announcement, and sets date input bounds. First derived window collapsed to zero because the epoch anchor was mistaken for dense coverage; browser audit caught it. Full browser audit **31/31**; verify:prod typecheck/lint 0, **88 files / 577 tests** in 38.31s, build 1,264.09 kB / 393.87 kB gzip. Underlying sparse tables unchanged; N-body mode remains available beyond the gate. |

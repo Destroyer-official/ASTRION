@@ -83,7 +83,7 @@ How to read this file:
 > absent asteroid perturbers.
 
 > **UI documentation update, 2026-11-06:** `docs/UI_AUDIT.md` is now present and the
-> browser audit was executed locally at 27/27 checks. AUDIT-30 is thereby narrowed:
+> browser audit was executed locally at 31/31 checks. AUDIT-30 is thereby narrowed:
 > the missing traceability set is now TROUBLESHOOTING, READINESS_REPORT,
 > CODE_OF_CONDUCT, CHANGELOG and SECURITY. The UI defects found by the browser audit
 > are fixed in `fc7f622`.
@@ -141,7 +141,7 @@ How to read this file:
 > so dependency hygiene is not declared closed. See VALIDATION_LOG STEP-3b.
 
 > **UI audit update, 2026-11-06:** AUDIT-40 is **partially fixed**. The real browser
-> audit is a repository command (`npm run audit:ui`) and passed 27/27 checks locally;
+> audit is a repository command (`npm run audit:ui`) and passed 31/31 checks locally;
 > it is still not invoked by CI, so automated E2E gating remains open. See
 > VALIDATION_LOG STEP-8 and `docs/UI_AUDIT.md`.
 
@@ -197,6 +197,15 @@ How to read this file:
 > Across the whole dense window −364…+724 d the worst case is now Mercury at 8.0e+1 km.
 > The dense table turns out to cover −1..+2 yr rather than the ±10/+50 yr the docs
 > described, and error is 0.8–18.6 AU beyond it.
+>
+> **AUDIT-51 / OPEN-008 resolution, 2026-11-06:** after the measured error table was
+> reviewed, the product decision was to gate the UI rather than advertise unsupported
+> interpolation or bundle a large kernel. `cd614ba` derives the common dense window
+> from the multi-sample dense anchors (−365…+724 d) and `0512753` applies it to date
+> seeks, mode switches, playback and the date picker, with an accessible status note.
+> `6649aba` proves the behavior in the real-browser audit. The AU-scale errors remain
+> factual measurements of the underlying sparse tables, but ephemeris mode no longer
+> presents dates outside the dense window as valid.
 
 ## 7. Verified-pass summary (do not "fix" these)
 
@@ -235,10 +244,12 @@ The CRITICAL set splits into four groups, and the split is reflected in the orde
   advertised but unreachable, three inconsistent test counts, two accuracy claims contradicted by
   their own tests, contradictory solar-motion constants, wrong GM literals in the targeting panel,
   and a galactic model that cannot select the physics it advertises.
-- **Accuracy coverage (1):** 51 — the ephemeris path is documented and offered as a ±10/+50 yr
-  window but is anchored only over −1..+2 yr, and AU-scale interpolation error was measured there
-  against `de440.bsp`. Two contributing defects are fixed (`b8f21d2`, `0d9743c`); the coverage
-  decision (regenerate tables, gate the UI, or read a kernel) is open.
+- **Accuracy coverage (1 — decision implemented):** 51 — the ephemeris path was documented and
+  offered as a ±10/+50 yr window but is densely anchored only over −365…+724 d, with AU-scale
+  interpolation error measured beyond it. Contributing defects were fixed (`0d9743c`, `b8f21d2`,
+  `e92467f`), and the chosen resolution (`cd614ba`, `0512753`, `6649aba`) is a hard UI gate with
+  an accessible accuracy note; broader dense-table regeneration or kernel-backed ephemeris remain
+  future capability work, not an unsupported advertised range.
 
 ## 9. Recommended order of work
 

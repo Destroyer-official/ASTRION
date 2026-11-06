@@ -1,6 +1,35 @@
 # UI audit
 
-Measured on 2026-11-06 against branch `nasa-grade-work` at commit `90f1520`
+## Latest measured result (coverage gate)
+
+```text
+Measured on 2026-11-06 at commit 6649aba
+$ UI_URL=http://127.0.0.1:5173/ npm run audit:ui
+
+checks passed: 31
+checks failed:  0
+```
+
+The additional checks prove that ephemeris mode:
+
+- displays the validated date range;
+- sets `min` and `max` on the date picker;
+- clamps a request one day past the end to the last validated day;
+- announces the clamp in an `aria-live` status region;
+- stays free of application errors while doing so.
+
+Measured values from that run:
+
+```text
+Ephemeris validated from 2025-10-05 to 2028-09-28 UTC.
+Requested 2028-09-29 → applied 2028-09-28.
+```
+
+The step-8 result below is retained as the historical measurement that established
+the 27-check accessibility and interaction baseline. The current committed gate is
+the 31-check result above.
+
+## Step 8 baseline: measured on 2026-11-06 at commit `90f1520`
 (`test(ui): exercise every visible form control in the audit`).
 
 ## Result

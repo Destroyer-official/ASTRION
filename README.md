@@ -56,7 +56,7 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-06 local run: 88 files / 575 tests; GitHub Actions status is not claimed here.**
+- **2026-11-06 local run: 88 files / 577 tests; GitHub Actions status is not claimed here.**
   In the same local context `npm run typecheck`, `npm run lint` and `npm run build` each
   exited 0 (full transcripts are in
   [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
@@ -64,7 +64,7 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
   all sources 63.73 % lines; `src/physics` 93.25 % lines / 69.69 % branches;
   `src/frames` 100 % lines/branches; `src/sim/spk.ts` 83.92 % lines; coverage thresholds
   are **not enabled**.
-- A real-browser UI audit was run locally and passed **27/27 checks** at desktop and
+- A real-browser UI audit was run locally and passed **31/31 checks** at desktop and
   mobile viewports; results and limitations are in
   [`docs/UI_AUDIT.md`](./docs/UI_AUDIT.md). That audit is not yet wired into CI, and no
   binary-SPK-vs-CSPICE position comparison has been performed.
@@ -177,9 +177,9 @@ $$\mathbf{a}_{J_2} = -\frac{3 G M J_2 R_{\text{eq}}^2}{2 r^5} \left[ \left( 1 - 
 In **Ephemeris Mode**, state vectors come from **cached JPL Horizons anchor tables** (`src/data/horizons-reference.json`, `src/data/dense-reference.json`, refreshed via `npm run fetch:horizons`), interpolated with cubic Hermite $p(t) \in C^1([t_k, t_{k+1}])$ in `src/sim/ephemeris.ts`:
 $$p(t) = h_{00}(\tau) \mathbf{p}_k + h_{10}(\tau) \Delta t \mathbf{v}_k + h_{01}(\tau) \mathbf{p}_{k+1} + h_{11}(\tau) \Delta t \mathbf{v}_{k+1}$$
 $$\mathbf{v}(t) = \frac{d p(t)}{dt} = \frac{1}{\Delta t} \left[ h'_{00}(\tau) \mathbf{p}_k + h'_{10}(\tau) \Delta t \mathbf{v}_k + h'_{01}(\tau) \mathbf{p}_{k+1} + h'_{11}(\tau) \Delta t \mathbf{v}_{k+1} \right]$$
-where $\tau = (t - t_k) / \Delta t \in [0, 1]$. Because the dense anchors carry explicit Horizons velocities, interpolated velocities remain continuous ($C^1$) at node boundaries; sparse position-only anchors fall back to a blended position interpolation. `reseedLive` queries the Horizons REST API when reachable, appending fresh anchors, or falls back to the cached tables when not (`src/sim/horizonsClient.ts`).
+where $\tau = (t - t_k) / \Delta t \in [0, 1]$. Because the dense anchors carry explicit Horizons velocities, interpolated velocities remain continuous ($C^1$) at node boundaries. `reseedLive` queries the Horizons REST API when reachable; inside the validated dense window it may append a fresh anchor, while outside that window it may initialize an N-body state but cannot create an ephemeris interpolation anchor. The UI shows the validated coverage note and clamps ephemeris-mode seeks at the measured boundaries.
 
-**How far that is trustworthy:** the dense table spans jd 2460954.5–2462049.5, i.e. −1 to +2 years around the cached epoch (1.5-day nodes for the inner planets and the Moon, 9-day for the Sun and outer planets), and the sparse table then supplies only ±365.25, ±3652.5 and +18262.5 days. Measured against `de440.bsp` (`docs/VALIDATION_LOG.md` steps 7/7b), interpolation error across the whole dense span (−364…+724 d, 0.5-day steps) is ≤ 1.3 km for the Sun and every planet except Mercury ($8.0\times10^{1}$ km, limit asserted at 200 km), $5.4\times10^{6}$ km at +729 d where a body's last dense node stops, and 1.1e+8–2.8e+9 km (0.8–18.6 AU) wherever only the corner anchors bracket the date. The evaluator clamps outside its table window. Widening the anchored span, gating the UI to the dense window, or driving this mode from the kernel reader is tracked as AUDIT-51 / OPEN-008.
+**How far that is trustworthy:** the dense table spans jd 2460954.5–2462049.5, while the intersection common to all densely anchored bodies is **−365…+724 days**. Measured against `de440.bsp` (`docs/VALIDATION_LOG.md` steps 7/7b), interpolation error across that gated span (−364…+724 d at 0.5-day steps) is ≤ 1.3 km for the Sun and every planet except Mercury ($8.0\times10^{1}$ km, limit asserted at 200 km). Beyond it, error rises to $5.4\times10^{6}$ km at +729 d and 1.1e+8–2.8e+9 km (0.8–18.6 AU) where only the corner anchors remain—so **ephemeris mode is now hard-gated to −365…+724 d**, with `AUDIT-51` / `OPEN-008` resolved by that product decision and UI behavior rather than by claiming accuracy in the sparse region. N-body mode remains available beyond the gate, but its per-horizon measured errors are reported in §4 and its trajectories are not SPK truth.
 
 **What this is not:** the repo bundles **no binary DE440/DE441/DE442 `.bsp` SPK kernel** and performs no CSPICE position comparison. A read-only DAF/SPK type 2/3 parser does exist (`src/sim/spk.ts`) and is validated by `npm run verify:spk`, which downloads `de440.bsp` into the gitignored `tests/validation/.cache/`, requires NAIF's published MD5, and reproduces nine cached Horizons vectors to 2.4e-4 m and 7.1e-8 mm/s (`docs/VALIDATION_LOG.md` step 6) — but **no runtime module evaluates a kernel**, so the positions the app integrates stay Hermite interpolations of cached vectors. The only DE440 artefacts that ship are the NAIF **text** kernels `gm_de440.tpc`, `pck00010.tpc`, `pck00011.tpc` in `src/data/spice/` (GM/radii/orientation constants, SHA-256-pinned locally in `provenance.json` and checked by `tests/spice-truth.test.ts`; NAIF itself publishes only MD5 — `docs/RESEARCH.md` §6). Per `docs/RESEARCH.md` §1 (accessed 2026-11-04): DE440 is the modern whole-system solution (Park et al. 2021); **DE441** is the long-span historical solution (c. −13201 to +17191), **not** the newest ephemeris; **DE442** (2025-02-06) is the newest general-purpose kernel, an update of DE440 driven mainly by the Uranus barycentre. Any claim that this app "uses DE441" or evaluates a DE kernel directly is false and has been removed.
 
@@ -245,7 +245,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-06 local run: **88 files / 575 tests**; no CI claim) enforces the
+The suite (2026-11-06 local run: **88 files / 577 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is _not_ a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -268,21 +268,26 @@ measured error figure, and no tighter value is retained anywhere.
 | [`tests/orientation-property.test.ts`](./tests/orientation-property.test.ts)                         | seeded 1,000-case ±50-year check: every rotation matrix is orthonormal/right-handed, and body↔ecliptic vector conversion round-trips                                                        | `:34-77`                                         |
 | [`tests/yoshida4.test.ts`](./tests/yoshida4.test.ts)                                                 | 4th-order convergence (error ratio 13–19 per halving), reversibility to $10^{-12}$ AU, 10-Jupiter-orbit drift $<10^{-9}$                                                                    | `:31-59`                                         |
 | [`tests/ias15.test.ts`](./tests/ias15.test.ts)                                                       | module-level only (not runtime-selectable, §4): 1-yr circular-orbit drift $<10^{-8}$, $e=0.8$ periapsis handled, reversibility to 7 decimals                                                | `:30-85`                                         |
+| [`tests/spk.test.ts`](./tests/spk.test.ts)                                                           | Synthetic DAF/SPK type 2/3 parsing, velocity and J2000→ecliptic behavior, including segment-path chaining and malformed-header rejection                                                     | `tests/spk.test.ts`                                |
+| [`tests/validation/spk-real.test.ts`](./tests/validation/spk-real.test.ts)                            | Against the MD5-verified kernel selected by `SPK_KERNEL`: nine Horizons reference vectors agree with the reader to `1e-3 m` position and `1e-6 mm/s` velocity (measured worst 2.384e-4 m / 7.11e-8 mm/s) | `npm run verify:spk`, VALIDATION_LOG step 6         |
+| [`tests/validation/ephemeris-vs-de440.test.ts`](./tests/validation/ephemeris-vs-de440.test.ts)          | Runtime ephemeris interpolation over the gated dense span −364…+724 d at 0.5 d: every tested body within 200 km (measured worst Mercury 8.011e+1 km, all others ≤1.3 km)                      | `npm run verify:spk`, VALIDATION_LOG steps 7/7b     |
+| [`tests/validation/prediction-vs-de440.test.ts`](./tests/validation/prediction-vs-de440.test.ts)        | Default N-body forward/backward prediction against `de440.bsp`: +1 yr < 2,000 km, +10 yr < 200,000 km, +50 yr < 5,000,000 km, −10 yr < 200,000 km                                             | `npm run verify:spk`, VALIDATION_LOG step 7c        |
+| [`tests/ephemeris.test.ts`](./tests/ephemeris.test.ts)                                                | Full anchor span remains distinct from validated dense window `−365…+724 d`; live anchors outside the validated window cannot extend interpolation                                              | `:66-110`                                          |
 | [`tests/textures-manifest.test.ts`](./tests/textures-manifest.test.ts) + VALIDATION_LOG 2026-11-04   | all 9 texture files match manifest SHA-256 and byte length; independent Python re-hash 9/9; provider license confirmed CC BY 4.0                                                            | asset-verify entry in `docs/VALIDATION_LOG.md`   |
 
 ### Unverified — do not cite as results
 
-- **Any general km-level positional accuracy vs JPL.** The old "PASS (56 km)" and
-  "solar wobble 788,469 km at 11.4 m/s" figures had no retained assertion or recorded
-  run and remain removed (VALIDATION_LOG "Unverified claims"; AUDIT-19/21). The eclipse
-  1.19-minute result from the `5775d66` step-5 run is retained as one observed value;
-  the previous contradictory 1.19/2.35-minute prose is not a permanent assertion.
-- **Per-body +10/+50 yr error tables** (ephemeris.ts computes a runtime validation
-  table, but no per-body figures are recorded as measurements).
+- **Unqualified accuracy across all bodies, epochs and configurations.** Specific
+  measured kernels now exist for the gated dense ephemeris span and default N-body
+  prediction horizons, and those claims appear in VALIDATION_LOG steps 6–9. The old
+  "PASS (56 km)" and "solar wobble 788,469 km at 11.4 m/s" figures remain removed
+  because no assertion or recorded run supports them. The eclipse 1.19-minute result
+  from the `5775d66` step-5 run is retained as one observed value, not a universal
+  tolerance.
 - **CI status.** `.github/workflows/ci.yml` exists; no GitHub Actions run is claimed
   here (AUDIT context in `docs/AUDIT.md`).
-- **Coverage thresholds** are not enabled; the 63.41 % / 93.25 % / 100 % figures are
-  step-3c baselines, not gates.
+- **Coverage thresholds** are not enabled; the latest recorded step-6 baselines are
+  63.73 % overall lines, 93.25 % physics lines and 69.69 % physics branches, not gates.
 - **Invariant thresholds** (energy / angular-momentum / barycenter drift at 1e-6 in
   `src/observability/invariants.ts`) are operational defaults explicitly marked
   UNVERIFIED (OPEN-001 in `docs/OPEN_QUESTIONS.md`); they are not NASA/IAU/JPL targets.
@@ -290,7 +295,7 @@ measured error figure, and no tighter value is retained anywhere.
 - **Render counts** such as 158 globular clusters are procedural defaults in
   `src/render/galaxyVisual.ts:226`, not catalogue-derived values (no Harris catalogue
   ships in the repo).
-- **E2E / browser behavior** — the local `npm run audit:ui` gate passed 27/27 checks,
+- **E2E / browser behavior** — the local `npm run audit:ui` gate passed 31/31 checks,
   but it is not yet run in CI, uses one Chromium-family engine, and does not assert a
   screen-reader transcript or visual baselines.
 - **Textures are third-party CC BY 4.0 artistically rendered maps, not spacecraft
@@ -395,7 +400,7 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-06 local run: 88 files / 575 tests)
+npm test                 # vitest run (2026-11-06 local run: 88 files / 577 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build
