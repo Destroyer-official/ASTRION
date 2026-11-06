@@ -66,8 +66,9 @@ integrators are actually selectable at runtime (IAS15 exists but is not one of t
   are **not enabled**.
 - A real-browser UI audit was run locally and passed **31/31 checks** at desktop and
   mobile viewports; results and limitations are in
-  [`docs/UI_AUDIT.md`](./docs/UI_AUDIT.md). That audit is not yet wired into CI, and no
-  binary-SPK-vs-CSPICE position comparison has been performed.
+  [`docs/UI_AUDIT.md`](./docs/UI_AUDIT.md). The gate is wired into CI, but no Actions
+  run is claimed here, and no binary-SPK-vs-CSPICE position comparison has been
+  performed.
 
 The layered design at a glance (truth ladder):
 
@@ -295,9 +296,10 @@ measured error figure, and no tighter value is retained anywhere.
 - **Render counts** such as 158 globular clusters are procedural defaults in
   `src/render/galaxyVisual.ts:226`, not catalogue-derived values (no Harris catalogue
   ships in the repo).
-- **E2E / browser behavior** — the local `npm run audit:ui` gate passed 31/31 checks,
-  but it is not yet run in CI, uses one Chromium-family engine, and does not assert a
-  screen-reader transcript or visual baselines.
+- **E2E / browser behavior** — the local `npm run audit:ui` gate passed 31/31 checks and
+  is now wired into CI, but no Actions run is claimed. It uses one Chromium engine,
+  does not assert a screen-reader transcript or visual baselines, and cannot prove
+  cold-start operation without a service worker.
 - **Textures are third-party CC BY 4.0 artistically rendered maps, not spacecraft
   measurements**; no physical quantity is sampled from their pixels (§8.1).
 

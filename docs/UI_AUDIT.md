@@ -196,8 +196,8 @@ This is a browser-behavior audit, not certification of the user interface.
   cache exists.
 - The large-chunk warning remains open: the production main chunk measured
   1,261.98 kB raw and 393.09 kB gzipped.
-- Playwright coverage is not wired into CI yet. `npm run audit:ui` is the local gate
-  recorded here.
+- Playwright coverage is wired into `.github/workflows/ci.yml` by commit `952b238`,
+  but no successful GitHub Actions run is claimed from this local record.
 - The exact ephemeral screenshots live in the gitignored directory
   `ui-audit-artifacts/`; this file records the pass/fail measurements rather than
   treating screenshots as an assertion.

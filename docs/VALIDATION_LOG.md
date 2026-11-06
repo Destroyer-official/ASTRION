@@ -1571,6 +1571,49 @@ mode remains the only path beyond the ephemeris gate.
 
 ---
 
+## 2026-11-06 — Step 10: production-preview browser gate wired into CI
+
+Commit: `952b238` (`ci(ui): gate the production build with the browser audit`)
+
+The local audit first ran against the same production artifact CI will serve, rather
+than only the development server:
+
+```bash
+npm run build
+npm run preview -- --host 127.0.0.1 --port 4173
+UI_URL=http://127.0.0.1:4173/ npm run audit:ui
+```
+
+Result:
+
+```text
+checks passed: 31
+checks failed:  0
+      desktop: canvas after 6172 ms
+      mobile:  canvas after 5466 ms
+PASS  ephemeris date picker exposes measured bounds — 2025-10-05 → 2028-09-28
+PASS  out-of-range ephemeris seek clamps to the validated edge — 2028-09-28
+PASS  clamped ephemeris seek is announced — Date 2028-09-29 is outside the validated ephemeris window; clamped to 2028-09-28.
+```
+
+Workflow YAML validation:
+
+```text
+$ python -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml', encoding='utf-8')); print('yaml valid')"
+yaml valid
+```
+
+The workflow adds a dedicated `browser-ui-audit` job. It installs dependencies with
+`npm ci`, installs the Chromium revision matching the Playwright package, builds the
+production bundle, starts a local preview, waits for HTTP readiness, then runs the
+same audit. Preview logs and screenshots upload only on failure.
+
+Honest status boundary: the workflow is present and locally syntax-validated, and the
+same production command passed here. A successful GitHub Actions run is **not** claimed
+until Actions actually reports it.
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -1590,3 +1633,4 @@ mode remains the only path beyond the ephemeris gate.
 | 2026-11-05 | STEP-7b ANCHOR DENSITY         | A sparse velocity-free anchor at +365.25 d sat inside the dense 1.5-day span and forced the blended fallback: Earth 3.09e+5 km and Mercury 4.80e+5 km at +365 d. `e92467f` lets fine anchors win inside their own span, giving 1.83e-1 km (Earth) and 2.24e+1 km (Mercury) there, and the kernel sweep widened to −364..+724 d at 0.5 d: worst 8.011e+1 km (Mercury), every other body ≤ 1.3 km, velocities ≤ 1.856e-3 km/s. Full regression 87 files / **571** tests in 41.56 s; typecheck/lint/build exit 0; the coverage edge (+724 d onward) stays AUDIT-51/OPEN-008. |
 | 2026-11-06 | STEP-8 FULL UI AUDIT         | Real Chromium audit at 1440×900 and 390×844: **27 checks passed / 0 failed**; exercised 15 buttons, 9 selects, 10 checkboxes, 2 ranges, 3 number fields, 1 date field and catalog search; measured AA contrast, unique IDs, 41 named visible controls, 2 live regions, clean startup, fault recovery and zero startup external requests. Fixed false success on live-sync fallback (`fc7f622`) and detached facts-card close control; made hidden-control/offline audit logic correct (`30b92ca`, `90f1520`). Full `verify:prod`: typecheck/lint 0, 88 files / **575** tests in 41.95s, build 1,261.98 kB raw / 393.09 kB gzip. Playwright remains manual-only; no CI or screen-reader claim. |
 | 2026-11-06 | STEP-9 EPHEMERIS GATE        | Product decision implemented to resolve AUDIT-51/OPEN-008 by hard-gating ephemeris dates to measured dense coverage. Provider exposes validated intersection **−365…+724 d**; browser showed **2025-10-05 → 2028-09-28**, clamps +1 day with accessible announcement, and sets date input bounds. First derived window collapsed to zero because the epoch anchor was mistaken for dense coverage; browser audit caught it. Full browser audit **31/31**; verify:prod typecheck/lint 0, **88 files / 577 tests** in 38.31s, build 1,264.09 kB / 393.87 kB gzip. Underlying sparse tables unchanged; N-body mode remains available beyond the gate. |
+| 2026-11-06 | STEP-10 CI UI GATE           | Same production build preview served at 127.0.0.1:4173 passed **31/31 browser checks** in 6.2s desktop / 5.5s mobile boot. Workflow YAML parsed successfully. Added dedicated `browser-ui-audit` job with `npm ci`, matching Chromium, production preview startup and failure artifacts (`952b238`). No successful Actions run is claimed; coverage thresholds and cross-browser/screen-reader/visual assurance remain open. |
