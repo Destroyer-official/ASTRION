@@ -3,23 +3,56 @@ import { loadSystem, ALL_BODIES, ASTEROID_BODIES } from '@/sim/registry';
 import { computeBodyFacts } from '@/sim/facts';
 import { BodyVisual } from '@/render/bodyVisual';
 
+const PERTURBER_NOTE = 'ASSIST/JPL n16 massive-asteroid perturber set.';
+const PERTURBERS = ASTEROID_BODIES.filter((b) => b.note === PERTURBER_NOTE);
+
 describe('Celestial Bodies Size & Radii Accuracy (NASA NAIF PCK & IAU WGCCRE)', () => {
   const model = loadSystem(ALL_BODIES);
 
-  it('all 36 bodies have positive, finite radii in kilometers', () => {
-    expect(ALL_BODIES.length).toBe(36);
+  it('all 48 bodies have positive, finite radii in kilometers', () => {
+    expect(ALL_BODIES.length).toBe(48);
     for (const b of ALL_BODIES) {
       expect(b.radiusKm, `${b.id} radius`).toBeGreaterThan(0);
       expect(Number.isFinite(b.radiusKm)).toBe(true);
     }
   });
 
-  it('all 36 bodies have registered physical properties and facts in physicalMap', () => {
+  it('all 48 bodies have registered physical properties and facts in physicalMap', () => {
     for (const b of ALL_BODIES) {
       const phys = model.physicalMap[b.id];
       expect(phys, `${b.id} has physical data`).toBeDefined();
       expect(phys?.facts, `${b.id} has facts`).toBeDefined();
-      expect(phys?.rotation, `${b.id} has rotation`).toBeDefined();
+      expect(Object.keys(phys?.facts ?? {}).length, `${b.id} facts are non-empty`).toBeGreaterThan(0);
+    }
+  });
+
+  it('the 36 observed bodies carry a spin state; the 12 perturbers deliberately do not', () => {
+    expect(PERTURBERS.length).toBe(12);
+
+    for (const b of ALL_BODIES) {
+      const phys = model.physicalMap[b.id]!;
+      if (PERTURBERS.includes(b)) {
+        // No IAU/NAIF pole orientation is published for these bodies, so the data
+        // files assert none instead of inventing one. See docs/OPEN_QUESTIONS.md.
+        expect(phys.rotation, `${b.id} has no fabricated spin state`).toBeUndefined();
+        expect(phys.source, `${b.id} perturber facts are provenanced`).toBeTruthy();
+        expect(phys.note, `${b.id} perturber gap is documented`).toContain('spin state');
+      } else {
+        expect(phys.rotation, `${b.id} has sourced rotation`).toBeDefined();
+        expect(phys.rotation!.wRateDegPerDay, `${b.id} spin rate is finite`).not.toBe(0);
+      }
+    }
+  });
+
+  it('perturber radii agree with the independent JPL SSD effective diameters', () => {
+    for (const b of PERTURBERS) {
+      const diameter = model.physicalMap[b.id]!.facts?.['Effective Diameter'];
+      expect(diameter, `${b.id} carries an SSD diameter`).toBeTruthy();
+      const value = Number(diameter!.match(/^([\d.]+)/)?.[1]);
+      expect(Number.isFinite(value), `${b.id} diameter parses`).toBe(true);
+      // Horizons mean radius and the NEOWISE/IRAS effective diameter are independent
+      // measurements of the same body; they must agree to well within 2%.
+      expect(Math.abs(2 * b.radiusKm - value) / value, `${b.id} radius vs diameter`).toBeLessThan(0.02);
     }
   });
 
