@@ -1,0 +1,16 @@
+{
+  "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=7&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
+  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "facts": {
+    "Classification": "Main-belt Asteroid (S-type)",
+    "System GM": "1.1398723232184107 km³/s² (NAIF gm_de440.tpc)",
+    "Mass": "1.708 × 10¹⁹ kg (derived: GM ÷ CODATA-2018 G)",
+    "Mean Radius": "99.915 km (JPL Horizons RAD for DES=2000007)",
+    "Effective Diameter": "199.83 ± 10.0 km (IRAS-A-FPA-3-RDR-IMPS-V6.0)",
+    "Rotation Period": "7.139 h (LCDB (Rev. 2023-October); Warner et al., 2009)",
+    "Geometric Albedo": "0.2766 ± 0.030 (IRAS-A-FPA-3-RDR-IMPS-V6.0)",
+    "Absolute Magnitude H": "5.70 (MPO980521)",
+    "Discovery": "Discovered 1847-08-13 by Hind, J. R. at London",
+    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+  }
+}

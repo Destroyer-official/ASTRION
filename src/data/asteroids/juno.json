@@ -1,0 +1,23 @@
+{
+  "id": "juno",
+  "name": "Juno",
+  "gmKm3S2": 1.920570700202589,
+  "radiusKm": 123.298,
+  "color": "#b0a696",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000003;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      1.939182226717614,
+      -1.724879184671583,
+      0.3112897005354203
+    ],
+    "velocity": [
+      0.004921887982373177,
+      0.00929453957030897,
+      -0.002309914591067102
+    ]
+  }
+}

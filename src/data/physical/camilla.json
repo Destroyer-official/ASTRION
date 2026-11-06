@@ -1,0 +1,17 @@
+{
+  "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=107&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
+  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "facts": {
+    "Classification": "Outer Main-belt Asteroid (C-type Tholen / X-type SMASS-II)",
+    "System GM": "1.4437384031866 km³/s² (NAIF gm_de440.tpc)",
+    "Mass": "2.163 × 10¹⁹ kg (derived: GM ÷ CODATA-2018 G)",
+    "Mean Radius": "105.185 km (JPL Horizons RAD for DES=2000107)",
+    "Effective Diameter": "210.370 ± 8.326 km (urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2014ApJ...791..121M))",
+    "Bulk Density": "1.280 ± 0.043 g/cm^3 (Pajuelo, M.; Carry, B.; Vachier, F.; Marsset, M.; et al. (2018) Icarus 309, 134-161)",
+    "Rotation Period": "4.844 h (LCDB (Rev. 2023-October); Warner et al., 2009)",
+    "Geometric Albedo": "0.059 ± 0.012 (urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2014ApJ...791..121M))",
+    "Absolute Magnitude H": "7.09 (E2026E92)",
+    "Discovery": "Discovered 1868-11-17 by Pogson, N. R. at Madras",
+    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+  }
+}

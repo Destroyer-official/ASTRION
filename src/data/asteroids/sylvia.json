@@ -1,0 +1,23 @@
+{
+  "id": "sylvia",
+  "name": "Sylvia",
+  "gmKm3S2": 2.168232073699691,
+  "radiusKm": 126.5255,
+  "color": "#867a6f",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000087;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.265901859237039,
+      2.940896677598273,
+      0.580367902124371
+    ],
+    "velocity": [
+      -0.006898750714326348,
+      -0.004897921276186195,
+      0.0009849717014515603
+    ]
+  }
+}

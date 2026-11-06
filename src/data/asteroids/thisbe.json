@@ -1,0 +1,23 @@
+{
+  "id": "thisbe",
+  "name": "Thisbe",
+  "gmKm3S2": 1.1898077088121908,
+  "radiusKm": 116,
+  "color": "#c0a882",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000088;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.575924651175263,
+      -1.182580091625324,
+      -0.2458336933881355
+    ],
+    "velocity": [
+      0.00560179152196688,
+      -0.008350996049230829,
+      0.0004245187089127689
+    ]
+  }
+}

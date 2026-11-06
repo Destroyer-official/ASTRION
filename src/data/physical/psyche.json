@@ -1,0 +1,18 @@
+{
+  "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=16&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
+  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "facts": {
+    "Classification": "Main-belt Asteroid (M-type Tholen / X-type SMASS-II)",
+    "System GM": "1.5896582441709424 km³/s² (NAIF gm_de440.tpc)",
+    "Mass": "2.382 × 10¹⁹ kg (derived: GM ÷ CODATA-2018 G)",
+    "Mean Radius": "111 km (JPL Horizons RAD for DES=2000016)",
+    "Effective Diameter": "222 -1/+4 km (Shepard et al. (2021), The Planetary Science Journal 2, 125)",
+    "Dimensions": "278 x 238 x 171 ± 6 x 5 x 3 km (Shepard et al. (2021), The Planetary Science Journal 2, 125)",
+    "Bulk Density": "4.172 ± 0.145 g/cm^3 (Farnocchia et al. (2024), AJ 168, 21)",
+    "Rotation Period": "4.196 h (LCDB (Rev. 2023-October); Warner et al., 2009)",
+    "Geometric Albedo": "0.1203 ± 0.004 (IRAS-A-FPA-3-RDR-IMPS-V6.0)",
+    "Absolute Magnitude H": "6.20 (E2024-XU9)",
+    "Discovery": "Discovered 1852-03-17 by De Gasparis, A. at Naples",
+    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=88&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
+  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "facts": {
+    "Classification": "Main-belt Asteroid (CF-type Tholen / B-type SMASS-II)",
+    "System GM": "1.1898077088121908 km³/s² (NAIF gm_de440.tpc)",
+    "Mass": "1.783 × 10¹⁹ kg (derived: GM ÷ CODATA-2018 G)",
+    "Mean Radius": "116 km (JPL Horizons RAD for DES=2000088)",
+    "Effective Diameter": "232 km (Dunham occult. list: Millis et al. 1983)",
+    "Rotation Period": "6.042 h (LCDB (Rev. 2023-October); Warner et al., 2009)",
+    "Geometric Albedo": "0.0671 ± 0.003 (IRAS-A-FPA-3-RDR-IMPS-V6.0)",
+    "Absolute Magnitude H": "7.24 (E2026E47)",
+    "Discovery": "Discovered 1866-06-15 by Peters, C. H. F. at Clinton",
+    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+  }
+}

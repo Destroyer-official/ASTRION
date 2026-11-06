@@ -1,0 +1,23 @@
+{
+  "id": "iris",
+  "name": "Iris",
+  "gmKm3S2": 1.1398723232184107,
+  "radiusKm": 99.915,
+  "color": "#d6c8ad",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000007;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.628220791212653,
+      -1.151979290327494,
+      -0.2292318576232091
+    ],
+    "velocity": [
+      0.002683769077865168,
+      -0.008624727485819793,
+      0.0004063936401734916
+    ]
+  }
+}

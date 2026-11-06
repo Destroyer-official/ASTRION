@@ -1,0 +1,23 @@
+{
+  "id": "psyche",
+  "name": "Psyche",
+  "gmKm3S2": 1.5896582441709424,
+  "radiusKm": 111,
+  "color": "#a18f7b",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000016;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.26273669682046,
+      2.061771219793099,
+      -0.0354999834253828
+    ],
+    "velocity": [
+      -0.007308701529900098,
+      -0.006184903646617362,
+      0.0004884371073556286
+    ]
+  }
+}

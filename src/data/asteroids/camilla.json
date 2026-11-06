@@ -1,0 +1,23 @@
+{
+  "id": "camilla",
+  "name": "Camilla",
+  "gmKm3S2": 1.4437384031866,
+  "radiusKm": 105.185,
+  "color": "#777069",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000107;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.512518655950965,
+      2.083115228486911,
+      -0.3063143292829274
+    ],
+    "velocity": [
+      -0.006484918050495095,
+      -0.007184205962516781,
+      0.001410682842681415
+    ]
+  }
+}

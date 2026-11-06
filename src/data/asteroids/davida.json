@@ -1,0 +1,23 @@
+{
+  "id": "davida",
+  "name": "Davida",
+  "gmKm3S2": 3.8944831481705644,
+  "radiusKm": 135.1635,
+  "color": "#7f8d96",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000511;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -3.031119773912005,
+      -0.8986855418756858,
+      0.9027288373169876
+    ],
+    "velocity": [
+      0.001014620281512071,
+      -0.00923034414016736,
+      0.0005208432699325508
+    ]
+  }
+}

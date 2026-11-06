@@ -1,0 +1,23 @@
+{
+  "id": "eunomia",
+  "name": "Eunomia",
+  "gmKm3S2": 2.0230209871098284,
+  "radiusKm": 115.8445,
+  "color": "#b8a98f",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000015;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.471691313100869,
+      -1.832859598149951,
+      -0.6217691165967252
+    ],
+    "velocity": [
+      0.005278597580712478,
+      -0.006979834132278296,
+      0.0004460264127370365
+    ]
+  }
+}

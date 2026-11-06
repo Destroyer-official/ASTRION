@@ -38,6 +38,10 @@ export interface PhysicalJson {
   texture?: string; // /textures/earth.jpg
   ring?: { innerKm: number; outerKm: number; texture: string };
   facts?: Record<string, string>;
+  /** Where the values in this file came from, copied verbatim at generation time. */
+  source?: string;
+  /** Data gaps or modelling choices a reader needs to know about. */
+  note?: string;
 }
 
 export interface BodyJson {

@@ -1,0 +1,23 @@
+{
+  "id": "interamnia",
+  "name": "Interamnia",
+  "gmKm3S2": 2.830409639329985,
+  "radiusKm": 153.1565,
+  "color": "#8d99a6",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000704;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -1.425067540541437,
+      -2.947946823701603,
+      -0.5987878682720845
+    ],
+    "velocity": [
+      0.008144834662989198,
+      -0.003098939926631781,
+      0.002326604051325425
+    ]
+  }
+}

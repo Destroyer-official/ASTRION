@@ -1,0 +1,23 @@
+{
+  "id": "cybele",
+  "name": "Cybele",
+  "gmKm3S2": 0.9381057563915133,
+  "radiusKm": 118.63,
+  "color": "#8b7f71",
+  "note": "ASSIST/JPL n16 massive-asteroid perturber set.",
+  "source": "JPL Horizons DES=2000065;, CENTER=500@0, ecliptic/ICRF, JD 2461319.5 TDB; mean radius: Horizons RAD; GM: gm_de440.tpc; center source: DE441; perturber file: SB441-N16",
+  "initial": {
+    "type": "vectors",
+    "epochJd": 2461319.5,
+    "position": [
+      -2.62304919214405,
+      -1.623575445442321,
+      0.1603394563627533
+    ],
+    "velocity": [
+      0.006134282313929955,
+      -0.008202422580250399,
+      0.0003028146686502688
+    ]
+  }
+}
