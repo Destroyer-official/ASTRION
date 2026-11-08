@@ -5,6 +5,7 @@ import { oblateness } from '@/physics/forces/oblateness';
 import { Leapfrog } from '@/physics/integrators/leapfrog';
 import { yoshida4, yoshida6, yoshida8 } from '@/physics/integrators/yoshida';
 import {
+  HierarchicalIAS15,
   HierarchicalLeapfrog,
   TidalForce,
   compose,
@@ -384,13 +385,15 @@ export function buildSolver(
   const level0Forces = buildForces(model.level0Ids, cfg);
   const hierarchicalBase = new HierarchicalLeapfrog(systems);
   const integrator =
-    cfg.integrator === 'yoshida8' || cfg.integrator === 'truth8'
-      ? yoshida8(hierarchicalBase)
-      : cfg.integrator === 'yoshida6'
-        ? yoshida6(hierarchicalBase)
-        : cfg.integrator === 'yoshida4'
-          ? yoshida4(hierarchicalBase)
-          : hierarchicalBase;
+    cfg.integrator === 'ias15'
+      ? new HierarchicalIAS15(systems, { epsilon: 1e-12 })
+      : cfg.integrator === 'yoshida8' || cfg.integrator === 'truth8'
+        ? yoshida8(hierarchicalBase)
+        : cfg.integrator === 'yoshida6'
+          ? yoshida6(hierarchicalBase)
+          : cfg.integrator === 'yoshida4'
+            ? yoshida4(hierarchicalBase)
+            : hierarchicalBase;
 
   return {
     level0: {

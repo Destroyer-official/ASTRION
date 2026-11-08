@@ -1,5 +1,6 @@
 import { AU_KM, AU_PER_LIGHT_YEAR, DAY_S, GM_SUN_KM3_S2, SGRA_MASS_SOLAR, gmToInternal, auDayToKms, kmsToAuDay } from '@/data/constants';
 import type { BodyRow } from '@/sim/readout';
+import type { IntegratorName } from '@/sim/config';
 import type { AppStore, ScaleMode } from '@/sim/store';
 import type { ComputedFacts } from '@/sim/facts';
 import type { GalaxyReadout } from '@/sim/galaxySim';
@@ -54,7 +55,7 @@ export interface PanelContext {
   onGalaxyCamera?(cam: string): void;
   onGalaxyModelChange?(modelId: string): void;
   onPhysicsChange?(opts: {
-    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+    integrator?: IntegratorName;
     relativity?: boolean;
     eihRelativity?: boolean;
     quadrupole?: boolean;
@@ -266,6 +267,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           <div style="display: grid; gap: 6px; margin-top: 6px; font-size: 10px;">
             <label>Symplectic Integrator
               <select id="integrator" aria-label="Symplectic integrator" style="width: 100%; font-size: 10px; padding: 3px 5px; background: #0f172a; border: 1px solid rgba(56,189,248,0.4); border-radius: 4px; color: #fff; margin-top: 2px;">
+                <option value="ias15">IAS15 Adaptive Gauss-Radau (15th-Order Reference)</option>
                 <option value="yoshida8">Yoshida 8th-Order Symplectic (21-stage)</option>
                 <option value="yoshida6" selected>Yoshida 6th-Order Symplectic (Default 7-Stage)</option>
                 <option value="yoshida4">Yoshida 4th-Order Symplectic (Balanced)</option>
@@ -694,7 +696,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
 
   const emitPhysics = () => {
     ctx.onPhysicsChange?.({
-      integrator: (intSel?.value as 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8') ?? 'yoshida6',
+      integrator: (intSel?.value as IntegratorName) ?? 'yoshida6',
       relativity: relIn ? relIn.checked : true,
       eihRelativity: eihRelIn ? eihRelIn.checked : false,
       quadrupole: quadIn ? quadIn.checked : true,

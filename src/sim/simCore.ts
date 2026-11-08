@@ -1,6 +1,7 @@
 import { newtonianGravity } from '@/physics/forces/gravity';
 import { Leapfrog } from '@/physics/integrators/leapfrog';
 import { yoshida4, yoshida6, yoshida8 } from '@/physics/integrators/yoshida';
+import { IAS15 } from '@/physics/integrators/ias15';
 import type { Integrator, SystemState, ForceModel } from '@/physics/types';
 import { Engine } from './engine';
 import type { Frame, ToWorker } from './protocol';
@@ -13,6 +14,7 @@ import { cloneState } from '@/physics/system';
 import { DEFAULT_INVARIANT_THRESHOLDS, evaluateSimulationMetrics, type InvariantThresholds } from '@/observability';
 
 function buildIntegrator(name?: PhysicsConfig['integrator']): Integrator {
+  if (name === 'ias15') return new IAS15({ epsilon: 1e-12 });
   if (name === 'yoshida8' || name === 'truth8') return yoshida8(new Leapfrog());
   if (name === 'yoshida6') return yoshida6(new Leapfrog());
   if (name === 'yoshida4') return yoshida4(new Leapfrog());

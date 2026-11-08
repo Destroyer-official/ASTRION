@@ -3,7 +3,7 @@ import type { SystemState } from '@/physics/types';
 import { History } from './history';
 import type { Frame, ToWorker } from './protocol';
 import type { SystemModel } from './registry';
-import { DEFAULT_CONFIG, type PhysicsConfig } from './config';
+import { DEFAULT_CONFIG, type IntegratorName, type PhysicsConfig } from './config';
 import {
   createSimSnapshot,
   hashSimSnapshot,
@@ -19,7 +19,7 @@ export interface ClientOptions {
   historyCap: number;
   historyIntervalDays: number;
   config?: PhysicsConfig;
-  integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+  integrator?: IntegratorName;
   relativity?: boolean;
   eihRelativity?: boolean;
   quadrupole?: boolean;
@@ -76,7 +76,7 @@ export class SimClient {
   private healthIgnore = 0; // admin replies outstanding after a respawn: not proof of health
   private lastPhysics: {
     config?: PhysicsConfig;
-    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+    integrator?: IntegratorName;
     relativity?: boolean;
     eihRelativity?: boolean;
     quadrupole?: boolean;
@@ -343,7 +343,7 @@ export class SimClient {
   /** Dynamically configure physics models and integrators in the worker. */
   setPhysics(opts: {
     config?: PhysicsConfig;
-    integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+    integrator?: IntegratorName;
     relativity?: boolean;
     eihRelativity?: boolean;
     quadrupole?: boolean;

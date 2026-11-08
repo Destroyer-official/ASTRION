@@ -22,6 +22,18 @@ export function cloneState(s: SystemState): SystemState {
   return { t: s.t, n: s.n, gm: s.gm.slice(), pos: s.pos.slice(), vel: s.vel.slice() };
 }
 
+/** True when every transported state component (including time) is finite. */
+export function isFiniteState(s: SystemState): boolean {
+  if (!Number.isFinite(s.t)) return false;
+  for (let i = 0; i < s.pos.length; i++) {
+    if (!Number.isFinite(s.pos[i]!)) return false;
+  }
+  for (let i = 0; i < s.vel.length; i++) {
+    if (!Number.isFinite(s.vel[i]!)) return false;
+  }
+  return true;
+}
+
 /** Shift so the center of mass is at the origin and at rest. This is what makes the frame "barycentric". */
 export function recenterToBarycenter(s: SystemState): void {
   const c = centerOfMass(s);

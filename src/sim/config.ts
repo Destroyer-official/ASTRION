@@ -1,5 +1,13 @@
+export type IntegratorName =
+  | 'leapfrog'
+  | 'yoshida4'
+  | 'yoshida6'
+  | 'yoshida8'
+  | 'truth8'
+  | 'ias15';
+
 export interface PhysicsConfig {
-  integrator: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+  integrator: IntegratorName;
   dt: number; // fixed level-0 step, days
   maxSteps: number; // per message
   gr: boolean;

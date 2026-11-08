@@ -1,5 +1,7 @@
 import type { ForceModel, Integrator, SystemState } from './types';
 import { add } from './vec3';
+import { IAS15, type IAS15Options } from './integrators/ias15';
+import { isFiniteState } from './system';
 
 /** Differential pull of external bodies on a local system. Positions are linear in time during a drift. */
 export class TidalForce implements ForceModel {
@@ -77,13 +79,27 @@ export class HierarchicalLeapfrog implements Integrator {
     for (let k = 0; k < m; k++) s.vel[k] = s.vel[k]! + h * this.acc[k]!;
     this.p0.set(s.pos); // velocities are constant during the drift
     for (let k = 0; k < m; k++) s.pos[k] = s.pos[k]! + dt * s.vel[k]!;
-    for (const L of this.systems) this.advanceLocal(L, s, dt);
+    advanceLocals(this.systems, s, dt, this.p0);
     s.t += dt;
     this.accel(s, forces);
     for (let k = 0; k < m; k++) s.vel[k] = s.vel[k]! + h * this.acc[k]!;
   }
+}
 
-  private advanceLocal(L: LocalSystem, s: SystemState, dt: number): void {
+/**
+ * Advances every local (moon) system over `dt`, configured with the tidal
+ * pull of the level-0 massive bodies. `p0` must hold the level-0 positions at
+ * the start of the window (positions are linear in time during the window);
+ * velocities come from the live state, matching the linear-drift contract used
+ * by the symmetric (kick-drift-kick) level-0 stepping.
+ */
+export function advanceLocals(
+  systems: readonly LocalSystem[],
+  s: SystemState,
+  dt: number,
+  p0: Float64Array,
+): void {
+  for (const L of systems) {
     const nm = s.nMassive ?? s.n,
       k = L.host,
       ls = L.state,
@@ -94,7 +110,7 @@ export class HierarchicalLeapfrog implements Integrator {
       if (j === k) continue;
       tide.gm[c] = s.gm[j]!;
       for (let d = 0; d < 3; d++) {
-        tide.rel0[3 * c + d] = this.p0[3 * j + d]! - this.p0[3 * k + d]!;
+        tide.rel0[3 * c + d] = p0[3 * j + d]! - p0[3 * k + d]!;
         tide.relV[3 * c + d] = s.vel[3 * j + d]! - s.vel[3 * k + d]!;
       }
       c++;
@@ -103,6 +119,7 @@ export class HierarchicalLeapfrog implements Integrator {
     const nsub = Math.max(1, Math.ceil(Math.abs(dt) / L.dtMax)),
       hs = dt / nsub;
     for (let q = 0; q < nsub; q++) L.integrator.step(ls, L.forces, hs);
+    ls.t += dt - nsub * hs; // exact residue so the tidal clock stays on the level-0 clock
   }
 }
 
@@ -112,7 +129,6 @@ export interface Slot {
   sys: LocalSystem | null;
   i: number;
 }
-
 export function compose(level0: SystemState, slots: readonly Slot[], out: SystemState): void {
   out.t = level0.t;
   for (let g = 0; g < slots.length; g++) {
@@ -120,6 +136,58 @@ export function compose(level0: SystemState, slots: readonly Slot[], out: System
     for (let d = 0; d < 3; d++) {
       out.pos[3 * g + d] = level0.pos[3 * k + d]! + (sys ? sys.state.pos[3 * i + d]! : 0);
       out.vel[3 * g + d] = level0.vel[3 * k + d]! + (sys ? sys.state.vel[3 * i + d]! : 0);
+    }
+  }
+}
+
+/**
+ * Hierarchical IAS15: the level-0 system is advanced by the 15th-order
+ * Gauss-Radau IAS15 integrator (Rein & Spiegel 2015) in adaptive segments,
+ * and every local (moon) system is sub-cycled once per accepted segment with
+ * the same tidal-coupling contract as {@link HierarchicalLeapfrog}.
+ *
+ * IAS15 is a predictor-corrector over a whole state, not a split method, so
+ * the moons cannot be advanced mid-segment; advancing them once per accepted
+ * level-0 segment keeps the coupling error of the same order as the
+ * tolerance-driven segment size. Deterministic and pure (no Date.now()).
+ */
+export class HierarchicalIAS15 implements Integrator {
+  readonly name = 'ias15-hierarchical';
+  readonly systems: LocalSystem[];
+  private readonly ias: IAS15;
+  private p0 = new Float64Array(0);
+
+  constructor(systems: LocalSystem[], options: IAS15Options = {}) {
+    this.systems = systems;
+    this.ias = new IAS15(options);
+  }
+
+  /** Current adaptive level-0 segment size (days), for diagnostics. */
+  get currentDt(): number {
+    return this.ias.currentDt;
+  }
+
+  step(s: SystemState, forces: ForceModel[], dt: number): void {
+    const m = 3 * s.n;
+    if (this.p0.length !== m) this.p0 = new Float64Array(m);
+    let remaining = dt;
+    let rejections = 0; // consecutive segments fully consumed give progress; stalls mean a non-integrable state
+    while (Math.abs(remaining) > 1e-14) {
+      if (!isFiniteState(s)) break;
+      const h =
+        Math.sign(remaining) * Math.min(Math.abs(remaining), Math.abs(this.ias.currentDt));
+      if (h === 0) break;
+      this.p0.set(s.pos);
+      const tBefore = s.t;
+      this.ias.step(s, forces, h);
+      const consumed = s.t - tBefore;
+      if (consumed === 0) {
+        if (++rejections > 64) break; // tolerance unreachable at any segment size: give up deterministically
+        continue;
+      }
+      rejections = 0;
+      advanceLocals(this.systems, s, consumed, this.p0);
+      remaining -= consumed;
     }
   }
 }

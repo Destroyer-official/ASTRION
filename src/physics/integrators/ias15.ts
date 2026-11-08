@@ -27,6 +27,7 @@
  */
 
 import type { ForceModel, Integrator, SystemState } from '../types';
+import { isFiniteState } from '../system';
 
 /** The 8 Gauss-Radau quadrature nodes in [0, 1] for 15th order. */
 const RADAU_NODES: readonly number[] = [
@@ -164,14 +165,21 @@ export class IAS15 implements Integrator {
 
     let remaining = dt;
     const direction = dt >= 0 ? 1 : -1;
+    let rejections = 0; // consecutive rejections; a stall means the state is non-integrable
 
     while (Math.abs(remaining) > 1e-14) {
+      if (!isFiniteState(s)) break; // non-finite state: stop before the corrector produces garbage
       const hProposed = direction * Math.min(Math.abs(this.currentDt), Math.abs(remaining));
       const stepSuccess = this.singleStep(s, forces, hProposed);
 
       if (stepSuccess.accepted) {
         remaining -= hProposed;
         s.t += hProposed;
+        rejections = 0;
+      } else if (++rejections > 64) {
+        // The local error stays above tolerance for every attainable segment
+        // size: abort deterministically instead of halving steps forever.
+        break;
       }
 
       this.currentDt = Math.max(
@@ -266,7 +274,7 @@ export class IAS15 implements Integrator {
       if (relErr > maxError) maxError = relErr;
     }
 
-    const accepted = maxError <= 1.0;
+    const accepted = maxError <= 1.0 && isFiniteState(s);
     const factor = maxError > 0 ? 0.9 * Math.pow(1 / maxError, 1 / 8) : 1.5;
     const clampedFactor = Math.max(0.2, Math.min(2.0, factor));
     const nextDt = Math.abs(h) * clampedFactor;

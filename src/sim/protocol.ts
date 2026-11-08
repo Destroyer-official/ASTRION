@@ -1,5 +1,5 @@
 import type { BodyJson, PhysicalJson } from '@/data/schema';
-import type { PhysicsConfig } from './config';
+import type { PhysicsConfig, IntegratorName } from './config';
 
 export type ToWorker =
   | {
@@ -15,7 +15,7 @@ export type ToWorker =
       maxDt?: number;
       maxSteps?: number;
       historyIntervalDays: number;
-      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+      integrator?: IntegratorName;
       relativity?: boolean;
       eihRelativity?: boolean;
       quadrupole?: boolean;
@@ -26,7 +26,7 @@ export type ToWorker =
   | {
       type: 'setPhysics';
       config?: PhysicsConfig;
-      integrator?: 'leapfrog' | 'yoshida4' | 'yoshida6' | 'yoshida8' | 'truth8';
+      integrator?: IntegratorName;
       relativity?: boolean;
       eihRelativity?: boolean;
       quadrupole?: boolean;

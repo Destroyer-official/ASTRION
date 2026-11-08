@@ -1,6 +1,6 @@
 import type { ForceModel, Integrator, SystemState } from '@/physics/types';
 import { angularMomentum, centerOfMass, totalEnergy } from '@/physics/diagnostics';
-import { cloneState } from '@/physics/system';
+import { cloneState, isFiniteState } from '@/physics/system';
 
 export interface Diagnostics {
   t: number; // days
@@ -24,6 +24,7 @@ export class Engine {
   private l0Magnitude: number;
   private com0: ReturnType<typeof centerOfMass>;
   carry = 0; // target time minus state time; always in (-dt, dt)
+  private diverged = false; // set when a step yields a non-finite state; stepping halts so it cannot cascade
 
   constructor(
     state: SystemState,
@@ -51,12 +52,19 @@ export class Engine {
     let n = Math.trunc(total / dt);
     n = Math.max(-this.maxSteps, Math.min(this.maxSteps, n));
     const h = n < 0 ? -dt : dt;
+    let executed = 0; // steps actually taken; stepping halts the moment the state goes non-finite
     for (let i = 0; i < Math.abs(n); i++) {
       this.integrator.step(this.state, this.forces, h);
-      this.onStep?.(this.state);
+      if (this.onStep) this.onStep(this.state);
+      if (!isFiniteState(this.state)) {
+        this.diverged = true; // stop advancing: a non-finite state makes every further step meaningless
+        executed = i;
+        break;
+      }
+      executed = i + 1;
     }
     this.carry = (total - n * dt) % dt; // JS % keeps the sign; a capped backlog is dropped
-    return n * dt;
+    return (n < 0 ? -executed : executed) * dt;
   }
 
   /** Advance by `days` (negative = backwards). Returns the days actually advanced. */
@@ -68,9 +76,18 @@ export class Engine {
     const dt = d / steps;
     for (let i = 0; i < steps; i++) {
       this.integrator.step(this.state, this.forces, dt);
-      this.onStep?.(this.state);
+      if (this.onStep) this.onStep(this.state);
+      if (!isFiniteState(this.state)) {
+        this.diverged = true;
+        break;
+      }
     }
     return d;
+  }
+
+  /** True once a step has produced a non-finite state; stepping is then halted until rebase(). */
+  isDiverged(): boolean {
+    return this.diverged;
   }
 
   reset(): void {
@@ -78,11 +95,14 @@ export class Engine {
     this.state.pos.set(this.initial.pos);
     this.state.vel.set(this.initial.vel);
     this.carry = 0;
+    this.diverged = false;
+    this.rebase();
   }
 
   /** Re-baseline conservation diagnostics after loading an exact external state. */
   rebase(): void {
     const s = this.state;
+    this.diverged = false;
     this.e0 = totalEnergy(s);
     this.l0 = angularMomentum(s);
     this.l0Magnitude = Math.hypot(this.l0[0], this.l0[1], this.l0[2]);

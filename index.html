@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      CSP (defense-in-depth, closes the SECURITY.md posture gap):
+      default-src 'none' as a backstop; script/style keep 'unsafe-inline' only
+      because the Vite dev server injects inline bootstrap scripts and the
+      panel renders inline styles. connect-src allows same-origin, the one
+      user-initiated JPL Horizons call, and localhost WebSockets for dev HMR.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; base-uri 'self'; form-action 'none'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; worker-src 'self' blob:; connect-src 'self' https://ssd.jpl.nasa.gov ws://localhost:* http://localhost:*"
+    />
     <meta
       name="description"
       content="ASTRION: High-precision astrodynamics platform and interactive visualization engine integrating JPL DE440-derived ephemeris vectors, 4th-order symplectic N-body integration, post-Newtonian general relativity, and IAU cartographic models."
