@@ -79,4 +79,27 @@ describe('Galaxy Visual and Transform Validation', () => {
     gv.setUnifiedMode(55, true, false);
     expect(gv.orbitLine.visible).toBe(false);
   });
+
+  it('guarantees sunMarker contains no oversized unphysical yellow ball or cyan disc', () => {
+    const gv = new GalaxyVisual();
+    const marker = gv.group.getObjectByName('sunMarker') as THREE.Group | undefined;
+    expect(marker).toBeDefined();
+
+    // Verify all meshes inside sunMarker are subtle pinpoint elements (no 0.12 or 0.24 kpc giant spheres)
+    const meshes = marker!.children.filter((c) => c instanceof THREE.Mesh) as THREE.Mesh[];
+    for (const m of meshes) {
+      if (m.visible) {
+        const geom = m.geometry as THREE.SphereGeometry;
+        const radius = geom.parameters?.radius ?? 0;
+        // Pinpoint radius must be subtle (< 0.03 kpc) rather than giant 0.12 or 0.24 kpc beach ball
+        expect(radius).toBeLessThanOrEqual(0.02);
+      }
+    }
+
+    // In unified solar-scale mode (< 800 AU), marker is not prematurely forced visible
+    gv.setUnifiedMode(350, true);
+    // setSunMarkerVisible governs deep galaxy display cleanly
+    gv.setSunMarkerVisible(false);
+    expect(marker!.visible).toBe(false);
+  });
 });

@@ -155,6 +155,36 @@ describe('NASA Eyes OrbitPathVisual', () => {
     expect(visual.group.visible).toBe(true);
   });
 
+  it('keeps orbits visible in galactic solar system view across 350 AU distance', () => {
+    const visual = new OrbitPathVisual(model);
+    const bodyDists = new Float64Array(model.ids.length).fill(1);
+    const galFrame = galacticFrame(true, 220);
+
+    const galSolarView: ViewState = {
+      ...baseViewState,
+      frame: galFrame,
+      presetCategory: 'galaxy',
+      galactocentric: true,
+      focus: sunIdx,
+    };
+
+    visual.update(
+      model.state,
+      galSolarView,
+      sunIdx,
+      null,
+      [0, 0, 0],
+      [0, 0, 0],
+      400, // 400 AU camera distance looking at Sun in Galaxy
+      bodyDists,
+      null,
+      null,
+      true,
+    );
+    // Accurate Keplerian orbits must remain visible along the galactic rosette!
+    expect(visual.group.visible).toBe(true);
+  });
+
   it('respects showOrbits toggle', () => {
     const visual = new OrbitPathVisual(model);
     const bodyDists = new Float64Array(model.ids.length).fill(1);

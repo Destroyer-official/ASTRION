@@ -739,13 +739,18 @@ export function createViewer(
 
   function render(s: SystemState, v: ViewState): void {
     const camDistToSun = visuals[0] ? camera.position.distanceTo(visuals[0]!.group.position) : camera.position.length();
+    const isGalFrame = v.frame.id === 'galactic-aligned' || v.frame.id === 'galactic' || v.presetCategory === 'galaxy';
+    const isGalactoMode = v.galactocentric || isGalFrame;
     const isGalacticOverview = (v.presetCategory === 'galaxy' && v.frame.id !== 'galactic') || (camDistToSun > 400 && v.frame.id !== 'galactic');
     const detail = galacticDetail(camDistToSun);
 
-    // Unified cosmological scene: Sun is active when looking at the solar system,
-    // but in galactic overview where Solar System is sub-microscopic, the local Sun group
-    // yields to the galaxy's own sun-marker to avoid rendering a 5,000-light-year beach ball.
-    const showLocalSun = !isGalacticOverview || v.galactocentric || detail.showSystem;
+    // Accurate Solar System Continuum:
+    // The true physical solar system (real Sun, planets, Keplerian orbit paths, and trails)
+    // remains continuously visible whenever viewing the solar system (within 2,500 AU or in galactocentric/voyage mode),
+    // eliminating unphysical oversized yellow ball placeholders.
+    const showAccurateSystem = detail.showSystem || isGalactoMode || camDistToSun < 2500;
+
+    const showLocalSun = showAccurateSystem || !isGalacticOverview;
     visuals[0]!.group.visible = showLocalSun;
     sunLight.visible = true;
 
@@ -814,8 +819,8 @@ export function createViewer(
       const vis = visuals[i]!;
 
       // In galactic overview scale, individual planets (Mercury..Neptune) and the local Sun are sub-microscopic dots.
-      // Hide their individual 3D meshes and labels so they don't produce giant multi-pixel discs across the galaxy.
-      if (isGalacticOverview && !v.galactocentric && !detail.showSystem) {
+      // Hide their individual 3D meshes and labels only at deep galactic scales (> 2,500 AU).
+      if (isGalacticOverview && !showAccurateSystem) {
         vis.group.visible = false;
         vis.updateLabel(1000, false, 0, camera.fov, height);
         continue;
@@ -1152,15 +1157,14 @@ export function createViewer(
     }
 
     // Galaxy markers & guides handoff:
-    // In galactic overview scale (or when the Solar System is sub-microscopic),
-    // the kpc sun-marker (glow, ecliptic disc, arrow, billboard) represents the Solar System.
-    // When zooming in close (< 80 AU) or in voyage mode, it yields cleanly to the real 3D bodies.
-    const showGalacticMarker = !v.galactocentric && (
-      !detail.showSystem ||
-      isGalacticOverview ||
-      v.presetCategory === 'galaxy' ||
-      focusId === 'sgra'
-    ) && (camDistToSun >= 80);
+    // Only in deep galactic overview (focus on Sgr A*, full Milky Way preset, or camera > 2,500 AU away from the Sun)
+    // does the Sun galactic locator badge appear.
+    // The real accurate solar system (Keplerian orbits, real planets, Sun) is ALWAYS rendered when viewing the solar system.
+    const showGalacticMarker = (
+      focusId === 'sgra' ||
+      v.preset === 'milkyWay' ||
+      (!showAccurateSystem && camDistToSun >= 2500)
+    ) && (camDistToSun >= 800);
     galaxyVisual.setSunMarkerVisible(showGalacticMarker);
     if (v.galactocentric || camDistToSun < 1500) {
       galaxyVisual.setGuidesVisible(false);
@@ -1212,7 +1216,7 @@ export function createViewer(
       // (> 250 AU) in any galactic-category frame, or in a deep overview.
       // Without this, 30-AU planetary orbit trails streak across the entire galaxy.
       const isGalFrame = v.frame.id === 'galactic-aligned' || v.frame.id === 'galactic' || v.presetCategory === 'galaxy';
-      if ((isGalacticOverview || (isGalFrame && camDistToSun > 250)) && !detail.showSystem) {
+      if ((isGalacticOverview || (isGalFrame && camDistToSun > 250)) && !showAccurateSystem) {
         t.line.visible = false;
         continue;
       }

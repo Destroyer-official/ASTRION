@@ -155,7 +155,8 @@ export class OrbitPathVisual {
     focusId: string | null,
     showOrbits = true,
   ): void {
-    if (!showOrbits || (camDistToSun > 350 && !v.galactocentric)) {
+    const isGalacto = v.galactocentric || v.presetCategory === 'galaxy' || v.frame.id === 'galactic-aligned' || v.frame.id === 'galactic';
+    if (!showOrbits || (camDistToSun > 350 && !isGalacto)) {
       this.group.visible = false;
       return;
     }

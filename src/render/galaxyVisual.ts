@@ -472,6 +472,7 @@ export class GalaxyVisual {
 
     // 6. Central Black Hole: Sagittarius A*
     this.sgrAMarker = new THREE.Group();
+    this.sgrAMarker.name = 'sgrAMarker';
     const bhCoreGeom = new THREE.SphereGeometry(0.08, 32, 16);
     const bhCoreMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
     const bhCore = new THREE.Mesh(bhCoreGeom, bhCoreMat);
@@ -511,43 +512,33 @@ export class GalaxyVisual {
     this.group.add(this.orbitLine);
 
 
-    // 8. Sun / Solar System Marker
+    // 8. Sun / Solar System Marker (authentic astronomical locator, no oversized artificial yellow sphere or cyan disc)
     this.sunMarker = new THREE.Group();
+    this.sunMarker.name = 'sunMarker';
 
-    const sunGeom = new THREE.SphereGeometry(0.12, 32, 16);
-    const sunMat = new THREE.MeshBasicMaterial({ color: 0xffea00 });
-    const sunMesh = new THREE.Mesh(sunGeom, sunMat);
-    this.sunMarker.add(sunMesh);
+    // Subtle pinpoint star dot at the Sun's galactic position (R = 8.2 kpc, Orion Spur)
+    // Visible only at extreme galaxy-wide overview scales (> 2,500 AU) to pinpoint our stellar location
+    const pinGeom = new THREE.SphereGeometry(0.015, 16, 8);
+    const pinMat = new THREE.MeshBasicMaterial({ color: 0xfff6cf });
+    const pinMesh = new THREE.Mesh(pinGeom, pinMat);
+    this.sunMarker.add(pinMesh);
 
-    const glowGeom = new THREE.SphereGeometry(0.24, 32, 16);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: 0xffaa00,
-      transparent: true,
-      opacity: 0.35,
-      blending: THREE.AdditiveBlending,
-    });
-    this.sunMarker.add(new THREE.Mesh(glowGeom, glowMat));
-
-    // Solar System Ecliptic Disc tilted at 60.2° to Galactic Midplane
-    const eclipticGeom = new THREE.RingGeometry(0.18, 0.45, 48);
-    const eclipticMat = new THREE.MeshBasicMaterial({
-      color: 0x00e5ff,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.5,
-    });
-    this.eclipticPlane = new THREE.Mesh(eclipticGeom, eclipticMat);
-    this.eclipticPlane.rotation.x = THREE.MathUtils.degToRad(60.2);
+    // Dummy helper objects to satisfy internal class members without rendering unphysical discs or arrows
+    const emptyGeom = new THREE.BufferGeometry();
+    const emptyMat = new THREE.MeshBasicMaterial({ visible: false });
+    this.eclipticPlane = new THREE.Mesh(emptyGeom, emptyMat);
+    this.eclipticPlane.visible = false;
     this.sunMarker.add(this.eclipticPlane);
 
     this.velArrow = new THREE.ArrowHelper(
       new THREE.Vector3(0, 1, 0),
       new THREE.Vector3(0, 0, 0),
-      0.8,
+      0.001,
       0x00ff88,
-      0.2,
-      0.1,
+      0.0001,
+      0.0001,
     );
+    this.velArrow.visible = false;
     this.sunMarker.add(this.velArrow);
 
     // Sun / Solar System 3D Billboard Label
@@ -910,10 +901,10 @@ export class GalaxyVisual {
     this.bulgePoints.visible = true;
     this.haloGroup.visible = showHalo;
 
-    // Deep space helper markers: Sun marker billboard yields when zoomed in close (< 80 AU)
+    // Deep space helper markers: Sun marker billboard yields when zoomed in close (< 2,500 AU)
     // so real 3D planet & Sun meshes take over without being swallowed by the marker billboard.
     // The Sun's 500-Myr Rosette galactic orbit path and glowing tail remain visible across zoom!
-    this.sunMarker.visible = cameraDistAu >= 80;
+    this.sunMarker.visible = cameraDistAu >= 2500;
     this.orbitLine.visible = showOrbit;
     this.sgrAMarker.visible = true;
     this.gridGroup.visible = cameraDistAu >= 1500;
