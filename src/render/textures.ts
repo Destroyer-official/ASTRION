@@ -20,6 +20,20 @@ export function setTextureSeed(seed: number): void {
 }
 
 function createCanvas(width: number, height: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  if (typeof document === 'undefined') {
+    // Headless / SSR / Node mock for tests
+    const dummyCtx = new Proxy({} as CanvasRenderingContext2D, {
+      get: (_target, prop) => {
+        if (prop === 'createRadialGradient' || prop === 'createLinearGradient') {
+          return () => ({ addColorStop: () => {} });
+        }
+        return () => {};
+      },
+      set: () => true,
+    });
+    const dummyCanvas = { width, height, getContext: () => dummyCtx } as unknown as HTMLCanvasElement;
+    return [dummyCanvas, dummyCtx];
+  }
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -757,7 +771,361 @@ export function createIcyMoonTexture(baseColor: string, craterColor: string): TH
   return tex;
 }
 
-export const PLANET_TEXTURE_GETTERS: Record<string, () => THREE.CanvasTexture> = {  sun: createSunTexture,
+/**
+ * Procedural Ceres texture calibrated to NASA Dawn HAMO/LAMO imaging:
+ * - C-type carbonaceous chondrite low albedo (~0.09) mottled dark surface
+ * - Occator Crater with brilliant Cerealia Facula & Vinalia Faculae (sodium carbonate domes)
+ * - Ahuna Mons solitary 4-km cryovolcanic dome with bright flank streaks
+ * - Haulani Crater with bright impact rays
+ * - Large ancient basins (Urvara & Yalode)
+ */
+export function createCeresTexture(): THREE.CanvasTexture {
+  const [canvas, ctx] = createCanvas(1024, 512);
+
+  // 1. Dark carbonaceous C-type asteroid base
+  ctx.fillStyle = '#373533';
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // 2. Mottled regolith albedo variegations
+  for (let i = 0; i < 450; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const r = rand() * 30 + 8;
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(68, 64, 60, 0.4)' : 'rgba(41, 39, 37, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * (0.6 + rand() * 0.4), rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 3. Dense impact craters across the battered crust
+  for (let i = 0; i < 650; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const r = rand() * 7 + 1.2;
+    ctx.fillStyle = '#22201e';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(110, 105, 100, 0.55)';
+    ctx.lineWidth = Math.max(0.75, r * 0.25);
+    ctx.beginPath();
+    ctx.arc(x, y, r, Math.PI * 0.7, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  // 4. Large ancient basins (Urvara & Yalode in southern hemisphere)
+  ctx.fillStyle = 'rgba(38, 36, 34, 0.7)';
+  ctx.beginPath();
+  ctx.arc(708, 384, 38, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(95, 90, 85, 0.5)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(35, 33, 31, 0.7)';
+  ctx.beginPath();
+  ctx.arc(830, 375, 52, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(90, 85, 80, 0.45)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // 5. Haulani Crater (young ray crater)
+  ctx.fillStyle = '#1c1b19';
+  ctx.beginPath();
+  ctx.arc(31, 240, 14, 0, Math.PI * 2);
+  ctx.fill();
+  for (let a = 0; a < 8; a++) {
+    const angle = (a * Math.PI) / 4 + (rand() - 0.5) * 0.2;
+    const len = rand() * 45 + 25;
+    ctx.strokeStyle = 'rgba(215, 225, 235, 0.6)';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(31, 240);
+    ctx.lineTo(31 + Math.cos(angle) * len, 240 + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#cbd5e1';
+  ctx.beginPath();
+  ctx.arc(31, 240, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 6. Ahuna Mons (solitary 4-km cryovolcanic dome)
+  ctx.fillStyle = '#4a4642';
+  ctx.beginPath();
+  ctx.ellipse(900, 286, 12, 10, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f1f5f9';
+  ctx.beginPath();
+  ctx.ellipse(900, 285, 4, 3, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(226, 232, 240, 0.5)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(900, 285);
+    ctx.lineTo(900 + (rand() - 0.5) * 16, 285 + (rand() - 0.5) * 14);
+    ctx.stroke();
+  }
+
+  // 7. OCCATOR CRATER: Iconic 92-km crater with brilliant sodium carbonate salt domes
+  ctx.fillStyle = '#181716';
+  ctx.beginPath();
+  ctx.arc(680, 199, 24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(120, 115, 110, 0.6)';
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  // Cerealia Facula (blinding white central dome)
+  const grad = ctx.createRadialGradient(680, 199, 0, 680, 199, 8);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.3, '#f8fafc');
+  grad.addColorStop(0.6, 'rgba(226, 232, 240, 0.7)');
+  grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(680, 199, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(680, 199, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Vinalia Faculae (secondary bright salt deposit cluster)
+  const vinaliaOffsets: readonly (readonly [number, number])[] = [
+    [5, -2], [7, 1], [8, -3], [6, 4], [9, 2],
+  ];
+  for (const [dx, dy] of vinaliaOffsets) {
+    ctx.fillStyle = 'rgba(241, 245, 249, 0.85)';
+    ctx.beginPath();
+    ctx.arc(680 + dx, 199 + dy, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
+/**
+ * Procedural Vesta texture calibrated to NASA Dawn imaging:
+ * - Basaltic HED achondrite bright albedo (~0.42) regolith
+ * - Rheasilvia South Polar Basin (505 km across with 22-km high central mound)
+ * - Divalia Fossae parallel equatorial graben canyons
+ * - "Snowman" Crater Trio (Marcia, Calpurnia, Minucia)
+ */
+export function createVestaTexture(): THREE.CanvasTexture {
+  const [canvas, ctx] = createCanvas(1024, 512);
+
+  // 1. Basaltic HED achondrite regolith base
+  ctx.fillStyle = '#a69f95';
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // 2. Variegated basaltic plains and pyroxene/feldspar mineral patches
+  for (let i = 0; i < 400; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const rx = rand() * 45 + 15;
+    const ry = rand() * 25 + 10;
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(186, 179, 169, 0.45)' : 'rgba(128, 120, 112, 0.45)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 3. Dense northern hemisphere impact craters
+  for (let i = 0; i < 600; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 380;
+    const r = rand() * 6 + 1.2;
+    ctx.fillStyle = '#5c564f';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(215, 208, 198, 0.6)';
+    ctx.lineWidth = Math.max(0.6, r * 0.22);
+    ctx.beginPath();
+    ctx.arc(x, y, r, Math.PI * 0.75, Math.PI * 1.85);
+    ctx.stroke();
+  }
+
+  // 4. DIVALIA FOSSAE: Equatorial graben canyons from impact shock
+  ctx.strokeStyle = 'rgba(78, 72, 65, 0.7)';
+  for (let j = 0; j < 7; j++) {
+    const yBase = 240 + j * 10 + (rand() - 0.5) * 4;
+    ctx.lineWidth = rand() * 2.5 + 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, yBase);
+    for (let x = 60; x <= 1024; x += 60) {
+      const yWobble = yBase + Math.sin(x * 0.01 + j) * 8 + (rand() - 0.5) * 3;
+      ctx.lineTo(x, yWobble);
+    }
+    ctx.stroke();
+  }
+
+  // 5. "SNOWMAN" CRATER TRIO (Northern hemisphere: Marcia, Calpurnia, Minucia)
+  ctx.fillStyle = '#48433d';
+  ctx.beginPath();
+  ctx.arc(400, 160, 20, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#d4cdc2';
+  ctx.lineWidth = 2.2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#4e4942';
+  ctx.beginPath();
+  ctx.arc(405, 134, 15, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#d4cdc2';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  ctx.fillStyle = '#544f48';
+  ctx.beginPath();
+  ctx.arc(414, 114, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#d4cdc2';
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  // 6. RHEASILVIA SOUTH POLAR IMPACT BASIN (505 km across with 22-km central peak)
+  ctx.fillStyle = '#7a7268';
+  ctx.fillRect(0, 410, 1024, 102);
+
+  for (let r = 240; r >= 60; r -= 40) {
+    ctx.strokeStyle = 'rgba(65, 60, 54, 0.6)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(512, 475, r * 1.8, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  const peakGrad = ctx.createRadialGradient(512, 475, 0, 512, 475, 60);
+  peakGrad.addColorStop(0, '#ded7cc');
+  peakGrad.addColorStop(0.4, '#b8b0a4');
+  peakGrad.addColorStop(1, '#7a7268');
+  ctx.fillStyle = peakGrad;
+  ctx.beginPath();
+  ctx.ellipse(512, 475, 75, 26, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
+/**
+ * Procedural Psyche texture calibrated to NASA mission & radar/spectroscopic profile:
+ * - M-type metallic nickel-iron surface
+ * - High-contrast metallic grains and crystalline mottling
+ * - Silicate inclusions (pyroxene-rich impact melt patches)
+ * - Sharp unweathered metallic impact depressions
+ */
+export function createPsycheTexture(): THREE.CanvasTexture {
+  const [canvas, ctx] = createCanvas(1024, 512);
+
+  // 1. Metallic nickel-iron base
+  ctx.fillStyle = '#717379';
+  ctx.fillRect(0, 0, 1024, 512);
+
+  // 2. High-contrast metallic crystalline grain
+  for (let i = 0; i < 900; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const w = rand() * 24 + 4;
+    const h = rand() * 12 + 3;
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(165, 168, 178, 0.4)' : 'rgba(70, 72, 78, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, w, h, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 3. Silicate impact melt inclusions
+  for (let i = 0; i < 35; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const r = rand() * 32 + 10;
+    ctx.fillStyle = 'rgba(115, 118, 112, 0.6)';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 4. Sharp, non-eroded metallic impact craters
+  for (let i = 0; i < 350; i++) {
+    const x = rand() * 1024;
+    const y = rand() * 512;
+    const r = rand() * 8 + 1.5;
+    ctx.fillStyle = '#3a3c42';
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#c5c8d2';
+    ctx.lineWidth = Math.max(0.8, r * 0.28);
+    ctx.beginPath();
+    ctx.arc(x, y, r, Math.PI * 0.7, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
+/**
+ * Seeded deterministic asteroid surface texture for major belt bodies:
+ * Chondritic regolith, multi-scale impact cratering, and albedo patches.
+ */
+export function createAsteroidTexture(
+  seed: number,
+  baseColor: string,
+  craterColor: string,
+  craterCount = 350,
+): THREE.CanvasTexture {
+  const [canvas, ctx] = createCanvas(512, 256);
+  setTextureSeed(seed);
+
+  ctx.fillStyle = baseColor;
+  ctx.fillRect(0, 0, 512, 256);
+
+  // Variegated regolith patches
+  for (let i = 0; i < 150; i++) {
+    const x = rand() * 512;
+    const y = rand() * 256;
+    const rx = rand() * 25 + 8;
+    const ry = rand() * 15 + 4;
+    ctx.fillStyle = rand() > 0.5 ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.12)';
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, rand() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Impact craters
+  for (let i = 0; i < craterCount; i++) {
+    const x = rand() * 512;
+    const y = rand() * 256;
+    const r = rand() * 5 + 1;
+    ctx.fillStyle = craterColor;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+    ctx.lineWidth = Math.max(0.5, r * 0.2);
+    ctx.beginPath();
+    ctx.arc(x, y, r, Math.PI * 0.75, Math.PI * 1.8);
+    ctx.stroke();
+  }
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
+export const PLANET_TEXTURE_GETTERS: Record<string, () => THREE.CanvasTexture> = {
+  sun: createSunTexture,
   mercury: createMercuryTexture,
   venus: createVenusTexture,
   earth: createEarthTexture,
@@ -789,6 +1157,23 @@ export const PLANET_TEXTURE_GETTERS: Record<string, () => THREE.CanvasTexture> =
   triton: createTritonTexture,
   pluto: createPlutoTexture,
   charon: createCharonTexture,
+  // NASA Dawn targets & Asteroid Belt
+  ceres: createCeresTexture,
+  vesta: createVestaTexture,
+  psyche: createPsycheTexture,
+  pallas: () => createAsteroidTexture(0x42a, '#505256', '#2b2d30', 450),
+  hygiea: () => createAsteroidTexture(0x73b, '#3e3d3b', '#252423', 300),
+  iris: () => createAsteroidTexture(0x81c, '#686663', '#403e3c', 350),
+  juno: () => createAsteroidTexture(0x92d, '#7a7672', '#4c4844', 380),
+  eunomia: () => createAsteroidTexture(0xa3e, '#7d7973', '#4d4944', 360),
+  euphrosyne: () => createAsteroidTexture(0xb4f, '#42413f', '#2a2928', 320),
+  interamnia: () => createAsteroidTexture(0xc50, '#4a4947', '#2e2d2c', 340),
+  davida: () => createAsteroidTexture(0xd61, '#444342', '#2c2b2a', 330),
+  sylvia: () => createAsteroidTexture(0xe72, '#484745', '#2f2e2d', 310),
+  cybele: () => createAsteroidTexture(0xf83, '#464543', '#2d2c2b', 300),
+  camilla: () => createAsteroidTexture(0x094, '#474644', '#2e2d2c', 290),
+  thisbe: () => createAsteroidTexture(0x1a5, '#4b4a48', '#302f2e', 310),
+  'asteroid-52': () => createAsteroidTexture(0x2b6, '#494846', '#2f2e2d', 320),
 };
 
 /**
@@ -807,6 +1192,8 @@ export const REAL_TEXTURE_FILES: Record<string, string> = {
   saturn: 'saturn.jpg',
   uranus: 'uranus.jpg',
   neptune: 'neptune.jpg',
+  ceres: 'ceres.jpg',
+  vesta: 'vesta.jpg',
 };
 
 let _loader: THREE.TextureLoader | null = null;

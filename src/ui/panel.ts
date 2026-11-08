@@ -410,6 +410,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
                     <option value="pluto">Pluto</option>
                     <option value="ceres">Ceres (Dwarf Planet)</option>
                     <option value="vesta">Vesta (Asteroid)</option>
+                    <option value="psyche">Psyche (Metal Asteroid)</option>
                   </optgroup>
                   <optgroup label="🌙 Natural Satellites (Moons)">
                     <option value="moon">Moon (Luna - Earth)</option>
@@ -1525,6 +1526,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     pluto: 'pluto',
     ceres: 'ceres',
     vesta: 'vesta',
+    psyche: 'psyche',
     moon: 'moon',
     io: 'io',
     europa: 'europa',
@@ -1593,6 +1595,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     pluto: 'pluto',
     ceres: 'ceres',
     vesta: 'vesta',
+    psyche: 'psyche',
     europa: 'europa',
     titan: 'titan',
     io: 'io',

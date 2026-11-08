@@ -222,6 +222,15 @@ export const PRESETS: Record<string, Preset> = {
     dist: 0.00002,
     trailDays: 10,
   },
+  psyche: {
+    label: '🔩 Psyche (Metal World)',
+    category: 'planets',
+    frame: 'body:sun',
+    focus: 'psyche',
+    dir: [0, -0.8, 0.45],
+    dist: 0.000012,
+    trailDays: 10,
+  },
 
   // 4. Iconic Moons
   moon: {
@@ -373,6 +382,7 @@ export const PRESETS: Record<string, Preset> = {
   visitPluto: { label: 'Visit Pluto', category: 'planets', frame: 'body:sun', focus: 'pluto', dir: [0, -0.8, 0.5], dist: 0.00006, trailDays: 6.4, hidden: true },
   visitCeres: { label: 'Visit Ceres', category: 'planets', frame: 'body:sun', focus: 'ceres', dir: [0, -0.8, 0.45], dist: 0.00003, trailDays: 10, hidden: true },
   visitVesta: { label: 'Visit Vesta', category: 'planets', frame: 'body:sun', focus: 'vesta', dir: [0, -0.8, 0.45], dist: 0.00002, trailDays: 10, hidden: true },
+  visitPsyche: { label: 'Visit Psyche', category: 'planets', frame: 'body:sun', focus: 'psyche', dir: [0, -0.8, 0.45], dist: 0.000012, trailDays: 10, hidden: true },
   visitPallas: { label: 'Visit Pallas', category: 'planets', frame: 'body:sun', focus: 'pallas', dir: [0, -0.8, 0.45], dist: 0.00002, trailDays: 10, hidden: true },
   visitHygiea: { label: 'Visit Hygiea', category: 'planets', frame: 'body:sun', focus: 'hygiea', dir: [0, -0.8, 0.45], dist: 0.00002, trailDays: 10, hidden: true },
   visitMoon: { label: 'Visit Moon', category: 'moons', frame: 'body:sun', focus: 'moon', dir: [0, -0.8, 0.45], dist: 0.00008, trailDays: 27.3, hidden: true },

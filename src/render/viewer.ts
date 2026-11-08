@@ -877,6 +877,7 @@ export function createViewer(
         vesta: 0.000015,
         pallas: 0.000015,
         hygiea: 0.000015,
+        psyche: 0.000010,
       };
 
       const maxCap = vis.isMoon
@@ -902,8 +903,12 @@ export function createViewer(
       bodyDists[i] = dist;
       bodyVisualRadii[i] = visualRadius;
 
-      // Apply scale: radius along x and y, oblate radius along z
-      vis.mesh.scale.set(visualRadius, visualRadius, visualRadius * (1 - vis.flattening));
+      // Apply scale: radius along x and y, oblate radius along z, modulated by non-spherical triaxial ratios
+      vis.mesh.scale.set(
+        visualRadius * vis.triaxialScale[0],
+        visualRadius * vis.triaxialScale[1],
+        visualRadius * (1 - vis.flattening) * vis.triaxialScale[2],
+      );
       if (vis.ringMesh) {
         vis.ringMesh.scale.set(visualRadius, visualRadius, visualRadius);
       }

@@ -74,6 +74,24 @@ export interface BodyVisualOptions {
 const _orientMat4 = new THREE.Matrix4();
 const _orientRes = new Array<number>(9).fill(0);
 
+/**
+ * Measured 3D non-spherical triaxial ratios (a, b, c normalized to a)
+ * from NASA (Dawn, NEAR), ESO (SPHERE adaptive optics), and radar observations.
+ * Small minor planets (<900 km) lack sufficient gravity to reach hydrostatic equilibrium.
+ */
+const TRIAXIAL_SCALE: Record<string, readonly [number, number, number]> = {
+  vesta: [1.0, 0.973, 1.0],      // 286.3 x 278.6 x 223.2 km (flattening 0.2204 scales z to 0.7796)
+  psyche: [1.0, 0.856, 0.615],    // 278 x 238 x 171 km M-type metallic ellipsoid
+  pallas: [1.0, 0.945, 0.919],    // 272 x 257 x 250 km B-type asteroid
+  juno: [1.0, 0.897, 0.759],      // 145 x 130 x 110 km
+  eunomia: [1.0, 0.799, 0.696],   // 184 x 147 x 128 km
+  hygiea: [1.0, 0.956, 0.933],    // 225 x 215 x 210 km
+  davida: [1.0, 0.923, 0.785],
+  interamnia: [1.0, 0.954, 0.892],
+  sylvia: [1.0, 0.695, 0.667],    // Very elongated 385 x 264 x 230 km
+  thisbe: [1.0, 0.918, 0.824],
+};
+
 function createTextSprite(text: string, color: string, isMoon: boolean): THREE.Sprite {
   if (typeof document === 'undefined') {
     return new THREE.Sprite(new THREE.SpriteMaterial());
@@ -146,6 +164,7 @@ export class BodyVisual {
   readonly physical?: PhysicalJson;
   readonly isMoon: boolean;
   readonly parentId?: string;
+  readonly triaxialScale: readonly [number, number, number];
 
   readonly group: THREE.Group;
   readonly mesh: THREE.Mesh;
@@ -161,6 +180,7 @@ export class BodyVisual {
     this.flattening = opts.physical?.flattening ?? 0;
     this.isMoon = !!opts.isMoon;
     this.parentId = opts.parentId;
+    this.triaxialScale = TRIAXIAL_SCALE[opts.id] ?? [1, 1, 1];
 
     this.group = new THREE.Group();
 
@@ -181,10 +201,16 @@ export class BodyVisual {
     if (opts.id === 'sun') {
       mat = createSunMaterial(tex);
     } else {
+      const isMetallic = opts.id === 'psyche';
+      const isAsteroid = [
+        'ceres', 'vesta', 'pallas', 'hygiea', 'psyche', 'iris', 'juno',
+        'eunomia', 'euphrosyne', 'interamnia', 'davida', 'sylvia', 'cybele',
+        'camilla', 'thisbe', 'asteroid-52',
+      ].includes(opts.id);
       const stdOpts: THREE.MeshStandardMaterialParameters = {
         color: tex ? 0xffffff : opts.color,
-        roughness: 0.7,
-        metalness: 0.05,
+        roughness: isMetallic ? 0.38 : isAsteroid ? 0.82 : 0.7,
+        metalness: isMetallic ? 0.80 : 0.04,
       };
       if (tex) stdOpts.map = tex;
       mat = new THREE.MeshStandardMaterial(stdOpts);
@@ -203,8 +229,12 @@ export class BodyVisual {
         }
       });
     }
-    // Oblateness along the pole (+z)
-    this.mesh.scale.z = 1 - this.flattening;
+    // Oblateness along the pole (+z) and non-spherical triaxial geometry
+    this.mesh.scale.set(
+      this.triaxialScale[0],
+      this.triaxialScale[1],
+      (1 - this.flattening) * this.triaxialScale[2],
+    );
     this.group.add(this.mesh);
 
     // Coronal glow shells (SDO/AIA look: bright inner corona + faint extended halo).
