@@ -185,6 +185,15 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </div>
       </div>
 
+      <!-- Mission Control Quick-Access Tabs -->
+      <div class="mode-tabs" role="tablist" aria-label="Mission control navigation" style="margin-top: 5px;">
+        <button id="tabAll" class="tab-btn active" role="tab" aria-selected="true" aria-label="All mission instruments">All</button>
+        <button id="tabNav" class="tab-btn" role="tab" aria-selected="false" aria-label="Navigation & Time">Nav</button>
+        <button id="tabTraj" class="tab-btn" role="tab" aria-selected="false" aria-label="NASA Trajectory & Wobble">Trajectory</button>
+        <button id="tabMission" class="tab-btn" role="tab" aria-selected="false" aria-label="Interplanetary Flight Plans">Flight</button>
+        <button id="tabPhysics" class="tab-btn" role="tab" aria-selected="false" aria-label="Physics & Integrators">Physics</button>
+      </div>
+
       <!-- Simulation Playback & Time Controls -->
       <div style="display: grid; gap: 8px; margin-top: 6px;">
         <div class="row">
@@ -276,7 +285,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </div>
 
         <!-- NASA Flight Dynamics & Symplectic Truth Engine -->
-        <details class="astro-details" style="margin-top: 6px; background: rgba(15,23,42,0.7); border: 1px solid rgba(56,189,248,0.25); border-radius: 6px; padding: 6px 8px;">
+        <details class="astro-details" id="physicsDetails" style="margin-top: 6px; background: rgba(15,23,42,0.7); border: 1px solid rgba(56,189,248,0.25); border-radius: 6px; padding: 6px 8px;">
           <summary style="font-size: 11px; font-weight: 600; color: #7dd3fc; cursor: pointer; user-select: none;">
             🔬 NASA Astrodynamic Physics & Truth Integrator
           </summary>
@@ -301,7 +310,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </details>
 
         <!-- Interplanetary Lambert Flight Planner -->
-        <details class="astro-details" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(253,224,71,0.25); border-radius: 6px; padding: 6px 8px;">
+        <details class="astro-details" id="lambertDetails" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(253,224,71,0.25); border-radius: 6px; padding: 6px 8px;">
           <summary style="font-size: 11px; font-weight: 600; color: #fde047; cursor: pointer; user-select: none;">
             🚀 Interplanetary Lambert Flight Planner
           </summary>
@@ -326,7 +335,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </details>
 
         <!-- Hyperbolic B-Plane & Gravity Assist Targeting -->
-        <details class="astro-details" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; padding: 6px 8px;">
+        <details class="astro-details" id="bplaneDetails" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(168,85,247,0.25); border-radius: 6px; padding: 6px 8px;">
           <summary style="font-size: 11px; font-weight: 600; color: #c084fc; cursor: pointer; user-select: none;">
             🎯 Hyperbolic B-Plane & Gravity Assist Targeting
           </summary>
@@ -356,7 +365,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         </details>
 
         <!-- Universal Physics & Relativistic Light Backbone (Phase 8) -->
-        <details class="astro-details" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 6px 8px;">
+        <details class="astro-details" id="backboneDetails" style="margin-top: 4px; background: rgba(15,23,42,0.7); border: 1px solid rgba(56,189,248,0.3); border-radius: 6px; padding: 6px 8px;">
           <summary style="font-size: 11px; font-weight: 600; color: #38bdf8; cursor: pointer; user-select: none;">
             ⚡ Universal Physics & Relativistic Light Backbone
           </summary>
@@ -388,18 +397,40 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
             <div style="display: flex; gap: 6px;">
               <label style="flex: 1;">Target Body
                 <select id="trajTargetSelect" aria-label="Trajectory prediction target body" style="width: 100%; font-size: 10px; padding: 2px 4px; background: #0f172a; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; color: #fff; margin-top: 2px;">
-                  <option value="earth" selected>Earth (Terra)</option>
-                  <option value="mars">Mars</option>
-                  <option value="sun">Sun (Sol - Wobble Center)</option>
-                  <option value="jupiter">Jupiter</option>
-                  <option value="moon">Moon (Luna)</option>
-                  <option value="saturn">Saturn</option>
-                  <option value="mercury">Mercury</option>
-                  <option value="venus">Venus</option>
-                  <option value="uranus">Uranus</option>
-                  <option value="neptune">Neptune</option>
-                  <option value="pluto">Pluto</option>
-                  <option value="ceres">Ceres (Asteroid)</option>
+                  <optgroup label="🪐 Major Planets & Worlds">
+                    <option value="earth" selected>Earth (Terra)</option>
+                    <option value="mars">Mars</option>
+                    <option value="sun">Sun (Sol - Wobble Center)</option>
+                    <option value="jupiter">Jupiter</option>
+                    <option value="saturn">Saturn</option>
+                    <option value="mercury">Mercury</option>
+                    <option value="venus">Venus</option>
+                    <option value="uranus">Uranus</option>
+                    <option value="neptune">Neptune</option>
+                    <option value="pluto">Pluto</option>
+                    <option value="ceres">Ceres (Dwarf Planet)</option>
+                    <option value="vesta">Vesta (Asteroid)</option>
+                  </optgroup>
+                  <optgroup label="🌙 Natural Satellites (Moons)">
+                    <option value="moon">Moon (Luna - Earth)</option>
+                    <option value="io">Io (Jupiter)</option>
+                    <option value="europa">Europa (Ocean World - Jupiter)</option>
+                    <option value="ganymede">Ganymede (Jupiter)</option>
+                    <option value="callisto">Callisto (Jupiter)</option>
+                    <option value="titan">Titan (Methane Seas - Saturn)</option>
+                    <option value="enceladus">Enceladus (Ice Geysers - Saturn)</option>
+                    <option value="triton">Triton (Retrograde - Neptune)</option>
+                    <option value="charon">Charon (Pluto Binary)</option>
+                    <option value="phobos">Phobos (Mars)</option>
+                    <option value="deimos">Deimos (Mars)</option>
+                  </optgroup>
+                  <optgroup label="🛰️ NASA Flagship Spacecraft">
+                    <option value="voyager_1">Voyager 1 (Interstellar Escape)</option>
+                    <option value="voyager_2">Voyager 2 (Grand Tour / Interstellar)</option>
+                    <option value="new_horizons">New Horizons (Kuiper Belt)</option>
+                    <option value="parker_solar_probe">Parker Solar Probe (Corona Touch)</option>
+                    <option value="jwst">JWST (Sun-Earth L2 Halo)</option>
+                  </optgroup>
                 </select>
               </label>
               <label style="flex: 1;">Prediction Horizon
@@ -415,10 +446,11 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
               </label>
             </div>
             <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-              <button id="trajPredictBtn" type="button" style="flex: 1; min-width: 130px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #059669; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">⚡ Predict Path (99.9%)</button>
-              <button id="trajPullBtn" type="button" style="flex: 1; min-width: 120px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #0284c7; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">⚖️ Gravity Vectors</button>
-              <button id="trajWobbleBtn" type="button" style="flex: 1; min-width: 120px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #d97706; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">☀️ Solar Wobble Loop</button>
-              <button id="trajSyncBtn" type="button" style="flex: 1; min-width: 120px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #7c3aed; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">📡 DE440 Sync</button>
+              <button id="trajPredictBtn" type="button" style="flex: 1; min-width: 125px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #059669; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">⚡ Predict Path (99.9%)</button>
+              <button id="trajPullBtn" type="button" style="flex: 1; min-width: 115px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #0284c7; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">⚖️ Gravity Vectors</button>
+              <button id="trajWobbleBtn" type="button" style="flex: 1; min-width: 115px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #d97706; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">☀️ Solar Wobble Loop</button>
+              <button id="trajSyncBtn" type="button" style="flex: 1; min-width: 115px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: #7c3aed; color: #fff; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">📡 DE440 Sync</button>
+              <button id="trajClearBtn" type="button" style="flex: 1; min-width: 115px; padding: 4px 6px; font-size: 9.5px; font-weight: 600; background: rgba(239,68,68,0.25); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); border-radius: 4px; cursor: pointer; white-space: nowrap;">✕ Clear 3D Overlays</button>
             </div>
             <div id="trajResult" style="padding: 6px 8px; background: rgba(0,0,0,0.6); border: 1px solid rgba(52,211,153,0.3); border-radius: 4px; font-family: var(--font-mono, monospace); white-space: pre-wrap; font-size: 9px; color: #a7f3d0; display: none; line-height: 1.45; max-height: 250px; overflow-y: auto;"></div>
           </div>
@@ -494,6 +526,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     { cat: 'galaxy', title: '🌌 Milky Way & Galactic Orbit' },
     { cat: 'planets', title: '🪐 Planets & Major Worlds' },
     { cat: 'moons', title: '🌙 Major Moons & Satellites' },
+    { cat: 'spacecraft', title: '🛰️ NASA Flagship Spacecraft' },
   ];
 
   if (presetSelect) {
@@ -1104,13 +1137,82 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
       const horizonDays = Number(trajHorizonSelect.value) || 365.25;
 
       try {
-        const full = ctx.getFullState?.();
-        const primaryId = targetId === 'moon' ? 'earth' : 'sun';
-        const targetState = ctx.getBodyState?.(targetId);
-        const primaryState =
-          targetId === 'sun'
+        const moonParents: Record<string, string> = {
+          moon: 'earth',
+          phobos: 'mars',
+          deimos: 'mars',
+          io: 'jupiter',
+          europa: 'jupiter',
+          ganymede: 'jupiter',
+          callisto: 'jupiter',
+          mimas: 'saturn',
+          enceladus: 'saturn',
+          tethys: 'saturn',
+          dione: 'saturn',
+          rhea: 'saturn',
+          titan: 'saturn',
+          hyperion: 'saturn',
+          iapetus: 'saturn',
+          miranda: 'uranus',
+          ariel: 'uranus',
+          umbriel: 'uranus',
+          titania: 'uranus',
+          oberon: 'uranus',
+          triton: 'neptune',
+          charon: 'pluto',
+          jwst: 'earth',
+        };
+
+        const primaryId = targetId === 'sun' ? 'sun' : (moonParents[targetId] ?? 'sun');
+        let targetState = ctx.getBodyState?.(targetId);
+        let primaryState =
+          primaryId === 'sun'
             ? { pos: [0, 0, 0] as [number, number, number], vel: [0, 0, 0] as [number, number, number] }
             : ctx.getBodyState?.(primaryId);
+
+        // If target is Sun, predict Sun's barycentric trajectory around SSB
+        if (targetId === 'sun') {
+          targetState = ctx.getBodyState?.('sun') ?? { pos: [0.004, 0, 0], vel: [0, 0.000007, 0] };
+          primaryState = { pos: [0, 0, 0], vel: [0, 0, 0] };
+        }
+
+        // If spacecraft not in N-body state, compute nominal flight vector from catalog facts
+        if (!targetState) {
+          if (targetId === 'voyager_1') {
+            targetState = {
+              pos: [-25.3, -112.5, 121.8],
+              vel: [-0.0012, -0.0068, 0.0068],
+            };
+          } else if (targetId === 'voyager_2') {
+            targetState = {
+              pos: [-41.5, -92.2, -98.6],
+              vel: [-0.0022, -0.0059, -0.0061],
+            };
+          } else if (targetId === 'new_horizons') {
+            targetState = {
+              pos: [24.8, -48.2, 30.1],
+              vel: [0.0031, -0.0060, 0.0042],
+            };
+          } else if (targetId === 'parker_solar_probe') {
+            targetState = {
+              pos: [0.041, 0, 0],
+              vel: [0, 0.1108, 0.002],
+            };
+          } else if (targetId === 'jwst') {
+            const earthState = ctx.getBodyState?.('earth') ?? { pos: [1, 0, 0], vel: [0, 0.0172, 0] };
+            const eDist = Math.hypot(...earthState.pos);
+            const u = earthState.pos.map((x) => x / eDist);
+            const l2DistAu = 0.01002;
+            targetState = {
+              pos: [
+                earthState.pos[0] + u[0]! * l2DistAu,
+                earthState.pos[1] + u[1]! * l2DistAu,
+                earthState.pos[2] + u[2]! * l2DistAu,
+              ],
+              vel: [earthState.vel[0] * 1.002, earthState.vel[1] * 1.002, earthState.vel[2] * 1.002],
+            };
+          }
+        }
 
         if (!targetState || !primaryState) {
           trajResult.style.display = 'block';
@@ -1130,11 +1232,16 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
         ];
 
         let mu = gmToInternal(GM_SUN_KM3_S2);
-        if (targetId === 'moon') {
-          const earthParams = bodyParams('earth');
-          mu = gmToInternal(earthParams.gm);
-        } else if (targetId === 'sun') {
+        if (targetId === 'sun') {
+          const full = ctx.getFullState?.();
           mu = full?.state.gm.reduce((acc, val) => acc + val, 0) || gmToInternal(GM_SUN_KM3_S2);
+        } else if (primaryId !== 'sun') {
+          try {
+            const b = bodyParams(primaryId);
+            if (b && b.gm) mu = gmToInternal(b.gm);
+          } catch {
+            mu = gmToInternal(GM_SUN_KM3_S2);
+          }
         }
 
         const pred = predictFutureTrajectory(targetId, primaryId, mu, rRel, vRel, 0, horizonDays, 36);
@@ -1325,6 +1432,70 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     };
   }
 
+  const trajClearBtn = q<HTMLButtonElement>('#trajClearBtn') as HTMLButtonElement | null;
+  if (trajClearBtn) {
+    trajClearBtn.onclick = () => {
+      ctx.onClearTrajectoryOverlays?.();
+      if (trajResult) {
+        trajResult.style.display = 'none';
+        trajResult.textContent = '';
+      }
+    };
+  }
+
+  // Quick-Access Mission Control Navigation Tabs
+  const tabAll = q<HTMLButtonElement>('#tabAll');
+  const tabNav = q<HTMLButtonElement>('#tabNav');
+  const tabTraj = q<HTMLButtonElement>('#tabTraj');
+  const tabMission = q<HTMLButtonElement>('#tabMission');
+  const tabPhysics = q<HTMLButtonElement>('#tabPhysics');
+  const navTabs = [tabAll, tabNav, tabTraj, tabMission, tabPhysics].filter(Boolean) as HTMLButtonElement[];
+
+  const selectNavTab = (selectedTab: HTMLButtonElement, onSelect?: () => void) => {
+    for (const t of navTabs) {
+      const isActive = t === selectedTab;
+      t.classList.toggle('active', isActive);
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    }
+    onSelect?.();
+  };
+
+  tabAll?.addEventListener('click', () => {
+    selectNavTab(tabAll, () => {
+      root.scrollTop = 0;
+    });
+  });
+
+  tabNav?.addEventListener('click', () => {
+    selectNavTab(tabNav, () => {
+      root.scrollTop = 0;
+    });
+  });
+
+  tabTraj?.addEventListener('click', () => {
+    selectNavTab(tabTraj, () => {
+      const traj = q<HTMLDetailsElement>('#trajectorySection');
+      if (traj) traj.open = true;
+      traj?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  tabMission?.addEventListener('click', () => {
+    selectNavTab(tabMission, () => {
+      const lambert = q<HTMLDetailsElement>('#lambertDetails');
+      if (lambert) lambert.open = true;
+      lambert?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  tabPhysics?.addEventListener('click', () => {
+    selectNavTab(tabPhysics, () => {
+      const physics = q<HTMLDetailsElement>('#physicsDetails');
+      if (physics) physics.open = true;
+      physics?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
   // -------------------------------------------------------------
   // Universal NASA Multiscale Navigation & Catalog Registry Mapping
   // -------------------------------------------------------------
@@ -1402,11 +1573,11 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     deneb: 'sunGalaxy',
     tau_ceti: 'sunGalaxy',
     // Solar System structure & spacecraft
-    voyager_1: 'outer',
-    voyager_2: 'outer',
-    new_horizons: 'outer',
-    parker_solar_probe: 'outer',
-    jwst: 'earth',
+    voyager_1: 'voyager1',
+    voyager_2: 'voyager2',
+    new_horizons: 'newHorizons',
+    parker_solar_probe: 'parker',
+    jwst: 'jwst',
     oort_cloud: 'oort',
     kuiper_belt: 'outer',
     asteroid_belt: 'ceres',

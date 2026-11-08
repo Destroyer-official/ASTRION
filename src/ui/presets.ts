@@ -1,6 +1,6 @@
 export interface Preset {
   label: string;
-  category?: 'solar' | 'galaxy' | 'planets' | 'moons';
+  category?: 'solar' | 'galaxy' | 'planets' | 'moons' | 'spacecraft';
   frame: string; // ReferenceFrame id
   focus: string; // 'barycenter' or body id
   dir: readonly [number, number, number]; // camera direction (normalized later)
@@ -295,6 +295,53 @@ export const PRESETS: Record<string, Preset> = {
     dir: [0, -0.8, 0.45],
     dist: 0.00004,
     trailDays: 6.4,
+  },
+
+  // 5. NASA Flagship Spacecraft
+  voyager1: {
+    label: '🛰️ Voyager 1 (Interstellar Space, 168 AU)',
+    category: 'spacecraft',
+    frame: 'body:sun',
+    focus: 'sun',
+    dir: [0.15, -0.65, 0.74],
+    dist: 220,
+    trailDays: 29220,
+  },
+  voyager2: {
+    label: '🛰️ Voyager 2 (Interstellar Space, 140 AU)',
+    category: 'spacecraft',
+    frame: 'body:sun',
+    focus: 'sun',
+    dir: [-0.28, -0.62, -0.73],
+    dist: 190,
+    trailDays: 29220,
+  },
+  newHorizons: {
+    label: '🛰️ New Horizons (Kuiper Belt, 63 AU)',
+    category: 'spacecraft',
+    frame: 'body:sun',
+    focus: 'sun',
+    dir: [0.4, -0.7, 0.6],
+    dist: 110,
+    trailDays: 14610,
+  },
+  parker: {
+    label: '🛰️ Parker Solar Probe (Solar Corona Touch, 0.04 AU)',
+    category: 'spacecraft',
+    frame: 'body:sun',
+    focus: 'sun',
+    dir: [0, -0.7, 0.71],
+    dist: 0.15,
+    trailDays: 180,
+  },
+  jwst: {
+    label: '🛰️ JWST (Sun-Earth L2 Halo Orbit, 1.01 AU)',
+    category: 'spacecraft',
+    frame: 'body:earth',
+    focus: 'earth',
+    dir: [0, -0.85, 0.52],
+    dist: 0.025,
+    trailDays: 180,
   },
 
   // Backward-compatible hidden aliases (never displayed in UI dropdown)

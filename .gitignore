@@ -13,6 +13,7 @@ dist-ssr
 coverage
 tests/validation/.cache/
 ui-audit-artifacts/
+.playwright-mcp/
 *.local
 
 # Editor directories and files

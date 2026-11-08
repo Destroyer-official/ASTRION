@@ -163,26 +163,38 @@ export class TrajectoryOverlayVisual {
       const colAttr = this.trajGeom.attributes['color'] as THREE.BufferAttribute;
       const count = Math.min(cachedTraj.length, this.trajPointCount);
 
+      let validCount = 0;
       for (let i = 0; i < count; i++) {
-        const pt = cachedTraj[i]!;
+        const pt = cachedTraj[i];
+        if (!pt || !Number.isFinite(pt.pos[0]) || !Number.isFinite(pt.pos[1]) || !Number.isFinite(pt.pos[2])) {
+          continue;
+        }
         mapPoint(ax, o, pt.pos[0], pt.pos[1], pt.pos[2], this._p);
         squash(travelDir, compress, this._p[0] - f[0], this._p[1] - f[1], this._p[2] - f[2], this._w);
 
-        this.trajPositions[3 * i] = this._w[0];
-        this.trajPositions[3 * i + 1] = this._w[1];
-        this.trajPositions[3 * i + 2] = this._w[2];
+        if (!Number.isFinite(this._w[0]) || !Number.isFinite(this._w[1]) || !Number.isFinite(this._w[2])) {
+          continue;
+        }
+
+        this.trajPositions[3 * validCount] = this._w[0];
+        this.trajPositions[3 * validCount + 1] = this._w[1];
+        this.trajPositions[3 * validCount + 2] = this._w[2];
 
         // Gradient color: starts at luminous cyan (t=0) and shifts toward deep violet-rose as 3-sigma grows
         const frac = i / Math.max(1, count - 1);
-        this.trajColors[3 * i] = 0.22 + 0.65 * frac;     // R
-        this.trajColors[3 * i + 1] = 0.85 - 0.55 * frac; // G
-        this.trajColors[3 * i + 2] = 0.98;               // B
+        this.trajColors[3 * validCount] = 0.22 + 0.65 * frac;     // R
+        this.trajColors[3 * validCount + 1] = 0.85 - 0.55 * frac; // G
+        this.trajColors[3 * validCount + 2] = 0.98;               // B
+        validCount++;
       }
 
-      this.trajGeom.setDrawRange(0, count);
+      this.trajGeom.setDrawRange(0, validCount);
       posAttr.needsUpdate = true;
       colAttr.needsUpdate = true;
-      this.trajLine.visible = true;
+      if (validCount > 1) {
+        this.trajGeom.computeBoundingSphere();
+      }
+      this.trajLine.visible = validCount > 0;
     } else {
       this.trajLine.visible = false;
     }

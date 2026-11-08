@@ -145,6 +145,11 @@ const BODY_VISIT_PRESET_MAP: Record<string, string> = {
   enceladus: 'visitEnceladus',
   triton: 'visitTriton',
   charon: 'visitCharon',
+  voyager_1: 'voyager1',
+  voyager_2: 'voyager2',
+  new_horizons: 'newHorizons',
+  parker_solar_probe: 'parker',
+  jwst: 'jwst',
 };
 
 function getOptimalBodyView(id: string): { dist: number; dir: readonly [number, number, number] } {

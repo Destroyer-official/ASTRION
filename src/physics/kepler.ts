@@ -28,7 +28,7 @@ export function stateToElements(mu: number, r: Vec3, v: Vec3): Elements {
   const rl = len(r);
   const h = cross(r, v);
   const hl = len(h);
-  const hh: Vec3 = [h[0] / hl, h[1] / hl, h[2] / hl];
+  const hh: Vec3 = hl > 1e-14 ? [h[0] / hl, h[1] / hl, h[2] / hl] : [0, 0, 1];
   const vxh = cross(v, h);
   const ev: Vec3 = [vxh[0] / mu - r[0] / rl, vxh[1] / mu - r[1] / rl, vxh[2] / mu - r[2] / rl];
   const e = len(ev);

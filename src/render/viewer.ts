@@ -189,7 +189,7 @@ export function galacticDetail(camDistToSun: number): {
 export interface ViewState {
   mode?: 'solar' | 'galaxy';
   preset?: string | null;
-  presetCategory?: 'galaxy' | 'stars' | 'solar' | 'asteroids' | 'moons' | 'planets' | 'visits' | 'moonVisits';
+  presetCategory?: 'galaxy' | 'stars' | 'solar' | 'asteroids' | 'moons' | 'planets' | 'visits' | 'moonVisits' | 'spacecraft';
   showMilkyWay?: boolean;
   showOortCloud?: boolean;
   showGalacticHalo?: boolean;
