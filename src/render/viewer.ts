@@ -1211,10 +1211,31 @@ export function createViewer(
     baryVisual.update(baryPos, sunPos, camera, height, showBary);
 
     // Update NASA 3D Trajectory, Gravity Pull Vectors & Solar Wobble Loop Overlays
-    const focusTargetIdx = v.focus >= 0 ? v.focus : sunIdx;
-    const bodySimPos: [number, number, number] | null = focusTargetIdx >= 0
-      ? [s.pos[3 * focusTargetIdx]!, s.pos[3 * focusTargetIdx + 1]!, s.pos[3 * focusTargetIdx + 2]!]
-      : null;
+    const pullBodyIdx = cachedGravityPull ? model.ids.indexOf(cachedGravityPull.targetId) : -1;
+    const bodySimPos: [number, number, number] | null =
+      pullBodyIdx >= 0 && pullBodyIdx < model.ids.length
+        ? [s.pos[3 * pullBodyIdx]!, s.pos[3 * pullBodyIdx + 1]!, s.pos[3 * pullBodyIdx + 2]!]
+        : (v.focus >= 0 ? [s.pos[3 * v.focus]!, s.pos[3 * v.focus + 1]!, s.pos[3 * v.focus + 2]!] : (sunIdx >= 0 ? [s.pos[3 * sunIdx]!, s.pos[3 * sunIdx + 1]!, s.pos[3 * sunIdx + 2]!] : null));
+
+    const bodySimVel: [number, number, number] | null =
+      pullBodyIdx >= 0 && pullBodyIdx < model.ids.length
+        ? [s.vel[3 * pullBodyIdx]!, s.vel[3 * pullBodyIdx + 1]!, s.vel[3 * pullBodyIdx + 2]!]
+        : null;
+
+    let primarySimPos: [number, number, number] = [0, 0, 0];
+    let primarySimVel: [number, number, number] = [0, 0, 0];
+    if (pullBodyIdx >= 0) {
+      const bDef = model.bodies?.find((b) => b.id === model.ids[pullBodyIdx]);
+      const parentId = bDef?.parent;
+      if (parentId) {
+        const pIdx = model.ids.indexOf(parentId);
+        if (pIdx >= 0) {
+          primarySimPos = [s.pos[3 * pIdx]!, s.pos[3 * pIdx + 1]!, s.pos[3 * pIdx + 2]!];
+          primarySimVel = [s.vel[3 * pIdx]!, s.vel[3 * pIdx + 1]!, s.vel[3 * pIdx + 2]!];
+        }
+      }
+    }
+
     const sunSimPos: [number, number, number] | null = sunIdx >= 0
       ? [s.pos[3 * sunIdx]!, s.pos[3 * sunIdx + 1]!, s.pos[3 * sunIdx + 2]!]
       : null;
@@ -1224,10 +1245,14 @@ export function createViewer(
       o,
       f,
       v.compress ?? 1,
-      camDistToSun,
+      camera,
+      height,
       cachedTrajPoints,
       cachedGravityPull,
       bodySimPos,
+      bodySimVel,
+      primarySimPos,
+      primarySimVel,
       cachedSolarWobble,
       sunSimPos,
     );

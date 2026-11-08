@@ -141,21 +141,57 @@ export class TrajectoryOverlayVisual {
 
   /**
    * Update the 3D overlay every frame in display coordinate space.
+   * Supports both pixel-constant camera projection and distance fallback.
    */
   update(
     frame: ReferenceFrame,
     o: [number, number, number],
     f: [number, number, number],
     compress: number,
-    camDistToFocus: number,
-    cachedTraj: TrajectoryPoint[] | null,
-    cachedPull: GravitationalPullBreakdown | null,
-    bodySimPos: [number, number, number] | null,
-    cachedWobble: SolarWobbleState | null,
-    sunSimPos: [number, number, number] | null,
+    cameraOrDist: THREE.Camera | number,
+    heightOrTraj: number | TrajectoryPoint[] | null,
+    arg3?: TrajectoryPoint[] | GravitationalPullBreakdown | null,
+    arg4?: GravitationalPullBreakdown | [number, number, number] | null,
+    arg5?: [number, number, number] | SolarWobbleState | null,
+    arg6?: [number, number, number] | null,
+    arg7?: [number, number, number] | null,
+    arg8?: [number, number, number] | null,
+    arg9?: SolarWobbleState | null,
+    arg10?: [number, number, number] | null,
   ): void {
     const ax = frame.axes;
     const travelDir = frame.travelDir;
+
+    let cam: THREE.Camera | null = null;
+    let vHeight = 800;
+    let cachedTraj: TrajectoryPoint[] | null;
+    let cachedPull: GravitationalPullBreakdown | null;
+    let bodySimPos: [number, number, number] | null;
+    let bodySimVel: [number, number, number] | null = null;
+    let primarySimPos: [number, number, number] | null = null;
+    let primarySimVel: [number, number, number] | null = null;
+    let cachedWobble: SolarWobbleState | null;
+    let sunSimPos: [number, number, number] | null;
+
+    if (cameraOrDist && typeof cameraOrDist === 'object' && 'position' in cameraOrDist) {
+      cam = cameraOrDist as THREE.Camera;
+      vHeight = typeof heightOrTraj === 'number' ? heightOrTraj : 800;
+      cachedTraj = (arg3 as TrajectoryPoint[] | null) ?? null;
+      cachedPull = (arg4 as GravitationalPullBreakdown | null) ?? null;
+      bodySimPos = (arg5 as [number, number, number] | null) ?? null;
+      bodySimVel = (arg6 as [number, number, number] | null) ?? null;
+      primarySimPos = (arg7 as [number, number, number] | null) ?? null;
+      primarySimVel = (arg8 as [number, number, number] | null) ?? null;
+      cachedWobble = arg9 ?? null;
+      sunSimPos = arg10 ?? null;
+    } else {
+      // Legacy signature for unit tests
+      cachedTraj = heightOrTraj as TrajectoryPoint[] | null;
+      cachedPull = (arg3 as GravitationalPullBreakdown | null) ?? null;
+      bodySimPos = (arg4 as [number, number, number] | null) ?? null;
+      cachedWobble = (arg5 as SolarWobbleState | null) ?? null;
+      sunSimPos = (arg6 as [number, number, number] | null) ?? null;
+    }
 
     // 1. Update Trajectory Path vertices in display space
     if (this.trajPointCount > 0 && cachedTraj && cachedTraj.length > 0) {
@@ -169,7 +205,13 @@ export class TrajectoryOverlayVisual {
         if (!pt || !Number.isFinite(pt.pos[0]) || !Number.isFinite(pt.pos[1]) || !Number.isFinite(pt.pos[2])) {
           continue;
         }
-        mapPoint(ax, o, pt.pos[0], pt.pos[1], pt.pos[2], this._p);
+
+        // Add primary body's position if orbit is secondary (e.g. Moon around Earth)
+        const px = pt.pos[0] + (primarySimPos ? primarySimPos[0] : 0);
+        const py = pt.pos[1] + (primarySimPos ? primarySimPos[1] : 0);
+        const pz = pt.pos[2] + (primarySimPos ? primarySimPos[2] : 0);
+
+        mapPoint(ax, o, px, py, pz, this._p);
         squash(travelDir, compress, this._p[0] - f[0], this._p[1] - f[1], this._p[2] - f[2], this._w);
 
         if (!Number.isFinite(this._w[0]) || !Number.isFinite(this._w[1]) || !Number.isFinite(this._w[2])) {
@@ -205,50 +247,108 @@ export class TrajectoryOverlayVisual {
       squash(travelDir, compress, this._p[0] - f[0], this._p[1] - f[1], this._p[2] - f[2], this._w);
       this._origin.set(this._w[0], this._w[1], this._w[2]);
 
-      // Scale arrow length dynamically so it is always visually clear at current camera distance
-      const visualLength = Math.max(1e-6, camDistToFocus * 0.18);
-      const headLen = visualLength * 0.24;
-      const headW = visualLength * 0.12;
+      // Calculate screen-constant world scaling based on real distance to the body
+      let unitPerPx = 0.001;
+      if (cam && 'position' in cam) {
+        const dist = cam.position.distanceTo(this._origin);
+        const pCam = cam as THREE.PerspectiveCamera;
+        const fovRad = pCam.fov ? THREE.MathUtils.degToRad(pCam.fov) : 0.8;
+        const frustumH = 2 * Math.max(1e-8, dist) * Math.tan(fovRad / 2);
+        unitPerPx = frustumH / Math.max(1, vHeight);
+      } else if (typeof cameraOrDist === 'number') {
+        const fovRad = THREE.MathUtils.degToRad(45);
+        const frustumH = 2 * Math.max(1e-8, cameraOrDist) * Math.tan(fovRad / 2);
+        unitPerPx = frustumH / 800;
+      }
 
-      // Net pull vector
+      // Sleek, screen-constant HUD vectors: base 55px, arrowhead 10px long, 5px wide
+      const baseLength = Math.max(1e-9, 55 * unitPerPx);
+      const headLen = Math.max(1e-9, 10 * unitPerPx);
+      const headW = Math.max(1e-9, 5 * unitPerPx);
+
+      const transformDirection = (dx: number, dy: number, dz: number, out: THREE.Vector3) => {
+        mapPoint(ax, [0, 0, 0], dx, dy, dz, this._p);
+        squash(travelDir, compress, this._p[0], this._p[1], this._p[2], this._w);
+        out.set(this._w[0], this._w[1], this._w[2]).normalize();
+      };
+
+      // 2A. Net pull vector (Gold)
       const netMag = Math.hypot(cachedPull.totalAccelVec[0], cachedPull.totalAccelVec[1], cachedPull.totalAccelVec[2]);
       if (netMag > 1e-18) {
-        mapPoint(ax, [0, 0, 0], cachedPull.totalAccelVec[0] / netMag, cachedPull.totalAccelVec[1] / netMag, cachedPull.totalAccelVec[2] / netMag, this._p);
-        squash(travelDir, compress, this._p[0], this._p[1], this._p[2], this._w);
-        this._dir.set(this._w[0], this._w[1], this._w[2]).normalize();
-
+        transformDirection(cachedPull.totalAccelVec[0] / netMag, cachedPull.totalAccelVec[1] / netMag, cachedPull.totalAccelVec[2] / netMag, this._dir);
         this.netPullArrow.position.copy(this._origin);
         this.netPullArrow.setDirection(this._dir);
-        this.netPullArrow.setLength(visualLength, headLen, headW);
+        this.netPullArrow.setLength(baseLength, headLen, headW);
         this.netPullArrow.visible = true;
+      } else {
+        this.netPullArrow.visible = false;
       }
 
-      // Radial vector
+      // 2B. Radial vector (Cyan - pointing towards/away from primary)
+      const rx = bodySimPos[0] - (primarySimPos ? primarySimPos[0] : 0);
+      const ry = bodySimPos[1] - (primarySimPos ? primarySimPos[1] : 0);
+      const rz = bodySimPos[2] - (primarySimPos ? primarySimPos[2] : 0);
+      const rMag = Math.hypot(rx, ry, rz) || 1;
+      const ux = rx / rMag, uy = ry / rMag, uz = rz / rMag;
+
       const rVal = cachedPull.radialAccel_um_s2;
       if (Math.abs(rVal) > 1e-6) {
-        // Points towards or away from Sun/primary
-        const dirSign = rVal > 0 ? 1 : -1;
-        this._dir.set(this._w[0] * dirSign, this._w[1] * dirSign, this._w[2] * dirSign).normalize();
+        const rSign = rVal >= 0 ? 1 : -1;
+        transformDirection(ux * rSign, uy * rSign, uz * rSign, this._dir);
         this.radialArrow.position.copy(this._origin);
         this.radialArrow.setDirection(this._dir);
-        this.radialArrow.setLength(visualLength * 0.75, headLen * 0.75, headW * 0.75);
+        this.radialArrow.setLength(baseLength * 0.9, headLen, headW);
         this.radialArrow.visible = true;
+      } else {
+        this.radialArrow.visible = false;
       }
 
-      // Tangential vector
+      // 2C. Tangential vector (Green - along-track velocity in orbital plane)
+      const vx = (bodySimVel ? bodySimVel[0] : 0) - (primarySimVel ? primarySimVel[0] : 0);
+      const vy = (bodySimVel ? bodySimVel[1] : 0) - (primarySimVel ? primarySimVel[1] : 0);
+      const vz = (bodySimVel ? bodySimVel[2] : 0) - (primarySimVel ? primarySimVel[2] : 0);
+
+      // Angular momentum h = r x v
+      let hx = ry * vz - rz * vy;
+      let hy = rz * vx - rx * vz;
+      let hz = rx * vy - ry * vx;
+      let hMag = Math.hypot(hx, hy, hz);
+      if (hMag < 1e-14) {
+        hx = 0; hy = 0; hz = 1; hMag = 1;
+      }
+      const nx = hx / hMag, ny = hy / hMag, nz = hz / hMag;
+
+      // In-plane tangent t = n x r
+      const tx = ny * uz - nz * uy;
+      const ty = nz * ux - nx * uz;
+      const tz = nx * uy - ny * ux;
+      const tMag = Math.hypot(tx, ty, tz) || 1;
+
       const tVal = cachedPull.tangentialAccel_um_s2;
       if (Math.abs(tVal) > 1e-6) {
+        const tSign = tVal >= 0 ? 1 : -1;
+        transformDirection((tx / tMag) * tSign, (ty / tMag) * tSign, (tz / tMag) * tSign, this._dir);
         this.tangArrow.position.copy(this._origin);
-        this.tangArrow.setLength(visualLength * 0.75, headLen * 0.75, headW * 0.75);
+        this.tangArrow.setDirection(this._dir);
+        const tRatio = Math.min(0.85, Math.max(0.35, (Math.abs(tVal) / (Math.abs(rVal) || 1)) * 6));
+        this.tangArrow.setLength(baseLength * tRatio, headLen * 0.85, headW * 0.85);
         this.tangArrow.visible = true;
+      } else {
+        this.tangArrow.visible = false;
       }
 
-      // Normal vector
+      // 2D. Normal vector (Magenta - out-of-plane inclination turning force)
       const nVal = cachedPull.normalAccel_um_s2;
       if (Math.abs(nVal) > 1e-6) {
+        const nSign = nVal >= 0 ? 1 : -1;
+        transformDirection(nx * nSign, ny * nSign, nz * nSign, this._dir);
         this.normalArrow.position.copy(this._origin);
-        this.normalArrow.setLength(visualLength * 0.75, headLen * 0.75, headW * 0.75);
+        this.normalArrow.setDirection(this._dir);
+        const nRatio = Math.min(0.85, Math.max(0.35, (Math.abs(nVal) / (Math.abs(rVal) || 1)) * 6));
+        this.normalArrow.setLength(baseLength * nRatio, headLen * 0.85, headW * 0.85);
         this.normalArrow.visible = true;
+      } else {
+        this.normalArrow.visible = false;
       }
     } else {
       this.netPullArrow.visible = false;
@@ -291,5 +391,12 @@ export class TrajectoryOverlayVisual {
     this.setTrajectoryPath(null);
     this.setGravityPull(null);
     this.setSolarWobble(null);
+    this.netPullArrow.visible = false;
+    this.radialArrow.visible = false;
+    this.tangArrow.visible = false;
+    this.normalArrow.visible = false;
+    this.trajLine.visible = false;
+    this.wobbleLine.visible = false;
+    this.trajPointCount = 0;
   }
 }

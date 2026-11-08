@@ -1244,7 +1244,7 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           }
         }
 
-        const pred = predictFutureTrajectory(targetId, primaryId, mu, rRel, vRel, 0, horizonDays, 36);
+        const pred = predictFutureTrajectory(targetId, primaryId, mu, rRel, vRel, 0, horizonDays, 256);
         const el = pred.elements;
         const aps = pred.apsides;
         const cur = pred.current;
