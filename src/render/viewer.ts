@@ -16,6 +16,8 @@ import { GalaxyVisual } from './galaxyVisual';
 import { OortCloudVisual } from './oortCloud';
 import { BarycenterVisual } from './barycenterVisual';
 import { OrbitPathVisual } from './orbitPathVisual';
+import { TrajectoryOverlayVisual } from './trajectoryOverlayVisual';
+import type { TrajectoryPoint, GravitationalPullBreakdown, SolarWobbleState } from '@/physics/trajectoryPredictor';
 import type { GalacticOrbitState } from '@/physics/galacticPotential';
 import { stateToElements, elementsToState } from '@/physics/kepler';
 
@@ -575,6 +577,14 @@ export function createViewer(
   // Oort cloud visual
   const oortVisual = new OortCloudVisual();
   scene.add(oortVisual.group);
+
+  // NASA Trajectory, Pull Vectors & Solar Wobble Loop 3D Overlay
+  const trajOverlayVisual = new TrajectoryOverlayVisual();
+  scene.add(trajOverlayVisual.group);
+
+  let cachedTrajPoints: TrajectoryPoint[] | null = null;
+  let cachedGravityPull: GravitationalPullBreakdown | null = null;
+  let cachedSolarWobble: SolarWobbleState | null = null;
 
   function setView(dir: readonly [number, number, number], distanceAu: number, target?: THREE.Vector3): void {
     if (target) {
@@ -1191,6 +1201,28 @@ export function createViewer(
       (isWobbleFocus || (v.showLabels !== false && sepSunBaryPx >= 30 && camDistToSun < 5));
     baryVisual.update(baryPos, sunPos, camera, height, showBary);
 
+    // Update NASA 3D Trajectory, Gravity Pull Vectors & Solar Wobble Loop Overlays
+    const focusTargetIdx = v.focus >= 0 ? v.focus : sunIdx;
+    const bodySimPos: [number, number, number] | null = focusTargetIdx >= 0
+      ? [s.pos[3 * focusTargetIdx]!, s.pos[3 * focusTargetIdx + 1]!, s.pos[3 * focusTargetIdx + 2]!]
+      : null;
+    const sunSimPos: [number, number, number] | null = sunIdx >= 0
+      ? [s.pos[3 * sunIdx]!, s.pos[3 * sunIdx + 1]!, s.pos[3 * sunIdx + 2]!]
+      : null;
+
+    trajOverlayVisual.update(
+      v.frame,
+      o,
+      f,
+      v.compress ?? 1,
+      camDistToSun,
+      cachedTrajPoints,
+      cachedGravityPull,
+      bodySimPos,
+      cachedSolarWobble,
+      sunSimPos,
+    );
+
     for (let i = 0; i < trails.length; i++) {
       const t = trails[i]!;
       const id = model.ids[i]!;
@@ -1484,5 +1516,23 @@ export function createViewer(
     sgrAWorldPosition,
     getCameraDistance,
     setCameraDistance,
+    setTrajectoryOverlay: (points: TrajectoryPoint[] | null) => {
+      cachedTrajPoints = points;
+      trajOverlayVisual.setTrajectoryPath(points);
+    },
+    setGravityPullOverlay: (pull: GravitationalPullBreakdown | null) => {
+      cachedGravityPull = pull;
+      trajOverlayVisual.setGravityPull(pull);
+    },
+    setSolarWobbleOverlay: (wobble: SolarWobbleState | null) => {
+      cachedSolarWobble = wobble;
+      trajOverlayVisual.setSolarWobble(wobble);
+    },
+    clearTrajectoryOverlays: () => {
+      cachedTrajPoints = null;
+      cachedGravityPull = null;
+      cachedSolarWobble = null;
+      trajOverlayVisual.clear();
+    },
   };
 }

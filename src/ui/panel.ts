@@ -28,6 +28,8 @@ import {
   evaluateNasaSync,
   type TrajectoryPoint,
   type GravitationalPerturber,
+  type GravitationalPullBreakdown,
+  type SolarWobbleState,
 } from '@/physics/trajectoryPredictor';
 
 const BODY_BY_ID = new Map(ALL_BODIES.map((body) => [body.id, body]));
@@ -74,6 +76,10 @@ export interface PanelContext {
   onZoomChange?(distanceAu: number): void;
   getBodyState?(id: string): { pos: [number, number, number]; vel: [number, number, number] } | null;
   getFullState?(): { state: SystemState; bodyIds: readonly string[]; bodyNames: readonly string[] } | null;
+  onSetTrajectoryOverlay?(points: TrajectoryPoint[] | null): void;
+  onSetGravityPullOverlay?(pull: GravitationalPullBreakdown | null): void;
+  onSetSolarWobbleOverlay?(wobble: SolarWobbleState | null): void;
+  onClearTrajectoryOverlays?(): void;
 }
 
 export interface PanelData {
@@ -1174,6 +1180,9 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           `🗓️ Future Trajectory Waypoints:`,
           waypointsText,
         ].join('\n');
+
+        // Synchronize 3D Trajectory Overlay in Three.js WebGL viewport
+        ctx.onSetTrajectoryOverlay?.(pred.points);
       } catch (err: unknown) {
         trajResult.style.display = 'block';
         trajResult.textContent = `Trajectory predictor error: ${err instanceof Error ? err.message : String(err)}`;
@@ -1219,6 +1228,9 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           `Top Gravitational Perturbers:`,
           ...topPerturbers,
         ].join('\n');
+
+        // Synchronize 3D Gravity Pull Vectors Overlay in Three.js WebGL viewport
+        ctx.onSetGravityPullOverlay?.(pull);
       } catch (err: unknown) {
         trajResult.style.display = 'block';
         trajResult.textContent = `Gravitational pull analysis error: ${err instanceof Error ? err.message : String(err)}`;
@@ -1261,6 +1273,9 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
           `  Maximum Offset:    ${wobble.loopSummary.maxDistKm.toLocaleString('en-US', { maximumFractionDigits: 0 })} km (${wobble.loopSummary.maxSolarRadii.toFixed(2)} R☉)`,
           `  Harmonic Beat:     11.86 yr (Jupiter) · 19.86 yr (J-S Beat) · 60 yr (Trefoil loop)`,
         ].join('\n');
+
+        // Synchronize 3D Solar Wobble Rosette Loop Overlay in Three.js WebGL viewport
+        ctx.onSetSolarWobbleOverlay?.(wobble);
       } catch (err: unknown) {
         trajResult.style.display = 'block';
         trajResult.textContent = `Solar wobble analysis error: ${err instanceof Error ? err.message : String(err)}`;

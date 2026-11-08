@@ -527,6 +527,10 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     bodyIds: model.ids,
     bodyNames: model.names,
   }),
+  onSetTrajectoryOverlay: (points) => viewer.setTrajectoryOverlay(points),
+  onSetGravityPullOverlay: (pull) => viewer.setGravityPullOverlay(pull),
+  onSetSolarWobbleOverlay: (wobble) => viewer.setSolarWobbleOverlay(wobble),
+  onClearTrajectoryOverlays: () => viewer.clearTrajectoryOverlays(),
 });
 health.update('ui', 'ok', 'panel controls bound');
 
