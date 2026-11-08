@@ -343,10 +343,10 @@ Concrete, sourced corrections to make in later steps (each its own commit):
 5. **Expand asteroid perturbers from 4 to the documented 16**, citing ASSIST v1.2.0
    `assist/ephem.py` and `sb441-n16.bsp`; keep the index-vs-number distinction
    explicit so nobody maps slot 12 to asteroid 12.
-6. **IAS15 becomes reachable**: wire `src/physics/integrators/ias15.ts` into
-   `PhysicsConfig`, `protocol.ts`, `simCore.ts` and the UI select, since ASSIST's own
-   documentation makes IAS15 the ephemeris-quality reference choice. Then the §4
-   +1/+10/+50 year table gets measured rather than quoted.
+6. **IAS15 becomes reachable**: — **done 2026-11-08**: `ias15` accepted by
+   `PhysicsConfig`/`protocol.ts`/`simCore.ts` (flat) and via `HierarchicalIAS15`
+   (hierarchical) with a UI select entry; evidence in VALIDATION_LOG step 17. The
+   §4 +1/+10/+50 year table is still to be re-measured with it selected.
 7. **Relativity default matches the cited practice:** Sun-only 1PN by default, with a
    documented option for other bodies near encounters.
 8. **Toolchain decisions as separate commits:** TypeScript 6→7, three 0.186→0.187,

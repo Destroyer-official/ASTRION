@@ -37,6 +37,9 @@ How to read this file:
 | Official DE kernel provenance records (size, MD5, coverage, `Last-Modified`) and per-kernel acceptance tolerances, so a DE441↔DE442 solution difference is no longer reported as a reader defect. | `de30914` | `src/data/spice/de-kernel-provenance.json` |
 | Current time-standard provenance: IERS Bulletin C 72, the 37 s TAI−UTC state, and BIPM Resolution 5 continuous-UTC policy effective 2027-05-20. | `06edbf4` | `LEAP_SECOND_PROVENANCE` in `src/physics/time.ts` |
 | Full-browser UI audit harness, wired into CI as a dedicated job that builds the production bundle and audits the preview. | `a7ef4e4`, `30b92ca`, `90f1520`, `952b238` | `npm run audit:ui`, `docs/UI_AUDIT.md` |
+| IAS15 is runtime-selectable end to end (closes AUDIT-17): flat systems instantiate `IAS15` directly and hierarchical systems use the new `HierarchicalIAS15` composite, which advances the level-0 state with 15th-order Gauss-Radau segments (Rein & Spiegel 2015) while sub-cycling the moon systems per segment. The selection type is now the shared `IntegratorName`, and the panel offers it as the top truth-engine option. | working tree 2026-11-08, commit pending | `tests/ias15-hierarchical.test.ts` |
+| Divergence guards ("nothing crashes"): `Engine.advanceFixed/advance` halt the moment the state turns non-finite, surface `Engine.isDiverged()` and return the days actually executed; IAS15 aborts after 64 stalled corrector iterations instead of halving step sizes forever, so a corrupted state can no longer hang the physics worker (partials AUDIT-34). | working tree 2026-11-08, commit pending | `tests/ias15-hierarchical.test.ts` non-finite suite |
+| A Content-Security-Policy meta tag on `index.html` (`default-src 'none'` backstop), verified against the production preview. | working tree 2026-11-08, commit pending | all 31 `npm run audit:ui` checks, 2026-11-08 |
 
 ### Changed — simulated scope
 

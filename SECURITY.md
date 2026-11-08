@@ -68,9 +68,6 @@ exists, and no third-party HTML sanitizer is used.
 
 Stated so nobody reads more assurance into this file than the repository supports:
 
-- **No Content-Security-Policy.** `index.html` sets no CSP meta tag and no
-  `serve-headers` file exists. Adding one is untested against the Web Worker and
-  Three.js paths, so it has not been claimed.
 - **No Subresource Integrity attributes** — there are currently no external script or
   stylesheet tags to protect, so SRI would be decoration.
 - **No automated dependency update** (Renovate/Dependabot) is configured, and no
@@ -78,8 +75,21 @@ Stated so nobody reads more assurance into this file than the repository support
 - **No penetration test, no SAST run, and no security review by an independent
   party** has been performed.
 - **HTTP transport protections are deployment-dependent.** The repository builds
-  static files; HSTS, CSP headers, and sandboxing belong to whatever hosts `dist/`,
+  static files; HSTS and CSP headers belong to whatever hosts `dist/`,
   and nothing in this tree configures them.
+
+### CSP added 2026-11-08
+
+`index.html` now carries a `Content-Security-Policy` meta tag with
+`default-src 'none'` as a backstop: images restricted to `self`/`data:`/`blob:`,
+scripts and styles to `self` plus `'unsafe-inline'` (inline script is required by
+the Vite dev bootstrap and inline style by the panel's rendered styles),
+workers to `self`/`blob:`, and `connect-src` to same-origin, the one
+user-initiated JPL Horizons endpoint (`ssd.jpl.nasa.gov`) and localhost
+websockets for the dev server. Verified green by `npm run build` and all 31
+`npm run audit:ui` checks against the production preview on the same date.
+CSP-via-meta is weaker than a header (no `frame-ancestors`, no report-to), and
+`'unsafe-inline'` remains the known residual exposure of a static bundle.
 
 ## 7. Operational safety note
 

@@ -49,7 +49,8 @@ visualization. What it actually integrates:
    radii, view-only squash projections). Rendering is display, never physics.
 
 Run counts and coverage for the current tree are in §2.1 and §3; §4 explains which
-integrators are actually selectable at runtime (IAS15 exists but is not one of them).
+integrators are actually selectable at runtime (IAS15 became one of them on
+2026-11-08 — `leapfrog | yoshida4 | yoshida6 | yoshida8 | truth8 | ias15`).
 
 ---
 
@@ -302,7 +303,8 @@ measured error figure, and no tighter value is retained anywhere.
 - **Invariant thresholds** (energy / angular-momentum / barycenter drift at 1e-6 in
   `src/observability/invariants.ts`) are operational defaults explicitly marked
   UNVERIFIED (OPEN-001 in `docs/OPEN_QUESTIONS.md`); they are not NASA/IAU/JPL targets.
-- **Runtime IAS15** — see §4: implemented and unit-tested, not wired into the worker.
+- **Runtime IAS15** — closed 2026-11-08, see §4a: flat and hierarchical selection with
+  runtime evidence in `tests/ias15-hierarchical.test.ts`.
 - **Render counts** such as 158 globular clusters are procedural defaults in
   `src/render/galaxyVisual.ts:226`, not catalogue-derived values (no Harris catalogue
   ships in the repo).
@@ -318,20 +320,33 @@ measured error figure, and no tighter value is retained anywhere.
 ## 4. Integrators: what is actually selectable at runtime
 
 The worker protocol accepts exactly these integrator names
-(`src/sim/protocol.ts:18`, `src/sim/config.ts:2`):
-**`leapfrog`, `yoshida4`, `yoshida6`, `yoshida8`, `truth8`**.
-`buildIntegrator` (`src/sim/simCore.ts:15-20`) implements them as leapfrog and Yoshida
-symplectic compositions; `yoshida8` and `truth8` resolve to the same Yoshida-8
-composition. The library default is `yoshida6` (`src/sim/config.ts:14`), while the
-shipped browser app initializes `yoshida4` at 0.2-day fixed steps (`src/main.ts:83`).
+(`src/sim/protocol.ts`, via the shared `IntegratorName` type `src/sim/config.ts`):
+**`leapfrog`, `yoshida4`, `yoshida6`, `yoshida8`, `truth8`, `ias15`**.
+`buildIntegrator` (`src/sim/simCore.ts`) implements the symplectic ones as leapfrog and
+Yoshida compositions (`yoshida8` and `truth8` resolve to the same Yoshida-8
+composition) and instantiates IAS15 for flat systems; `buildSolver`
+(`src/sim/model.ts`) composes `HierarchicalIAS15` for parented systems. The
+library default is `yoshida6` (`src/sim/config.ts`), while the shipped browser
+app initializes `yoshida4` at 0.2-day fixed steps (`src/main.ts:83`).
 
-Additionally, but **implemented and unit-tested only — not wired into the runtime**:
+## 4a. IAS15 at runtime (since 2026-11-08)
 
-- `src/physics/integrators/ias15.ts` — a native Gauss–Radau implementation after
-  Rein & Spiegel (2015), passing `tests/ias15.test.ts` (energy drift < 1e-8 on a 1-yr
-  circular orbit, adaptive passage of an $e=0.8$ periapsis, forward/backward
-  reversibility), but **no runtime module imports it and it cannot be selected**.
-  Wiring it in is open work (`docs/RESEARCH.md` §7.6).
+`src/physics/integrators/ias15.ts` is the 15th-order Gauss–Radau integrator of
+Rein & Spiegel (2015), and it is now selectable end to end:
+
+- **Flat** systems run `IAS15` directly with adaptive Gauss–Radau segments.
+- **Hierarchical** systems run `HierarchicalIAS15` (`src/physics/hierarchy.ts`):
+  each accepted level-0 segment is followed by the per-system moon sub-cycling
+  under the same tidal-coupling contract as the symplectic path.
+- Evidence: `tests/ias15.test.ts` (unit: energy drift < 1e-8 on a 1-yr circular
+  orbit, adaptive $e=0.8$ periapsis passage, forward/backward reversibility) and
+  `tests/ias15-hierarchical.test.ts` (runtime: hierarchical Sun/Earth/Moon/Jupiter
+  4.9e-6 AU from a 0.01 d flat Yoshida-6 reference after 2 yr — the same class as
+  the yoshida4 4.6e-6 in `tests/hierarchy.test.ts`; bit-identical determinism;
+  < 1e-9 drift over 200 d in flat SimCore with `invariantOk`).
+
+Still **implemented and unit-tested only — not wired into the runtime**:
+
 - `src/physics/integrators/rk89.ts` — despite the file name, it implements
   `TruthIntegrator8`, a fixed-sub-step wrapper around the Yoshida-8 composition; it
   contains **no Dormand–Prince RK8(9) coefficients** and is not runtime-selectable
@@ -351,7 +366,7 @@ src/
 │   ├── asteroids/         # 16 SB441-N16 massive-asteroid perturbers (vectors + GM + radius, all provenanced)
 │   └── constants.ts       # Gaussian constant k, AU_KM, speed of light, TDB conversions
 ├── physics/               # Pure mathematical engine (Zero DOM, zero Three.js, deterministic)
-│   ├── integrators/       # leapfrog, yoshida4/6/8 (runtime); ias15/compensated/rk89 unit-tested only
+│   ├── integrators/       # leapfrog, yoshida4/6/8, ias15 (runtime, flat + hierarchical); compensated/rk89 unit-tested only
 │   ├── forces/            # Newtonian gravity, 1PN General Relativity, J2 quadrupole
 │   ├── kepler.ts          # State-to-elements and elements-to-state conversions
 │   ├── orientation.ts     # IAU WGCCRE 2015 rotational cartography and nutation

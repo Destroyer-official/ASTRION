@@ -522,6 +522,11 @@ const panel = createPanel(document.getElementById('panel')!, store, {
       vel: [client.display.vel[3 * idx]!, client.display.vel[3 * idx + 1]!, client.display.vel[3 * idx + 2]!] as [number, number, number],
     };
   },
+  getFullState: () => ({
+    state: client.display,
+    bodyIds: model.ids,
+    bodyNames: model.names,
+  }),
 });
 health.update('ui', 'ok', 'panel controls bound');
 

@@ -74,6 +74,7 @@ export class Engine {
     const d = Math.max(-limit, Math.min(limit, days));
     const steps = Math.max(1, Math.ceil(Math.abs(d) / this.maxDt));
     const dt = d / steps;
+    let executed = 0;
     for (let i = 0; i < steps; i++) {
       this.integrator.step(this.state, this.forces, dt);
       if (this.onStep) this.onStep(this.state);
@@ -81,8 +82,9 @@ export class Engine {
         this.diverged = true;
         break;
       }
+      executed = i + 1;
     }
-    return d;
+    return dt * executed; // the days actually stepped; halts on the first non-finite state
   }
 
   /** True once a step has produced a non-finite state; stepping is then halted until rebase(). */
