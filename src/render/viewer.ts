@@ -1153,7 +1153,16 @@ export function createViewer(
     if (v.showMilkyWay !== false) {
       galaxyVisual.setVisible(true);
       const isLocalPlanetaryFrame = v.frame.id.startsWith('body:') && v.frame.id !== 'body:sun';
-      const showGalacticTail = !isLocalPlanetaryFrame && (v.showOrbitPaths !== false || v.trails !== false);
+      const isGalacticContext =
+        isGalacticOverview ||
+        isGalFrame ||
+        v.galactocentric ||
+        v.presetCategory === 'galaxy' ||
+        camDistToSun >= 350;
+      const showGalacticTail =
+        !isLocalPlanetaryFrame &&
+        isGalacticContext &&
+        (v.showOrbitPaths !== false || v.trails !== false);
 
       galaxyVisual.setUnifiedMode(camDistToSun, v.showGalacticHalo !== false, showGalacticTail);
       galaxyVisual.setOrbitLineVisible(showGalacticTail);

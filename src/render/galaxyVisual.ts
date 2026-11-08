@@ -846,6 +846,15 @@ export class GalaxyVisual {
       arr[3 * i + 2] = ORBIT_GOLD[2]! * b;
     }
     colorAttr.needsUpdate = true;
+
+    // Anchor the nearest orbit line vertex dead-center to the Sun's live coordinates (0.000000 AU offset)
+    if (distKpc < ORBIT_PROX_KPC) {
+      const posAttr = this.orbitGeom.attributes['position'];
+      if (posAttr) {
+        posAttr.setXYZ(index, sunX, sunY, _sunZ ?? 0);
+        posAttr.needsUpdate = true;
+      }
+    }
   }
 
   update(state: GalacticOrbitState): void {

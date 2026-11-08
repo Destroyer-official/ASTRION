@@ -257,6 +257,7 @@ Object.assign(window, { __viewer: viewer, __galaxySim: galaxySim, __store: store
 
 // Precompute full 500 Myr galactic orbit path and supply to viewer (0.1 Myr step, symmetrical past & future for live wake)
 viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
+let lastGalacticOrbitPathTMyr = galaxySim.getState().tMyr;
 // Live rotation curve: disk stars orbit at the Vc(R) the Sun itself feels,
 // so the whole galaxy co-moves differentially instead of spinning rigidly.
 const syncRotationCurve = () => viewer.setGalaxyRotationCurve((r) => galaxySim.pot.circularSpeedKms(r));
@@ -504,7 +505,11 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     const eyesUrl = horizonsClient.getEyesUrl(curDate, target);
     window.open(eyesUrl, '_blank', 'noopener,noreferrer');
   },
-  onGalaxyReset: () => galaxySim.reset(),
+  onGalaxyReset: () => {
+    galaxySim.reset();
+    lastGalacticOrbitPathTMyr = galaxySim.getState().tMyr;
+    viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
+  },
   onGalaxyCamera: (cam) =>
     viewer.setGalaxyView(cam, frameById.get(store.get().frame), galaxySim.getState(), store.get().galaxyZExag),
   onGalaxyModelChange: (modelId) => {
@@ -512,6 +517,7 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     const lsr = galModel?.lsrKms ?? 220;
     const r0 = galModel?.r0Kpc ?? 8.2;
     galaxySim.setLsrSpeed(lsr, r0);
+    lastGalacticOrbitPathTMyr = galaxySim.getState().tMyr;
     viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
     syncRotationCurve();
     frames = buildFrames(model.ids, model.names, lsr);
@@ -619,6 +625,11 @@ function frame(now: number) {
   // Step both galactic motion and planetary & moon dynamics simultaneously
   if (s.playing) {
     galaxySim.step(s.galaxySpeed * dtReal * (s.reversed ? -1 : 1));
+    const galT = galaxySim.getState().tMyr;
+    if (Math.abs(galT - lastGalacticOrbitPathTMyr) >= 0.5) {
+      lastGalacticOrbitPathTMyr = galT;
+      viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
+    }
   }
 
   if (s.dynamicsMode === 'ephemeris') {

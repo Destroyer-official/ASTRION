@@ -26,10 +26,14 @@ describe('galaxy orbit alignment and guide lines', () => {
     gv.setVerticalExaggeration(3.0);
     expect(gv.getVerticalExaggeration()).toBe(3.0);
 
-    // Run across multiple time steps
-    for (const stepMyr of [0, 1.25, 15.7, 45.2]) {
+    // Run across multiple time steps, including long-term simulated evolution (e.g. 872 Myr)
+    for (const stepMyr of [0, 1.25, 15.7, 45.2, 250, 872]) {
       if (stepMyr > 0) sim.step(stepMyr);
       const state = sim.getState();
+
+      // Refresh path anchored at current state
+      const livePath = sim.generateOrbitPath(500, 0.5, 0.5);
+      gv.setOrbitPath(livePath);
 
       const sunGalX = state.x;
       const sunGalY = state.y;
@@ -61,8 +65,8 @@ describe('galaxy orbit alignment and guide lines', () => {
         if (d < minOrbitDist) minOrbitDist = d;
       }
 
-      // Distance from Sun to the continuous orbit line must be within the discrete step resolution (< 4 AU)
-      expect(minOrbitDist).toBeLessThan(4.0);
+      // Distance from Sun to the live-anchored orbit line is dead-center (virtually 0 AU)
+      expect(minOrbitDist).toBeLessThan(1e-4);
     }
   });
 

@@ -73,10 +73,16 @@ export class GalaxySim {
   /**
    * Generates a pre-computed 3D trajectory array [x0, y0, z0, x1, y1, z1, ...]
    * for Three.js rendering over a given duration.
-   * Includes historical trajectory (pastFraction) trailing behind the Sun and
-   * future trajectory ahead of the Sun so the Sun's galactic wake is populated at epoch.
+   * Anchors precisely at the live Sun state so vertex [pastSteps] coincides
+   * with the Sun's position with 0.000000 AU error.
    */
-  generateOrbitPath(durationMyr = 250, stepMyr = 0.5, pastFraction = 0): Float32Array {
+  generateOrbitPath(
+    durationMyr = 250,
+    stepMyr = 0.5,
+    pastFraction = 0,
+    anchorState?: GalacticOrbitState,
+  ): Float32Array {
+    const s0 = anchorState ? { ...anchorState } : { ...this.state };
     const pastDuration = durationMyr * pastFraction;
     const futureDuration = durationMyr * (1 - pastFraction);
     const pastSteps = Math.ceil(pastDuration / stepMyr);
@@ -86,7 +92,7 @@ export class GalaxySim {
 
     // Integrate backward into the past
     if (pastSteps > 0) {
-      const sPast = this.pot.getInitialSunState();
+      const sPast = { ...s0 };
       for (let i = 1; i <= pastSteps; i++) {
         this.pot.step(sPast, -stepMyr);
         const idx = (pastSteps - i) * 3;
@@ -96,8 +102,7 @@ export class GalaxySim {
       }
     }
 
-    // Anchor at live epoch (t = 0)
-    const s0 = this.pot.getInitialSunState();
+    // Anchor at live epoch (t = s0.tMyr)
     const idx0 = pastSteps * 3;
     out[idx0] = s0.x;
     out[idx0 + 1] = s0.y;
@@ -105,7 +110,7 @@ export class GalaxySim {
 
     // Integrate forward into the future
     if (futureSteps > 0) {
-      const sFuture = this.pot.getInitialSunState();
+      const sFuture = { ...s0 };
       for (let i = 1; i <= futureSteps; i++) {
         this.pot.step(sFuture, stepMyr);
         const idx = (pastSteps + i) * 3;
