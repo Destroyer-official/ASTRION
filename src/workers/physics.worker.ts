@@ -1,5 +1,5 @@
 import { SimCore } from '@/sim/simCore';
-import type { ToWorker } from '@/sim/protocol';
+import { validateToWorker, type ToWorker } from '@/sim/protocol';
 import { CONSOLE_LOG_SINK, Logger } from '@/observability';
 
 const logger = new Logger('physics-worker', CONSOLE_LOG_SINK);
@@ -7,7 +7,12 @@ const core = new SimCore();
 
 self.onmessage = (e: MessageEvent<ToWorker>) => {
   try {
-    const out = core.handle(e.data);
+    const val = validateToWorker(e.data);
+    if (!val.valid) {
+      logger.log('warn', 'rejected malformed worker message', { error: val.error });
+      return;
+    }
+    const out = core.handle(val.data);
     if (out) {
       self.postMessage(out, {
         transfer: [

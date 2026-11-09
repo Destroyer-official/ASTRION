@@ -1,6 +1,8 @@
 import type { BodyJson, PhysicalJson } from '@/data/schema';
 import type { PhysicsConfig, IntegratorName } from './config';
 
+export const PROTOCOL_VERSION = 1;
+
 export type ToWorker =
   | {
       type: 'init';
@@ -66,4 +68,51 @@ export interface Frame {
   invariantOk: boolean;
   invariantViolations: readonly string[];
   baryDist: Float64Array; // each body's distance to the system center of mass, AU
+}
+
+export function validateToWorker(msg: unknown): { valid: true; data: ToWorker } | { valid: false; error: string } {
+  if (!msg || typeof msg !== 'object') {
+    return { valid: false, error: 'Message must be a non-null object' };
+  }
+  const m = msg as Record<string, unknown>;
+  if (typeof m['type'] !== 'string') {
+    return { valid: false, error: 'Message missing required string property "type"' };
+  }
+
+  switch (m['type']) {
+    case 'init':
+      if (m['historyIntervalDays'] !== undefined && typeof m['historyIntervalDays'] !== 'number') {
+        return { valid: false, error: 'init: historyIntervalDays must be a number' };
+      }
+      return { valid: true, data: msg as ToWorker };
+    case 'setPhysics':
+      return { valid: true, data: msg as ToWorker };
+    case 'advance':
+      if (typeof m['gen'] !== 'number' || typeof m['days'] !== 'number') {
+        return { valid: false, error: 'advance: gen and days must be numbers' };
+      }
+      return { valid: true, data: msg as ToWorker };
+    case 'seek':
+      if (typeof m['gen'] !== 'number' || typeof m['t'] !== 'number') {
+        return { valid: false, error: 'seek: gen and t must be numbers' };
+      }
+      return { valid: true, data: msg as ToWorker };
+    case 'reset':
+      if (typeof m['gen'] !== 'number') {
+        return { valid: false, error: 'reset: gen must be a number' };
+      }
+      return { valid: true, data: msg as ToWorker };
+    case 'load':
+      if (
+        typeof m['gen'] !== 'number' ||
+        typeof m['t'] !== 'number' ||
+        !(m['pos'] instanceof Float64Array) ||
+        !(m['vel'] instanceof Float64Array)
+      ) {
+        return { valid: false, error: 'load: requires numeric gen, t and Float64Array pos, vel' };
+      }
+      return { valid: true, data: msg as ToWorker };
+    default:
+      return { valid: false, error: `Unknown message type: "${String(m['type'])}"` };
+  }
 }
