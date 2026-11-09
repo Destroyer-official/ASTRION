@@ -17,6 +17,7 @@ import { computeBodyFacts } from '@/sim/facts';
 import { GALAXY_MODELS } from '@/data/galaxy';
 import { horizonsClient } from '@/sim/horizonsClient';
 import { CONSOLE_LOG_SINK, HealthRegistry, Logger, type ModuleHealth } from '@/observability';
+import { runSelfTest } from '@/sim/selfTest';
 
 const HISTORY_CAP = 20_000;
 const MAX_JUMP_DAYS = 73_050;
@@ -38,6 +39,20 @@ const health = new HealthRegistry({
 });
 health.register('render');
 health.register('ui');
+
+const bootSelfTest = runSelfTest(health);
+if (bootSelfTest.passed) {
+  logger.log('info', 'boot self-test passed', {
+    totalDurationMs: bootSelfTest.totalDurationMs,
+    modules: Object.keys(bootSelfTest.modules).join(','),
+  });
+} else {
+  logger.log('error', 'boot self-test failed', {
+    modules: Object.entries(bootSelfTest.modules)
+      .map(([k, v]) => `${k}:${v.status}`)
+      .join(','),
+  });
+}
 
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
@@ -684,26 +699,31 @@ function frame(now: number) {
 
   if (frameNo++ % 6 === 0) {
     const selectedFacts = s.selected ? computeBodyFacts(s.selected, client.display, model) : null;
-    panel.update({
-      dateUtc: jdToDate(model.epochJd + client.display.t).toISOString().slice(0, 19) + ' UTC',
-      jd: model.epochJd + client.display.t,
-      sunBaryAu: client.baryDist[sun]!,
-      sunSpeedKms: sunSpeedKms(s.frame),
-      energyDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.energyDrift,
-      angMomDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.angMomDrift,
-      comDriftAu: s.dynamicsMode === 'ephemeris' ? 0 : client.comDrift,
-      invariantOk: s.dynamicsMode === 'ephemeris' ? true : client.invariantOk,
-      invariantViolations: s.dynamicsMode === 'ephemeris' ? [] : client.invariantViolations,
-      moduleHealth: health.snapshot(),
-      rows: relativeRows(client.display, model.names, sun),
-      busy: client.busy,
-      workerFault: client.workerDead,
-      fps: fpsEma,
-      quality: qualityLevel,
-      selectedFacts,
-      galaxyReadout: galaxySim.computeReadout(),
-      cameraDistanceAu: viewer.getCameraDistance(),
-    });
+    try {
+      panel.update({
+        dateUtc: jdToDate(model.epochJd + client.display.t).toISOString().slice(0, 19) + ' UTC',
+        jd: model.epochJd + client.display.t,
+        sunBaryAu: client.baryDist[sun]!,
+        sunSpeedKms: sunSpeedKms(s.frame),
+        energyDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.energyDrift,
+        angMomDrift: s.dynamicsMode === 'ephemeris' ? 0 : client.angMomDrift,
+        comDriftAu: s.dynamicsMode === 'ephemeris' ? 0 : client.comDrift,
+        invariantOk: s.dynamicsMode === 'ephemeris' ? true : client.invariantOk,
+        invariantViolations: s.dynamicsMode === 'ephemeris' ? [] : client.invariantViolations,
+        moduleHealth: health.snapshot(),
+        rows: relativeRows(client.display, model.names, sun),
+        busy: client.busy,
+        workerFault: client.workerDead,
+        fps: fpsEma,
+        quality: qualityLevel,
+        selectedFacts,
+        galaxyReadout: galaxySim.computeReadout(),
+        cameraDistanceAu: viewer.getCameraDistance(),
+      });
+    } catch (err) {
+      logger.log('error', 'panel update failed', { error: String(err) });
+      health.update('ui', 'degraded', `panel update fault: ${String(err)}`);
+    }
   }
 }
 
@@ -743,6 +763,7 @@ if (typeof window !== 'undefined') {
     __model: model,
     __logger: logger,
     __health: health,
+    __selfTest: runSelfTest,
   });
 }
 

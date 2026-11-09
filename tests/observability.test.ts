@@ -7,6 +7,7 @@ import {
   evaluateSimulationMetrics,
   type LogRecord,
 } from '@/observability';
+import { runSelfTest } from '@/sim/selfTest';
 
 describe('structured logger', () => {
   it('filters records below the configured level and preserves tags and fields', () => {
@@ -76,3 +77,25 @@ describe('simulation invariant checks', () => {
     ]);
   });
 });
+
+describe('runtime self-test suite (AUDIT-36)', () => {
+  it('executes all module self-tests and updates health registry to ok', () => {
+    const health = new HealthRegistry();
+    const result = runSelfTest(health);
+
+    expect(result.passed).toBe(true);
+    expect(result.totalDurationMs).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(result.modules)).toEqual([
+      'time-conversion',
+      'physical-constants',
+      'symplectic-stepper',
+      'galactic-potential',
+    ]);
+
+    for (const [mod, modRes] of Object.entries(result.modules)) {
+      expect(modRes.status).toBe('ok');
+      expect(health.get(mod).status).toBe('ok');
+    }
+  });
+});
+

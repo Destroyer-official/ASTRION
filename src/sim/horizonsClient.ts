@@ -125,25 +125,53 @@ export function buildHorizonsUrl(command: string, date: Date): string {
   return `https://ssd.jpl.nasa.gov/api/horizons.api?${params.toString()}`;
 }
 
+export interface HorizonsClientOptions {
+  timeoutMs?: number;
+  maxParallel?: number;
+  fetchFn?: typeof fetch;
+  hostname?: string;
+  now?: () => number;
+}
+
 export class HorizonsClient {
   private cache = new Map<string, HorizonsVectorResult>();
   private readonly timeoutMs: number;
   private readonly maxParallel: number;
+  private readonly fetchFn: typeof fetch;
+  private readonly getHostname: () => string;
+  private readonly now: () => number;
   private offlineUntil = 0;
 
-  constructor(timeoutMs = 15_000, maxParallel = 4) {
-    this.timeoutMs = timeoutMs;
-    this.maxParallel = maxParallel;
+  constructor(optionsOrTimeout?: HorizonsClientOptions | number, maxParallel = 4) {
+    if (typeof optionsOrTimeout === 'number') {
+      this.timeoutMs = optionsOrTimeout;
+      this.maxParallel = maxParallel;
+      this.fetchFn = typeof fetch !== 'undefined' ? fetch.bind(globalThis) : (() => Promise.reject(new Error('fetch unavailable')));
+      this.getHostname = () => (typeof window !== 'undefined' && window.location ? window.location.hostname : '');
+      this.now = () => Date.now();
+    } else {
+      const opts = optionsOrTimeout ?? {};
+      this.timeoutMs = opts.timeoutMs ?? 15_000;
+      this.maxParallel = opts.maxParallel ?? 4;
+      this.fetchFn = opts.fetchFn ?? (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : (() => Promise.reject(new Error('fetch unavailable'))));
+      this.getHostname = opts.hostname != null ? () => opts.hostname! : () => (typeof window !== 'undefined' && window.location ? window.location.hostname : '');
+      this.now = opts.now ?? (() => Date.now());
+    }
+  }
+
+  /** Clears the in-memory response cache */
+  clearCache(): void {
+    this.cache.clear();
   }
 
   /** Checks if the client is currently in offline/unreachable cooldown */
   isOffline(): boolean {
-    return Date.now() < this.offlineUntil;
+    return this.now() < this.offlineUntil;
   }
 
   /** Triggers a cooldown during which network calls are skipped in favor of local truth data */
   markOffline(durationMs = 30_000): void {
-    this.offlineUntil = Date.now() + durationMs;
+    this.offlineUntil = this.now() + durationMs;
   }
 
   /**
@@ -165,12 +193,12 @@ export class HorizonsClient {
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
     try {
       const fullUrl = buildHorizonsUrl(cmd, date);
+      const host = this.getHostname();
       const url =
-        typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        (host === 'localhost' || host === '127.0.0.1')
           ? fullUrl.replace('https://ssd.jpl.nasa.gov/api/horizons.api', '/api/horizons')
           : fullUrl;
-      const res = await fetch(url, { headers: { Accept: 'text/plain' }, signal: ctrl.signal });
+      const res = await this.fetchFn(url, { headers: { Accept: 'text/plain' }, signal: ctrl.signal });
       if (!res.ok) {
         if (res.status === 503 || res.status === 502 || res.status === 504 || res.status === 429) {
           this.markOffline(30_000);
@@ -221,6 +249,10 @@ export class HorizonsClient {
     const t = target === 'sun' || target === 'barycenter' ? 'home' : target;
     return `https://eyes.nasa.gov/apps/solar-system/#/${encodeURIComponent(t)}?time=${encodeURIComponent(iso)}`;
   }
+}
+
+export function createHorizonsClient(options?: HorizonsClientOptions): HorizonsClient {
+  return new HorizonsClient(options);
 }
 
 export const horizonsClient = new HorizonsClient();

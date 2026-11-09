@@ -4,6 +4,7 @@ import {
   buildHorizonsUrl,
   HORIZONS_COMMANDS,
   horizonsClient,
+  createHorizonsClient,
 } from '@/sim/horizonsClient';
 import { AU_KM } from '@/data/constants';
 
@@ -112,5 +113,45 @@ $$EOE
     // Reset offline cooldown
     horizonsClient.markOffline(0);
     expect(horizonsClient.isOffline()).toBe(false);
+  });
+
+  it('supports dependency injection with custom fetchFn, hostname, and now (AUDIT-08)', async () => {
+    let requestedUrl = '';
+    const mockFetch: typeof fetch = (url) => {
+      requestedUrl = String(url);
+      return Promise.resolve(new Response(sampleSunText, { status: 200 }));
+    };
+
+    let simulatedTime = 1000;
+    const client = createHorizonsClient({
+      fetchFn: mockFetch,
+      hostname: 'localhost',
+      now: () => simulatedTime,
+      timeoutMs: 5000,
+    });
+
+    const vec = await client.fetchVector('sun', new Date('2026-10-07T00:00:00Z'));
+    expect(vec).not.toBeNull();
+    expect(vec!.bodyId).toBe('sun');
+    // Localhost routes through proxy /api/horizons
+    expect(requestedUrl).toContain('/api/horizons');
+
+    // Cache hit: subsequent fetch should not trigger fetchFn again
+    requestedUrl = '';
+    const cached = await client.fetchVector('sun', new Date('2026-10-07T00:00:00Z'));
+    expect(cached).toBe(vec);
+    expect(requestedUrl).toBe('');
+
+    // Clear cache
+    client.clearCache();
+    await client.fetchVector('sun', new Date('2026-10-07T00:00:00Z'));
+    expect(requestedUrl).toContain('/api/horizons');
+
+    // Offline cooldown with custom now()
+    expect(client.isOffline()).toBe(false);
+    client.markOffline(5000);
+    expect(client.isOffline()).toBe(true);
+    simulatedTime += 6000;
+    expect(client.isOffline()).toBe(false);
   });
 });

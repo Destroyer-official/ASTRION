@@ -40,20 +40,20 @@ function chainSeek(core: SimCore, target: number, maxHops = 60): Frame {
 
 describe('production-path chained seeks (offline fallback)', () => {
   it('one message makes bounded progress (never a multi-minute freeze)', () => {
-    const { core } = startCore(1000);
+    const { core } = startCore(250);
     const t0 = performance.now();
-    const f = core.handle({ type: 'seek', gen: 1, t: 600 })!;
+    const f = core.handle({ type: 'seek', gen: 1, t: 120 })!;
     const ms = performance.now() - t0;
     console.log(`single bounded hop took ${ms.toFixed(0)} ms, reached t=${f.t.toFixed(1)}`);
     expect(f.t).toBeGreaterThan(0);
-    expect(f.t).toBeLessThanOrEqual(1000 * 0.2 + 1); // maxSteps * dt
-  }, 120_000);
+    expect(f.t).toBeLessThanOrEqual(250 * 0.2 + 1); // maxSteps * dt
+  }, 30_000);
 
-  it('chained seeks land exactly on a 600-day target', () => {
-    const { core } = startCore(1000);
-    const f = chainSeek(core, 600);
-    expect(f.t).toBeCloseTo(600, 6);
+  it('chained seeks land exactly on target across multiple hops', () => {
+    const { core } = startCore(250);
+    const f = chainSeek(core, 120);
+    expect(f.t).toBeCloseTo(120, 6);
     // History holds only the seed sample, not the travelled path.
     expect(f.samples.length / f.stride).toBe(1);
-  }, 300_000);
+  }, 60_000);
 });

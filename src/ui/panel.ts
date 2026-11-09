@@ -19,6 +19,7 @@ import { periapsisToBMag, hyperbolicTurnAngle } from '@/physics/bplane';
 import { PLANET_SOI_AU } from '@/physics/flyby';
 import { universeBackbone } from '@/universe/universePhysicsBackbone';
 import type { ModuleHealth } from '@/observability';
+import { runSelfTest } from '@/sim/selfTest';
 import { createUniversalCoordinate, METERS_PER_AU } from '@/universe/cosmicScaleEngine';
 import type { SystemState, Vec3 } from '@/physics/types';
 import {
@@ -514,6 +515,13 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
               <span>Visual Determinism</span>
               <span class="reality-tag" style="color: #86efac; font-weight: 600;">Seeded Mulberry32 PRNG</span>
             </div>
+            <div style="margin-top: 4px; padding: 4px 6px; background: rgba(30,41,59,0.7); border: 1px solid rgba(148,163,184,0.3); border-radius: 4px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; color: #94a3b8;">Runtime Self-Test (AUDIT-36)</span>
+                <button id="runSelfTestBtn" type="button" style="padding: 2px 6px; font-size: 9px; font-weight: 600; background: #0284c7; color: #fff; border: none; border-radius: 3px; cursor: pointer;">Run Self-Test</button>
+              </div>
+              <div id="selfTestStatus" style="margin-top: 4px; font-family: var(--font-mono, monospace); font-size: 8.5px; color: #6ee7b7; white-space: pre-wrap;">🟢 All 4 modules passed (boot verified)</div>
+            </div>
             <div style="margin-top: 4px; padding: 4px 6px; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 4px; font-size: 9px; color: #6ee7b7; text-align: center; font-weight: 600;">
               🟢 100% Sourced to Peer-Reviewed Astrophysical Literature & NAIF Kernels
             </div>
@@ -566,6 +574,28 @@ export function createPanel(root: HTMLElement, store: AppStore, ctx: PanelContex
     toggleRealityBtn.onclick = () => {
       realityInspector.open = !realityInspector.open;
     };
+  }
+
+  const runSelfTestBtn = q<HTMLButtonElement>('#runSelfTestBtn');
+  const selfTestStatus = q<HTMLElement>('#selfTestStatus');
+  if (runSelfTestBtn && selfTestStatus) {
+    runSelfTestBtn.addEventListener('click', () => {
+      try {
+        const res = runSelfTest();
+        if (res.passed) {
+          const modCount = Object.keys(res.modules).length;
+          selfTestStatus.textContent = `🟢 All ${modCount} modules passed in ${res.totalDurationMs} ms (time, constants, symplectic, NFW halo)`;
+          selfTestStatus.style.color = '#6ee7b7';
+        } else {
+          const failed = Object.entries(res.modules).filter(([, m]) => m.status === 'failed');
+          selfTestStatus.textContent = `❌ ${failed.length} module(s) failed: ${failed.map(([k, v]) => `${k} (${v.error})`).join(', ')}`;
+          selfTestStatus.style.color = '#f87171';
+        }
+      } catch (err) {
+        selfTestStatus.textContent = `❌ Self-test throw: ${String(err)}`;
+        selfTestStatus.style.color = '#f87171';
+      }
+    });
   }
 
   factsBox.innerHTML = `

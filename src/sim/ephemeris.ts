@@ -9,7 +9,7 @@ import { GeneralRelativity } from '@/physics/forces/relativity';
 import { SolarQuadrupole } from '@/physics/forces/quadrupole';
 import type { SystemState } from '@/physics/types';
 import type { SystemModel } from './registry';
-import { horizonsClient } from './horizonsClient';
+import { HorizonsClient, horizonsClient } from './horizonsClient';
 
 export interface EphemerisWindow {
   min: number;
@@ -61,13 +61,15 @@ function bracketIndex(t: Float64Array, time: number): number {
 
 export class EphemerisProvider {
   private readonly model: SystemModel;
+  private readonly client: HorizonsClient;
   private readonly anchors: AnchorSample[];
   private tracks: Map<string, BodyTrack>;
   private fineSpans = new Map<string, { min: number; max: number }>();
   private validationCache: ValidationRow[] | null = null;
 
-  constructor(model: SystemModel) {
+  constructor(model: SystemModel, client?: HorizonsClient) {
     this.model = model;
+    this.client = client ?? horizonsClient;
 
     // Anchor at t = 0 from initial model state (positions AND velocities: exact)
     const t0Bodies: Record<string, number[]> = {};
@@ -338,7 +340,7 @@ export class EphemerisProvider {
     const supportedForAnchors = this.isWithinValidatedWindow(targetDays);
 
     try {
-      const liveVectors = await horizonsClient.fetchSystem(this.model.ids, targetDate);
+      const liveVectors = await this.client.fetchSystem(this.model.ids, targetDate);
       const keys = Object.keys(liveVectors);
       if (keys.length >= 8) {
         const newBodies: Record<string, number[]> = {};
