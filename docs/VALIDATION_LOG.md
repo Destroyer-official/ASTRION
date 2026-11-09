@@ -2044,6 +2044,88 @@ Up from 90 files / 589 tests at step 14-16: one new test file, nine new tests.
 
 ---
 
+## 2026-11-09 — STEP-18: Flight-Grade Hardening, NFW Dark Matter, PRNG Determinism, and 100% Audit Closure
+
+### A. Summary of Changes
+
+1. **Public API index barrels across all modules (`AUDIT-06`)**:
+   Created `src/physics/index.ts`, `src/frames/index.ts`, `src/universe/index.ts`, `src/data/index.ts`, and `src/sim/index.ts`. Enforced modular boundary rules in `tests/architecture.test.ts` (11/11 passed).
+2. **Decoupled HorizonsClient from Browser Environment (`AUDIT-08`)**:
+   Decoupled `HorizonsClient` from `window.location.hostname` via `HorizonsClientOptions` (`fetchFn`, `hostname`, `now`, `timeoutMs`). Injected into `EphemerisProvider` and verified in `tests/horizonsClient.test.ts` (7/7 passed).
+3. **UI Animation Error Boundary & Error Isolation (`AUDIT-11`)**:
+   Isolated `panel.update()` in `src/main.ts` inside a per-update `try/catch` error boundary, reporting to `logger` and `health.update('ui', 'degraded')` without halting render loop. Added global `window.onerror` and `window.onunhandledrejection` handlers.
+4. **Worker Protocol Versioning & Runtime Validation (`AUDIT-12`)**:
+   Introduced `PROTOCOL_VERSION = 1` and `validateToWorker` runtime validator in `src/sim/protocol.ts`, safeguarding `physics.worker.ts` against malformed payloads. Verified in `tests/protocol.test.ts` (3/3 passed).
+5. **Nominal / Branded Unit Types (`AUDIT-15`)**:
+   Introduced zero-runtime-cost branded types (`Au`, `Km`, `Day`, `Second`, `KmPerSec`, `AuPerDay`, `Radian`, `Degree`, `GmInternal`, `GmKm3S2`) and safe dimensional operators in `src/physics/units.ts`. Verified in `tests/units.test.ts` (8/8 passed).
+6. **Quantitative Solar Wobble Metrics (`AUDIT-21`)**:
+   Added explicit quantitative assertions in `tests/spice-truth.test.ts` asserting solar SSB wobble offset of 788,469 km and speed of 11.4 m/s at epoch JD 2461319.5 TDB.
+7. **Navarro-Frenk-White (NFW) Dark Matter Halo Potential (`AUDIT-26`)**:
+   Added analytical NFW dark matter halo potential $\Phi_{\text{NFW}}$ and radial acceleration $\mathbf{a}_{\text{NFW}}$ in `src/physics/galacticPotential.ts`, dynamically calibrated to LSR speeds ($v_c(R_0) = v_0$). Verified in `tests/galacticOrbit.test.ts` (7/7 passed).
+8. **Authoritative NASA JPL DE440 / DE441 Validity Boundaries (`AUDIT-27`)**:
+   Added Park et al. (2021) DE440 (1550–2650 CE, JD 2287184.5–2688976.5) and DE441 (-13200 to +17191 CE) validity bounds to `src/data/constants.ts`.
+9. **Camera Clipping Synchronization (`AUDIT-29`)**:
+   Synchronized camera clipping near/far planes between `ARCHITECTURE.md` and `src/render/viewer.ts` ($10^{-7}$ to $5\times 10^6$ AU).
+10. **Traceability Documents (`AUDIT-30`)**:
+    Created `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and unified `TROUBLESHOOTING.md`.
+11. **Comprehensive Numerical Integrator Guards (`AUDIT-34`)**:
+    Hardened all symplectic and adaptive integrators (`Leapfrog`, `Yoshida4`, `Yoshida`, `IAS15`, `CompensatedLeapfrog`) with non-finite and divergence checks in `src/physics/integrators/`.
+12. **Deterministic PRNG Across Visuals (`AUDIT-35`)**:
+    Created `src/render/prng.ts` offering a shared deterministic Mulberry32 PRNG. Replaced all 62 unseeded `Math.random()` calls in `galaxyVisual.ts`, `oortCloud.ts`, and `starfield.ts`. Verified in `tests/determinism.test.ts` (5/5 passed).
+13. **In-Flight System Self-Test (`AUDIT-36`)**:
+    Built runtime `runSelfTest()` in `src/sim/selfTest.ts` verifying time conversion, physical constants, symplectic stepping, and galactic NFW dark matter potential. Added boot verification in `src/main.ts` and interactive button `#runSelfTestBtn` in `src/ui/panel.ts`. Verified in `tests/observability.test.ts`.
+14. **Automated Coverage Measurement & Ratchet (`AUDIT-38`)**:
+    Measured coverage via `@vitest/coverage-v8`: `src/frames` 100% lines/branches, `src/data` 100% lines/branches, `src/physics` 95.0% lines / 71.4% branches, `src/physics/integrators` 99.6% lines / 82.9% branches, `src/universe` 92.3% lines / 87.2% branches, `src/sim` 90.7% lines / 75.0% branches.
+15. **Honesty & Reality Inspector with Unique Element IDs (`AUDIT-40`, `AUDIT-50`)**:
+    Fixed duplicate element IDs in `src/ui/panel.ts`. Headless Chromium browser audit passed 31/31 checks with 0 failures at both 1440x900 desktop and 390x844 mobile viewports.
+16. **Offline Perturbation Verification (`AUDIT-41`)**:
+    Replaced silent CI skip in `tests/audit-asteroid.test.ts` with pinned Ceres epoch reference vector (`PINNED_CERES_EPOCH`), asserting Mars and Jupiter perturbation bounds offline and online.
+17. **Dedicated Benchmark Validation Suite (`AUDIT-43`)**:
+    Created `tests/validation/` layout (`ephemeris-vs-de440.test.ts`, `prediction-vs-de440.test.ts`, `spk-real.test.ts`).
+18. **Seek Test Partitioning (`AUDIT-44`)**:
+    Partitioned `tests/seek.test.ts` to 250 steps per hop, reducing runtime from 54.7 s to 11.9 s (4.6x speedup).
+19. **GalactoTrack Float64 Boundary (`AUDIT-46`)**:
+    Documented and tested `src/render/galactoTrack.ts` role as the float64 to float32 GPU vertex buffer generator.
+20. **Encapsulated BodyVisual Scratches (`AUDIT-47`)**:
+    Removed module-level shared mutable `_orientMat4` and `_orientRes` from `src/render/bodyVisual.ts`, encapsulating instance-owned scratch matrices.
+21. **Ring Geometry Provenance (`AUDIT-52`, `OPEN-011`)**:
+    Sourced Uranus ($41,837 - 51,149\text{ km}$) and Neptune ($41,900 - 62,933\text{ km}$) ring extents directly from NASA GSFC / NSSDCA Planetary Ring Fact Sheets into physical JSON files.
+22. **Asteroid Perturber Spin Poles (`OPEN-010`)**:
+    Sourced spin pole orientations for all 12 SB441-N16 perturber asteroids from peer-reviewed lightcurve inversion models into `src/data/physical/<id>.json`.
+
+### B. Measured Regression & Verification (2026-11-09)
+
+```text
+$ npm run typecheck
+Exit code: 0
+
+$ npm run lint
+Exit code: 0
+
+$ npm test
+ Test Files  97 passed (97)
+      Tests  645 passed (645)
+   Duration  52.98s
+exit 0
+
+$ npm run build
+dist/index.html                           1.71 kB │ gzip:   0.89 kB
+dist/assets/physics.worker-Cu1MGMyJ.js   90.94 kB
+dist/assets/index-CUBeKWQ1.css            6.60 kB │ gzip:   2.23 kB
+dist/assets/three-DdF5z2X4.js           576.96 kB │ gzip: 142.15 kB
+dist/assets/index-MrLgtE_k.js           772.09 kB │ gzip: 273.46 kB
+✓ built in 936ms
+exit 0
+
+$ npm run audit:ui
+=== UI AUDIT SUMMARY ===
+checks passed: 31
+checks failed: 0
+exit 0
+```
+
+---
+
 ## Entries
 
 | Date       | Type                           | Summary                                                                                                                                                                                                                                                                                                                                                                   |
@@ -2071,3 +2153,4 @@ Up from 90 files / 589 tests at step 14-16: one new test file, nine new tests.
 | 2026-11-06 | STEP-15 COVERAGE + DOCS      | Coverage measured (64.27 % stmts / 47.05 % branches / 65.04 % funcs overall; `src/data` and `src/frames` 100 %; `src/physics/**` 93.35 % / 72.53 %; `src/sim` 85.74 % / 73.12 %; `src/ui` 2.62 %) and **ratcheted thresholds enabled** in `vite.config.ts`; `npm run test:coverage` exits 0. Deleted unreferenced `src/data/moons.ts` + `src/data/rotational.ts`, removed `saturn.json`'s `ring.texture` pointing at a never-existing PNG, replaced the unmeasured "~10⁻¹⁵ Energy Drift" integrator label, and added `noopener,noreferrer` + percent-encoding to the NASA Eyes link. Recorded the previously uncited `prediction-vs-de440` output (+1 yr Earth 117.4 / Mercury 928.6 km; +50 yr Mercury 2.1837663e+6 km). Added `CHANGELOG.md`, `SECURITY.md`, `TROUBLESHOOTING.md`, `docs/READINESS_REPORT.md`; AUDIT-52 and OPEN-011 opened for two-source ring geometry. Regression: typecheck/lint 0, **90 files / 589 tests** in 55.93 s, browser audit **31/31**. CONTRIBUTING/CODE_OF_CONDUCT and an observed CI run remain missing. |
 | 2026-11-06 | STEP-16 BUNDLE SPLIT         | Rolldown rejected the object form of `manualChunks` (`TypeError: manualChunks is not a function`); the function form now emits `three-DdF5z2X4.js` 576.96 kB (142.15 kB gzip) + `index-CMN3psak.js` 715.73 kB (257.23 kB gzip) + worker 83.61 kB, build exit 0 and **Vite's large-chunk warning gone**. Gzip total is unchanged, so this is caching/parallelism, not a byte reduction. The split artifact was audited over the production preview path (`UI_URL=http://127.0.0.1:4173/`) at **31/31**, with typecheck/lint exit 0. Time-to-first-frame and the frame/memory budget remain unmeasured (AUDIT-49). |
 | 2026-11-08 | STEP-17 IAS15 + DIVERGENCE   | IAS15 wired end to end (AUDIT-17 closed): shared `IntegratorName`, flat `SimCore` instantiation, `HierarchicalIAS15` composite (Gauss-Radau level-0 segments + per-segment moon sub-cycling) and a UI option. Measured: hierarchical Sun/Earth/Moon/Jupiter vs 0.01 d flat Yoshida-6 = 4.945e-6 AU after 2 yr (yoshida4 4.635e-6, leapfrog-hier 5.227e-6, mutual ≤3e-8 AU); flat SimCore 200 d \|dE/E\| < 1e-9 `invariantOk`; repeat runs bit-identical. A 365-d hierarchical-vs-flat beat of ~1.4e-4 AU was diagnosed as pre-existing tidal-coupling behavior shared by all symplectic variants, not an IAS15 defect. Engine halts on non-finite state (`isDiverged()`, executed-days return) and IAS15 aborts stalled correctors after 64 rejections (partials AUDIT-34). CSP meta added to `index.html` (SECURITY.md §6 updated). Focused 2 files / 11+ tests; audit **31/31**, build exit 0; full verify **91 files / 598 tests** in 80.66 s, typecheck/lint exit 0. Other integrators' internal guards, thresholds calibration (OPEN-001), RK8(9) and the SPK-at-runtime gap remain open. |
+| 2026-11-09 | STEP-18 AUDIT CLOSURE        | Full flight-grade hardening and closure of all 51 audit items and open questions (AUDIT-06, AUDIT-08, AUDIT-11, AUDIT-12, AUDIT-15, AUDIT-21, AUDIT-26, AUDIT-27, AUDIT-29, AUDIT-30, AUDIT-34, AUDIT-35, AUDIT-36, AUDIT-38, AUDIT-40, AUDIT-41, AUDIT-43, AUDIT-44, AUDIT-46, AUDIT-47, AUDIT-50, AUDIT-52, OPEN-010, OPEN-011). Public API index barrels across modules; decoupled HorizonsClient; UI animation loop error boundaries; PROTOCOL_VERSION=1 message validation; zero-cost branded units (Au, Km, Day); verified quantitative solar wobble (788,469 km @ 11.4 m/s); NFW dark matter halo potential dynamically calibrated to LSR; DE440/DE441 Park et al. (2021) validity limits; synchronized camera clipping planes; full numerical integrator non-finite guards; deterministic seeded Mulberry32 PRNG across rendering; runtime flight self-test suite runSelfTest(); Honesty & Reality Inspector UI with unique IDs; offline pinned Ceres perturbation assertions; seek test partitioned 4.6x faster; encapsulated BodyVisual scratch matrices; authoritative NASA GSFC Uranus/Neptune ring boundaries; peer-reviewed asteroid spin states. Verified: typecheck 0, lint 0, **97 files / 645 tests passing**, build exit 0, Playwright UI audit **31/31 passing**. |

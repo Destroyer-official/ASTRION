@@ -58,18 +58,19 @@ integrators are actually selectable at runtime (IAS15 became one of them on
 
 ### 2.1 Measured runs and test status
 
-- **2026-11-06 local run: 90 files / 589 tests in 53.89 s; GitHub Actions status is not
+- **2026-11-09 local run: 97 files / 645 tests in 47.99 s; GitHub Actions status is not
   claimed here.** That count includes the kernel-gated suites under
   `tests/validation/`, which ran because the MD5-verified DE kernels were present in the
   gitignored cache — on a machine without them those suites skip, so the count is
   machine-dependent by design. In the same local context `npm run typecheck`,
   `npm run lint` and `npm run build` each exited 0 (full transcripts are in
   [`docs/VALIDATION_LOG.md`](./docs/VALIDATION_LOG.md)).
-- **Coverage (measured 2026-11-06, `npm run test:coverage`):** whole tree 64.28 %
-  statements / 47.05 % branches / 65.05 % functions; `src/data` and `src/frames` 100 %;
-  `src/physics/**` 93.35 % / 72.53 %; `src/universe` 91.50 % / 87.20 %; `src/sim`
-  85.75 % / 73.13 %; `src/observability` 87.50 % / 71.11 %; `src/render` 39.71 % /
-  28.05 %; `src/ui` 2.62 % / 2.17 %. Per-directory thresholds are now **enabled** in
+- **Coverage (measured 2026-11-09, `npm run test:coverage`):** whole tree 66.69 %
+  statements / 47.96 % branches / 64.49 % functions / 67.46 % lines; `src/data` and `src/frames` 100 %;
+  `src/physics/**` 95.00 % lines / 71.42 % branches; `src/physics/integrators` 99.58 % lines / 82.85 % branches;
+  `src/physics/forces` 96.80 % lines / 73.85 % branches; `src/universe` 92.26 % lines / 87.19 % branches; `src/sim`
+  90.68 % lines / 75.02 % branches; `src/observability` 91.66 % lines / 71.11 % branches; `src/render` 50.46 % lines /
+  34.42 % branches; `src/ui` 2.05 % lines / 1.56 % branches. Per-directory thresholds are enabled in
   `vite.config.ts` as a ratchet set a few points below these measurements; no floor is
   placed on `render`/`ui` because that layer is exercised by the browser audit instead.
 - A real-browser UI audit was run locally and passed **31/31 checks** at desktop and
@@ -254,7 +255,7 @@ $\Phi(R, z) = \Phi_{\text{bulge}} + \Phi_{\text{disc}} + \Phi_{\text{halo}}$:
 
 ## 3. What is measured vs what remains unverified
 
-The suite (2026-11-06 local run: **90 files / 589 tests**; no CI claim) enforces the
+The suite (2026-11-09 local run: **97 files / 645 tests**; no CI claim) enforces the
 assertions below. "Assertion" means the bound hard-coded in the test; it is _not_ a
 measured error figure, and no tighter value is retained anywhere.
 
@@ -429,7 +430,7 @@ Navigate to `http://localhost:5173` in your browser.
 ```bash
 npm run typecheck        # tsc --noEmit (strict, noUncheckedIndexedAccess, erasableSyntaxOnly)
 npm run lint             # ESLint over src, tests, vite.config.ts
-npm test                 # vitest run (2026-11-06 local run: 90 files / 589 tests)
+npm test                 # vitest run (2026-11-09 local run: 97 files / 645 tests)
 npm run test:coverage    # vitest --coverage (instrumented; slow, ~150 s)
 npm run verify           # typecheck + lint + test
 npm run verify:prod      # typecheck + lint + test + production build
