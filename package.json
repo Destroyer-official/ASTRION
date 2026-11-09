@@ -1,6 +1,6 @@
 {
   "name": "astrion",
-  "description": "Astronomical State & Trajectory Reconstruction Engine for Interplanetary & Orbital Navigation",
+  "description": "ASTRION — Flight-Grade Relativistic Astrodynamics & Multi-Scale Universe Simulation Engine",
   "private": true,
   "version": "1.0.0",
   "type": "module",

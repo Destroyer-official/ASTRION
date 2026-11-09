@@ -1,0 +1,4 @@
+# Ensure SPICE text kernels retain exact LF line endings across platforms
+*.tpc text eol=lf
+*.bsp binary
+

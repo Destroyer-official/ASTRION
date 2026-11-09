@@ -1,12 +1,12 @@
 # 🌌 ASTRION
 
-### **Astronomical State & Trajectory Reconstruction for Interplanetary & Orbital Navigation**
+### **Astronomical State & Trajectory Reconstruction for Interplanetary, Galactic & Universe Navigation**
 
-_A relativistic orbital-mechanics simulation and 3D visualization platform_
+_A relativistic orbital-mechanics simulation, multi-scale cosmic hierarchy, and 3D visualization platform_
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.3-646CFF.svg?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Three.js](https://img.shields.io/badge/Three.js-r186-000000.svg?logo=three.js&logoColor=white)](https://threejs.org/)
+[![Three.js](https://img.shields.io/badge/Three.js-r187-000000.svg?logo=three.js&logoColor=white)](https://threejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-gray.svg)](./LICENSE)
 
 ASTRION is an MIT-licensed research/visualization project. **It is not NASA-certified,
@@ -22,11 +22,15 @@ Limitations) and [`docs/OPEN_QUESTIONS.md`](./docs/OPEN_QUESTIONS.md).
 
 ## 1. What the platform does
 
-**ASTRION** is an astrodynamics simulation engine and interactive 3D visualization
-platform for trajectory exploration, celestial mechanics study, and astronomical
-visualization. What it actually integrates:
+**ASTRION** is a flight-grade astrodynamics simulation engine and interactive multi-scale universe visualization platform spanning from sub-millimeter spacecraft navigation up to cosmological horizons:
 
-1. **Symplectic N-body simulation** (leapfrog, Yoshida 4/6/8) of 48 gravitating bodies —
+0. **Multi-Scale Universe Architecture**:
+   - **Planetary Tier ($10^{-7}\text{ to }100\text{ AU}$)**: High-precision $N$-body astrodynamics of 48 gravitating bodies (Sun, 8 planets, 22 moons, Pluto, and 16 JPL SB441-N16 asteroids) with live solar SSB wobble ($788,469\text{ km}$ at $11.4\text{ m/s}$ at epoch).
+   - **Interstellar Tier ($10^2\text{ to }10^5\text{ AU}$)**: Oort Cloud (100,000 bodies), Kuiper Belt, and local interstellar neighborhood.
+   - **Galactic Tier ($1\text{ to }50\text{ kpc}$)**: Milky Way galactic potential with dynamic LSR calibration ($v_0 = 238\text{ km/s}$ at $R_0 = 8.2\text{ kpc}$), Sagittarius A* central black hole, and analytical Navarro-Frenk-White (NFW) dark matter halo potential.
+   - **Extragalactic Tier ($1\text{ Mpc}$)**: Local Group of galaxies (Milky Way, Andromeda/M31, Triangulum/M33, Magellanic Clouds).
+   - **Cosmological Tier ($100\text{ Mpc}$)**: Virgo Supercluster, Laniakea, and Hubble-Lemaître FLRW dark energy cosmic expansion.
+1. **Symplectic & Adaptive N-body simulation** (Leapfrog, Yoshida 4/6/8, and 15th-order Gauss-Radau IAS15) of 48 gravitating bodies —
    the Sun, 8 planets, 22 moons (Luna and Charon included), the dwarf planet Pluto and
    all 16 massive asteroids in the JPL `SB441-N16`/ASSIST perturber set — in Float64
    (AU, day, AU³/day²) inside an isolated Web Worker, with optional 1st post-Newtonian
