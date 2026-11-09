@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GALACTIC_AXES_IN_SIM } from '@/frames/galactic';
+import { createPrng } from './prng';
 
 const STAR_COLORS = [
   0x9bb0ff, // O/B blue
@@ -18,8 +19,9 @@ const STAR_COLORS = [
  * Tilted at 60.19° to the ecliptic plane, matching true astronomical IAU coordinates.
  * All stars use sizeAttenuation: false for pin-sharp, photorealistic starlight without fuzzy blob artifacts.
  */
-export function createStarfield(radius = 45000): THREE.Group {
+export function createStarfield(radius = 45000, seed = 0x57a8f1e1): THREE.Group {
   const group = new THREE.Group();
+  const rand = createPrng(seed);
 
   const [GX, GY, GZ] = GALACTIC_AXES_IN_SIM;
 
@@ -43,19 +45,19 @@ export function createStarfield(radius = 45000): THREE.Group {
   const col = new THREE.Color();
 
   for (let i = 0; i < numField; i++) {
-    const u = Math.random();
-    const v = Math.random();
+    const u = rand();
+    const v = rand();
     const theta = u * 2.0 * Math.PI;
     const phi = Math.acos(2.0 * v - 1.0);
-    const r = radius * (0.92 + 0.16 * Math.random());
+    const r = radius * (0.92 + 0.16 * rand());
 
     fieldPos[3 * i] = r * Math.sin(phi) * Math.cos(theta);
     fieldPos[3 * i + 1] = r * Math.sin(phi) * Math.sin(theta);
     fieldPos[3 * i + 2] = r * Math.cos(phi);
 
-    const hex = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)]!;
+    const hex = STAR_COLORS[Math.floor(rand() * STAR_COLORS.length)]!;
     col.setHex(hex);
-    const mag = Math.random() < 0.05 ? 1.0 : Math.random() * 0.55 + 0.2;
+    const mag = rand() < 0.05 ? 1.0 : rand() * 0.55 + 0.2;
     fieldCol[3 * i] = col.r * mag;
     fieldCol[3 * i + 1] = col.g * mag;
     fieldCol[3 * i + 2] = col.b * mag;
@@ -82,15 +84,15 @@ export function createStarfield(radius = 45000): THREE.Group {
 
   for (let i = 0; i < numGal; i++) {
     // Galactic latitude: exponential scale height ~ 0.10 rad (~5.7°)
-    const sign = Math.random() < 0.5 ? 1 : -1;
-    const b = sign * -Math.log(1 - Math.random() * 0.98) * 0.095;
+    const sign = rand() < 0.5 ? 1 : -1;
+    const b = sign * -Math.log(1 - rand() * 0.98) * 0.095;
 
     // Galactic longitude: concentrated towards Galactic Center (Sagittarius bulge)
-    let l = Math.random() < 0.58
+    let l = rand() < 0.58
       // Inner galaxy bulge & arms (-50° to +50°)
-      ? (Math.random() - 0.5) * (Math.PI * 0.55)
+      ? (rand() - 0.5) * (Math.PI * 0.55)
       // Full circle around the galactic disc
-      : Math.random() * 2 * Math.PI;
+      : rand() * 2 * Math.PI;
     if (l < 0) l += 2 * Math.PI;
 
     // Great Rift dust lane absorption: Cygnus to Sagittarius (l: 345° to 35°, b: -3° to +3°)
@@ -100,9 +102,9 @@ export function createStarfield(radius = 45000): THREE.Group {
       (lDeg > 342 || lDeg < 38) &&
       bDeg > -2.2 &&
       bDeg < 2.0 &&
-      Math.random() < 0.7;
+      rand() < 0.7;
 
-    const r = radius * (0.95 + 0.1 * Math.random());
+    const r = radius * (0.95 + 0.1 * rand());
     const [x, y, z] = galToSim(l, b, r);
 
     galPos[3 * i] = x;
@@ -113,13 +115,13 @@ export function createStarfield(radius = 45000): THREE.Group {
     const distToCenter = Math.min(Math.abs(lDeg), Math.abs(360 - lDeg));
     if (distToCenter < 35 && Math.abs(bDeg) < 5) {
       // Bulge: warm golden / amber K/M giants
-      col.setHSL(0.11 + Math.random() * 0.05, 0.7, 0.75 + Math.random() * 0.25);
+      col.setHSL(0.11 + rand() * 0.05, 0.7, 0.75 + rand() * 0.25);
     } else {
       // Arm stars: white / icy cyan O/B/A stars
-      col.setHSL(0.58 + Math.random() * 0.08, 0.45, 0.8 + Math.random() * 0.2);
+      col.setHSL(0.58 + rand() * 0.08, 0.45, 0.8 + rand() * 0.2);
     }
 
-    const intensity = isRift ? 0.05 : (Math.random() * 0.65 + 0.35);
+    const intensity = isRift ? 0.05 : (rand() * 0.65 + 0.35);
     galCol[3 * i] = col.r * intensity;
     galCol[3 * i + 1] = col.g * intensity;
     galCol[3 * i + 2] = col.b * intensity;

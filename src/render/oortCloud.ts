@@ -1,10 +1,12 @@
 import * as THREE from 'three';
+import { createPrng } from './prng';
 
 export interface OortCloudConfig {
   numAsteroids?: number;
   numKuiper?: number;
   numHills?: number;
   numOuter?: number;
+  seed?: number;
 }
 
 /**
@@ -28,6 +30,7 @@ export class OortCloudVisual {
     const numKuiper = config.numKuiper ?? 2800;
     const numHills = config.numHills ?? 3500;
     const numOuter = config.numOuter ?? 7000;
+    const rand = createPrng(config.seed ?? 0x007c001d);
 
     const particleTex = this.createParticleTexture();
 
@@ -39,7 +42,7 @@ export class OortCloudVisual {
     for (let i = 0; i < numAsteroids; i++) {
       const idx = i * 3;
       // Main belt semi-major axis distribution between 2.1 and 3.3 AU
-      let r = 2.1 + Math.random() * 1.2;
+      let r = 2.1 + rand() * 1.2;
       // Real Kirkwood resonance gaps: 3:1 (2.50 AU), 5:2 (2.82 AU), 7:3 (2.95 AU), 2:1 (3.27 AU)
       if (
         Math.abs(r - 2.50) < 0.03 ||
@@ -47,11 +50,11 @@ export class OortCloudVisual {
         Math.abs(r - 2.95) < 0.02 ||
         Math.abs(r - 3.27) < 0.03
       ) {
-        r += Math.random() > 0.5 ? 0.05 : -0.05;
+        r += rand() > 0.5 ? 0.05 : -0.05;
       }
-      const phi = Math.random() * 2 * Math.PI;
+      const phi = rand() * 2 * Math.PI;
       // Typical asteroid inclination sigma ~ 7° to 9°
-      const inc = (Math.random() - 0.5 + (Math.random() - 0.5)) * 0.16;
+      const inc = (rand() - 0.5 + (rand() - 0.5)) * 0.16;
       const z = r * Math.sin(inc);
       const rProj = r * Math.cos(inc);
 
@@ -60,7 +63,7 @@ export class OortCloudVisual {
       astPos[idx + 2] = z;
 
       // Rocky warm silica / carbonaceous gray tones (C-type, S-type asteroids)
-      const tone = 0.65 + Math.random() * 0.35;
+      const tone = 0.65 + rand() * 0.35;
       astCol[idx] = tone * 0.95;
       astCol[idx + 1] = tone * 0.88;
       astCol[idx + 2] = tone * 0.78;
@@ -87,10 +90,10 @@ export class OortCloudVisual {
 
     for (let i = 0; i < numKuiper; i++) {
       const idx = i * 3;
-      const r = 30 + Math.random() * 35; // 30 to 65 AU
-      const phi = Math.random() * 2 * Math.PI;
+      const r = 30 + rand() * 35; // 30 to 65 AU
+      const phi = rand() * 2 * Math.PI;
       // Normal distribution around ecliptic plane (sigma_i ~ 12 degrees)
-      const inc = (Math.random() - 0.5 + (Math.random() - 0.5)) * 0.25;
+      const inc = (rand() - 0.5 + (rand() - 0.5)) * 0.25;
       const z = r * Math.sin(inc);
       const rProj = r * Math.cos(inc);
 
@@ -99,9 +102,9 @@ export class OortCloudVisual {
       kuiperPos[idx + 2] = z;
 
       // Dusty ice/amber tint
-      kuiperCol[idx] = 0.85 + Math.random() * 0.15;
-      kuiperCol[idx + 1] = 0.75 + Math.random() * 0.15;
-      kuiperCol[idx + 2] = 0.65 + Math.random() * 0.2;
+      kuiperCol[idx] = 0.85 + rand() * 0.15;
+      kuiperCol[idx + 1] = 0.75 + rand() * 0.15;
+      kuiperCol[idx + 2] = 0.65 + rand() * 0.2;
     }
     kuiperGeom.setAttribute('position', new THREE.BufferAttribute(kuiperPos, 3));
     kuiperGeom.setAttribute('color', new THREE.BufferAttribute(kuiperCol, 3));
@@ -127,10 +130,10 @@ export class OortCloudVisual {
     for (let i = 0; i < numHills; i++) {
       const idx = i * 3;
       // Power-law density r^-2 from 2,000 to 20,000 AU
-      const u = Math.random();
+      const u = rand();
       const r = 2000 * Math.exp(u * Math.log(20000 / 2000));
-      const phi = Math.random() * 2 * Math.PI;
-      const costheta = 2 * Math.random() - 1;
+      const phi = rand() * 2 * Math.PI;
+      const costheta = 2 * rand() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
       // Flattened aspect ratio z/r ~ 0.55
@@ -140,9 +143,9 @@ export class OortCloudVisual {
       hillsPos[idx + 2] = r * costheta * zScale;
 
       // Pale icy cyan tint
-      hillsCol[idx] = 0.65 + Math.random() * 0.2;
-      hillsCol[idx + 1] = 0.82 + Math.random() * 0.18;
-      hillsCol[idx + 2] = 0.95 + Math.random() * 0.05;
+      hillsCol[idx] = 0.65 + rand() * 0.2;
+      hillsCol[idx + 1] = 0.82 + rand() * 0.18;
+      hillsCol[idx + 2] = 0.95 + rand() * 0.05;
     }
     hillsGeom.setAttribute('position', new THREE.BufferAttribute(hillsPos, 3));
     hillsGeom.setAttribute('color', new THREE.BufferAttribute(hillsCol, 3));
@@ -168,10 +171,10 @@ export class OortCloudVisual {
     for (let i = 0; i < numOuter; i++) {
       const idx = i * 3;
       // Isotropic spherical distribution
-      const u = Math.random();
+      const u = rand();
       const r = 20000 + Math.pow(u, 0.7) * 80000; // 20k to 100k AU
-      const phi = Math.random() * 2 * Math.PI;
-      const costheta = 2 * Math.random() - 1;
+      const phi = rand() * 2 * Math.PI;
+      const costheta = 2 * rand() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
       outerPos[idx] = r * sintheta * Math.cos(phi);
@@ -179,8 +182,8 @@ export class OortCloudVisual {
       outerPos[idx + 2] = r * costheta;
 
       // Deep celestial blue/white
-      outerCol[idx] = 0.7 + Math.random() * 0.25;
-      outerCol[idx + 1] = 0.85 + Math.random() * 0.15;
+      outerCol[idx] = 0.7 + rand() * 0.25;
+      outerCol[idx + 1] = 0.85 + rand() * 0.15;
       outerCol[idx + 2] = 1.0;
     }
     outerGeom.setAttribute('position', new THREE.BufferAttribute(outerPos, 3));

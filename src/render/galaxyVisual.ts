@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { GalacticOrbitState } from '@/physics/galacticPotential';
+import { createPrng } from './prng';
 
 /** 1 km/s = 1/977.79222 kpc/Myr (same time unit the galactic orbit uses). */
 const KMS_TO_KPC_PER_MYR = 1 / 977.79222;
@@ -161,6 +162,7 @@ export interface GalaxyVisualConfig {
   diskRadiusKpc?: number;
   numHaloStars?: number;
   numGlobularClusters?: number;
+  seed?: number;
 }
 
 export class GalaxyVisual {
@@ -224,6 +226,7 @@ export class GalaxyVisual {
     const diskRadius = config.diskRadiusKpc ?? 18;
     const numHaloStars = config.numHaloStars ?? 8_000;
     const numGlobular = config.numGlobularClusters ?? 158;
+    const rand = createPrng(config.seed ?? 0x6a1a0);
 
     const starTex = this.createStarTexture();
 
@@ -247,27 +250,27 @@ export class GalaxyVisual {
       // Resample if candidate falls within the Local Bubble (0.75 kpc = 45 AU in scene units)
       // to guarantee zero 3D galactic star points ever clip through planetary orbits
       for (let attempt = 0; attempt < 12; attempt++) {
-        const u = Math.random();
+        const u = rand();
         r = 1.0 + Math.sqrt(u) * (diskRadius - 1.0);
 
         // Choose arm (or inter-arm)
-        const armIdx = Math.floor(Math.random() * arms);
-        isArm = Math.random() < 0.75;
+        const armIdx = Math.floor(rand() * arms);
+        isArm = rand() < 0.75;
         let theta = spiralArmAngle(r, armIdx);
 
         if (isArm) {
           // Arm dispersion
           const spread = 0.25 + 0.15 * (r / diskRadius);
-          theta += (Math.random() - 0.5) * spread * 2;
+          theta += (rand() - 0.5) * spread * 2;
         } else {
           // Inter-arm diffuse stars
-          theta = Math.random() * 2 * Math.PI;
+          theta = rand() * 2 * Math.PI;
         }
 
         // Vertical exponential scale height (~0.3 kpc)
         const zScale = 0.3 * (1 + 0.5 * (r / diskRadius));
-        const zSign = Math.random() < 0.5 ? 1 : -1;
-        z = zSign * -Math.log(1 - Math.random() * 0.99) * zScale * 0.5;
+        const zSign = rand() < 0.5 ? 1 : -1;
+        z = zSign * -Math.log(1 - rand() * 0.99) * zScale * 0.5;
 
         x = r * Math.cos(theta);
         y = r * Math.sin(theta);
@@ -288,13 +291,13 @@ export class GalaxyVisual {
 
       // Color based on location and type
       const color = new THREE.Color();
-      if (isArm && Math.random() < 0.25) {
-        color.setHSL(0.58 + Math.random() * 0.08, 0.85, 0.75 + Math.random() * 0.2);
-      } else if (isArm && Math.random() < 0.08) {
-        color.setHSL(0.92 + Math.random() * 0.06, 0.9, 0.7);
+      if (isArm && rand() < 0.25) {
+        color.setHSL(0.58 + rand() * 0.08, 0.85, 0.75 + rand() * 0.2);
+      } else if (isArm && rand() < 0.08) {
+        color.setHSL(0.92 + rand() * 0.06, 0.9, 0.7);
       } else {
         const warmth = Math.min(1, 2.5 / (r + 0.5));
-        color.setHSL(0.12 - 0.05 * warmth, 0.4 + 0.5 * warmth, 0.65 + Math.random() * 0.3);
+        color.setHSL(0.12 - 0.05 * warmth, 0.4 + 0.5 * warmth, 0.65 + rand() * 0.3);
       }
 
       starColors[idx] = color.r;
@@ -325,9 +328,9 @@ export class GalaxyVisual {
 
     for (let i = 0; i < numBulge; i++) {
       const idx = i * 3;
-      const r = Math.pow(Math.random(), 2.5) * 2.5;
-      const phi = Math.random() * 2 * Math.PI;
-      const costheta = 2 * Math.random() - 1;
+      const r = Math.pow(rand(), 2.5) * 2.5;
+      const phi = rand() * 2 * Math.PI;
+      const costheta = 2 * rand() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
       // Elongate into the bar, then fix its position angle vs the Sun–GC line.
@@ -346,7 +349,7 @@ export class GalaxyVisual {
       this.bulgeTheta0[i] = Math.atan2(y, x);
 
       const color = new THREE.Color();
-      color.setHSL(0.1 + Math.random() * 0.05, 0.8, 0.75 + Math.random() * 0.25);
+      color.setHSL(0.1 + rand() * 0.05, 0.8, 0.75 + rand() * 0.25);
       bulgeColors[idx] = color.r;
       bulgeColors[idx + 1] = color.g;
       bulgeColors[idx + 2] = color.b;
@@ -372,10 +375,10 @@ export class GalaxyVisual {
     for (let i = 0; i < numHaloStars; i++) {
       const idx = i * 3;
       // Power law density n(r) ~ r^-3.5
-      const u = Math.random();
+      const u = rand();
       const r = 2.0 + Math.pow(u, 0.5) * 32.0; // 2 to 34 kpc
-      const phi = Math.random() * 2 * Math.PI;
-      const costheta = 2 * Math.random() - 1;
+      const phi = rand() * 2 * Math.PI;
+      const costheta = 2 * rand() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
       // Mild flattening in inner halo (c/a ~ 0.8)
@@ -391,10 +394,10 @@ export class GalaxyVisual {
 
       // Faint antique gold / pale blue-white
       const color = new THREE.Color();
-      if (Math.random() < 0.6) {
-        color.setHSL(0.12, 0.4, 0.55 + Math.random() * 0.2);
+      if (rand() < 0.6) {
+        color.setHSL(0.12, 0.4, 0.55 + rand() * 0.2);
       } else {
-        color.setHSL(0.55, 0.3, 0.7 + Math.random() * 0.2);
+        color.setHSL(0.55, 0.3, 0.7 + rand() * 0.2);
       }
       haloColors[idx] = color.r;
       haloColors[idx + 1] = color.g;
@@ -427,10 +430,10 @@ export class GalaxyVisual {
     for (let i = 0; i < numGlobular; i++) {
       const idx = i * 3;
       // Isotropic spherical distribution with core concentration
-      const u = Math.random();
+      const u = rand();
       const r = 1.0 + Math.pow(u, 0.6) * 33.0; // 1 to 34 kpc
-      const phi = Math.random() * 2 * Math.PI;
-      const costheta = 2 * Math.random() - 1;
+      const phi = rand() * 2 * Math.PI;
+      const costheta = 2 * rand() - 1;
       const sintheta = Math.sqrt(Math.max(0, 1 - costheta * costheta));
 
       const x = r * sintheta * Math.cos(phi);

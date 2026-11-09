@@ -156,3 +156,4 @@ export class LenseThirring implements ForceModel {
     }
   }
 }
+
