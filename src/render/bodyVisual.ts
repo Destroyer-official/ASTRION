@@ -70,10 +70,6 @@ export interface BodyVisualOptions {
   anisotropy?: number;
 }
 
-// Shared scratch (single-threaded render loop): avoids per-body-per-frame allocation.
-const _orientMat4 = new THREE.Matrix4();
-const _orientRes = new Array<number>(9).fill(0);
-
 /**
  * Measured 3D non-spherical triaxial ratios (a, b, c normalized to a)
  * from NASA (Dawn, NEAR), ESO (SPHERE adaptive optics), and radar observations.
@@ -170,6 +166,8 @@ export class BodyVisual {
   readonly mesh: THREE.Mesh;
   readonly ringMesh?: THREE.Mesh;
   readonly labelSprite: THREE.Sprite;
+  private readonly orientMat4 = new THREE.Matrix4();
+  private readonly orientRes = new Float64Array(9);
 
   constructor(opts: BodyVisualOptions) {
     this.id = opts.id;
@@ -338,21 +336,21 @@ export class BodyVisual {
         for (let j = 0; j < 3; j++) {
           let sum = 0;
           for (let k = 0; k < 3; k++) sum += frameAxes[3 * i + k]! * m[3 * k + j]!;
-          _orientRes[3 * i + j] = sum;
+          this.orientRes[3 * i + j] = sum;
         }
       }
-      _orientMat4.set(
-        _orientRes[0]!,
-        _orientRes[1]!,
-        _orientRes[2]!,
+      this.orientMat4.set(
+        this.orientRes[0]!,
+        this.orientRes[1]!,
+        this.orientRes[2]!,
         0,
-        _orientRes[3]!,
-        _orientRes[4]!,
-        _orientRes[5]!,
+        this.orientRes[3]!,
+        this.orientRes[4]!,
+        this.orientRes[5]!,
         0,
-        _orientRes[6]!,
-        _orientRes[7]!,
-        _orientRes[8]!,
+        this.orientRes[6]!,
+        this.orientRes[7]!,
+        this.orientRes[8]!,
         0,
         0,
         0,
@@ -360,7 +358,7 @@ export class BodyVisual {
         1,
       );
     } else {
-      _orientMat4.set(
+      this.orientMat4.set(
         m[0]!,
         m[1]!,
         m[2]!,
@@ -379,7 +377,7 @@ export class BodyVisual {
         1,
       );
     }
-    this.group.quaternion.setFromRotationMatrix(_orientMat4);
+    this.group.quaternion.setFromRotationMatrix(this.orientMat4);
   }
 
   computeScale(
