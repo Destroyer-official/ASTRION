@@ -10,11 +10,16 @@
   "flattening": 0.02293,
   "j2": 0.003343,
   "texture": "/textures/uranus.jpg",
+  "ring": {
+    "innerKm": 41837,
+    "outerKm": 51149
+  },
   "facts": {
     "Mass": "8.681 × 10²⁵ kg",
     "Equatorial Radius": "25,559 km",
     "Flattening": "0.02293",
     "Sidereal Rotation": "-17h 14m 24s (retrograde)",
-    "Obliquity": "97.77° (rolls on its side)"
+    "Obliquity": "97.77° (rolls on its side)",
+    "Rings Extent": "41,837 to 51,149 km (NASA GSFC Ring Fact Sheet: Ring 6 to Epsilon)"
   }
 }

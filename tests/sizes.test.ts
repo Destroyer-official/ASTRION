@@ -174,6 +174,18 @@ describe('Celestial Bodies Size & Radii Accuracy (NASA NAIF PCK & IAU WGCCRE)', 
     expect(saturnPhys!.ring!.outerKm / saturnR).toBeCloseTo(2.327, 2);
   });
 
+  it('Uranus and Neptune ring dimensions match NASA GSFC Planetary Ring Fact Sheet bounds', () => {
+    const uranusPhys = model.physicalMap['uranus'];
+    expect(uranusPhys?.ring).toBeDefined();
+    expect(uranusPhys!.ring!.innerKm).toBe(41837); // Ring 6 inner edge
+    expect(uranusPhys!.ring!.outerKm).toBe(51149); // Epsilon ring outer edge
+
+    const neptunePhys = model.physicalMap['neptune'];
+    expect(neptunePhys?.ring).toBeDefined();
+    expect(neptunePhys!.ring!.innerKm).toBe(41900); // Galle ring inner edge
+    expect(neptunePhys!.ring!.outerKm).toBe(62933); // Adams ring outer edge
+  });
+
   it('computeBodyFacts correctly reports Equatorial, Polar, and Volumetric Radii', () => {
     const jupiterFacts = computeBodyFacts('jupiter', model.state, model);
     expect(jupiterFacts).not.toBeNull();

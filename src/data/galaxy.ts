@@ -60,7 +60,7 @@ export const GALAXY_MODELS: readonly GalaxyModel[] = [
     lsrKms: 220,
     r0Kpc: 8.2,
     source: 'IAU 1985 standard recommendation',
-    implementation: 'lsrR0Only',
+    implementation: 'modelPotential',
     details: {
       oortA: 14.4,
       oortB: -12.0,
@@ -77,7 +77,7 @@ export const GALAXY_MODELS: readonly GalaxyModel[] = [
     lsrKms: 238,
     r0Kpc: 8.0,
     source: 'Yoshiaki Sofue 2016 (Caltech/IPAC NED Level 5 Review, VERA trigonometric astrometry)',
-    implementation: 'lsrR0Only',
+    implementation: 'modelPotential',
     paperUrl: 'https://ned.ipac.caltech.edu/level5/Sept16/Sofue/Sofue2.html',
     details: {
       oortA: 14.9,
@@ -101,7 +101,7 @@ export const GALAXY_MODELS: readonly GalaxyModel[] = [
     lsrKms: 236,
     r0Kpc: 8.15,
     source: 'Reid et al. 2019 (ApJ 885:131, trigonometric maser parallax)',
-    implementation: 'lsrR0Only',
+    implementation: 'modelPotential',
     details: {
       sgrAMassMsun: 4.0e6,
       diskMassMsun: 8.0e10,
@@ -116,7 +116,7 @@ export const GALAXY_MODELS: readonly GalaxyModel[] = [
     lsrKms: 240,
     r0Kpc: 8.275,
     source: 'GRAVITY Collaboration 2021 (A&A 647:A59, Sgr A* orbit & LSR fit)',
-    implementation: 'lsrR0Only',
+    implementation: 'modelPotential',
     details: {
       sgrAMassMsun: 4.297e6,
       diskMassMsun: 8.5e10,

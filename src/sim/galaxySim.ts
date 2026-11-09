@@ -1,6 +1,7 @@
 import {
   GalacticPotential,
   type GalacticOrbitState,
+  type GalacticPotentialOptions,
 } from '@/physics/galacticPotential';
 
 export interface GalaxyReadout {
@@ -31,8 +32,8 @@ export class GalaxySim {
     this.lz0 = this.pot.getLz(this.state);
   }
 
-  setLsrSpeed(lsrKms: number, r0Kpc?: number): void {
-    this.pot = new GalacticPotential(lsrKms, r0Kpc);
+  setLsrSpeed(lsrKms: number, r0Kpc?: number, opts?: GalacticPotentialOptions): void {
+    this.pot = new GalacticPotential(lsrKms, r0Kpc, opts);
     this.reset();
     this.e0 = this.pot.getEnergy(this.state);
     this.lz0 = this.pot.getLz(this.state);

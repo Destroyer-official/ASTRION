@@ -583,6 +583,8 @@ export function createViewer(
   scene.add(trajOverlayVisual.group);
 
   let cachedTrajPoints: TrajectoryPoint[] | null = null;
+  let cachedTrajTargetId: string | null = null;
+  let cachedTrajPrimaryId: string | null = null;
   let cachedGravityPull: GravitationalPullBreakdown | null = null;
   let cachedSolarWobble: SolarWobbleState | null = null;
 
@@ -1216,7 +1218,11 @@ export function createViewer(
     baryVisual.update(baryPos, sunPos, camera, height, showBary);
 
     // Update NASA 3D Trajectory, Gravity Pull Vectors & Solar Wobble Loop Overlays
-    const pullBodyIdx = cachedGravityPull ? model.ids.indexOf(cachedGravityPull.targetId) : -1;
+    const pullBodyIdx = cachedGravityPull
+      ? model.ids.indexOf(cachedGravityPull.targetId)
+      : cachedTrajTargetId
+      ? model.ids.indexOf(cachedTrajTargetId)
+      : -1;
     const bodySimPos: [number, number, number] | null =
       pullBodyIdx >= 0 && pullBodyIdx < model.ids.length
         ? [s.pos[3 * pullBodyIdx]!, s.pos[3 * pullBodyIdx + 1]!, s.pos[3 * pullBodyIdx + 2]!]
@@ -1229,16 +1235,17 @@ export function createViewer(
 
     let primarySimPos: [number, number, number] = [0, 0, 0];
     let primarySimVel: [number, number, number] = [0, 0, 0];
-    if (pullBodyIdx >= 0) {
-      const bDef = model.bodies?.find((b) => b.id === model.ids[pullBodyIdx]);
-      const parentId = bDef?.parent;
-      if (parentId) {
-        const pIdx = model.ids.indexOf(parentId);
-        if (pIdx >= 0) {
-          primarySimPos = [s.pos[3 * pIdx]!, s.pos[3 * pIdx + 1]!, s.pos[3 * pIdx + 2]!];
-          primarySimVel = [s.vel[3 * pIdx]!, s.vel[3 * pIdx + 1]!, s.vel[3 * pIdx + 2]!];
-        }
+    const targetParentId = cachedTrajPrimaryId ?? (pullBodyIdx >= 0 ? model.bodies?.find((b) => b.id === model.ids[pullBodyIdx])?.parent : null);
+    if (targetParentId && targetParentId !== 'barycenter' && targetParentId !== 'ssb') {
+      const pIdx = model.ids.indexOf(targetParentId);
+      if (pIdx >= 0) {
+        primarySimPos = [s.pos[3 * pIdx]!, s.pos[3 * pIdx + 1]!, s.pos[3 * pIdx + 2]!];
+        primarySimVel = [s.vel[3 * pIdx]!, s.vel[3 * pIdx + 1]!, s.vel[3 * pIdx + 2]!];
       }
+    } else if (cachedTrajPoints && (!cachedTrajPrimaryId || cachedTrajPrimaryId === 'sun') && cachedTrajTargetId !== 'sun' && sunIdx >= 0) {
+      // Default primary for planets/asteroids is Sun
+      primarySimPos = [s.pos[3 * sunIdx]!, s.pos[3 * sunIdx + 1]!, s.pos[3 * sunIdx + 2]!];
+      primarySimVel = [s.vel[3 * sunIdx]!, s.vel[3 * sunIdx + 1]!, s.vel[3 * sunIdx + 2]!];
     }
 
     const sunSimPos: [number, number, number] | null = sunIdx >= 0
@@ -1555,8 +1562,10 @@ export function createViewer(
     sgrAWorldPosition,
     getCameraDistance,
     setCameraDistance,
-    setTrajectoryOverlay: (points: TrajectoryPoint[] | null) => {
+    setTrajectoryOverlay: (points: TrajectoryPoint[] | null, targetId?: string | null, primaryId?: string | null) => {
       cachedTrajPoints = points;
+      cachedTrajTargetId = targetId ?? null;
+      cachedTrajPrimaryId = primaryId ?? null;
       trajOverlayVisual.setTrajectoryPath(points);
     },
     setGravityPullOverlay: (pull: GravitationalPullBreakdown | null) => {
@@ -1569,6 +1578,8 @@ export function createViewer(
     },
     clearTrajectoryOverlays: () => {
       cachedTrajPoints = null;
+      cachedTrajTargetId = null;
+      cachedTrajPrimaryId = null;
       cachedGravityPull = null;
       cachedSolarWobble = null;
       trajOverlayVisual.clear();

@@ -16,6 +16,7 @@ export interface PhysicsConfig {
   planetJ2: boolean; // used from Phase 5
   harmonics?: boolean;
   srp?: boolean;
+  lenseThirring?: boolean;
   stepsPerPeriod: number; // moon sub-stepping, Phase 5
 }
 
@@ -29,5 +30,6 @@ export const DEFAULT_CONFIG: PhysicsConfig = {
   planetJ2: true,
   harmonics: false,
   srp: false,
+  lenseThirring: false,
   stepsPerPeriod: 100,
 };

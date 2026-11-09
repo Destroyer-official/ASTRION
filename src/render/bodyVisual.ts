@@ -283,16 +283,18 @@ export class BodyVisual {
         v.fromBufferAttribute(posAttr as THREE.BufferAttribute, i);
         uvAttr.setXY(
           i,
-          (v.length() - innerKm / opts.radiusKm) / ((outerKm - innerKm) / opts.radiusKm),
+          (v.length() - innerKm / rKm) / ((outerKm - innerKm) / rKm),
           0.5,
         );
       }
       uvAttr.needsUpdate = true;
+      const ringColor = opts.id === 'uranus' ? 0x98c5ce : opts.id === 'neptune' ? 0x658ed1 : 0xd4c49c;
+      const ringOpacity = opts.id === 'uranus' ? 0.45 : opts.id === 'neptune' ? 0.35 : 0.85;
       const ringMat = new THREE.MeshStandardMaterial({
-        color: 0xd4c49c,
+        color: ringColor,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.85,
+        opacity: ringOpacity,
         roughness: 0.8,
       });
       this.ringMesh = new THREE.Mesh(g, ringMat);

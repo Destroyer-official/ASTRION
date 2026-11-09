@@ -21,6 +21,7 @@ export type ToWorker =
       quadrupole?: boolean;
       harmonics?: boolean;
       srp?: boolean;
+      lenseThirring?: boolean;
       fixedDt?: number;
     }
   | {
@@ -32,6 +33,7 @@ export type ToWorker =
       quadrupole?: boolean;
       harmonics?: boolean;
       srp?: boolean;
+      lenseThirring?: boolean;
       fixedDt?: number;
     }
   | { type: 'advance'; gen: number; days: number }

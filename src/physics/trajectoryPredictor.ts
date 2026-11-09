@@ -211,7 +211,15 @@ export function propagateKeplerState(
   }
 
   // Position & Velocity in Perifocal Frame
-  const p = a > 0 && e < 1 ? a * (1 - e * e) : Math.abs(a) * Math.abs(e * e - 1);
+  let p: number;
+  if (e < 1 - 1e-7) {
+    p = a > 0 ? a * (1 - e * e) : rMag;
+  } else if (e > 1 + 1e-7) {
+    p = Math.abs(a) * (e * e - 1);
+  } else {
+    const q = a > 0 && Number.isFinite(a) ? a : 1.0;
+    p = 2 * q;
+  }
   const pParam = p > 1e-12 ? p : rMag;
   const sqrtMuP = Math.sqrt(mu / pParam);
 
@@ -509,7 +517,7 @@ export function computeGravitationalPull(
 
   // Path curvature / turn rate: |a x v| / |v|^2
   const axv = vcross(totalA, vTarget);
-  const turnRateRadPerDay = vlen(axv) / (vMag * vMag);
+  const turnRateRadPerDay = vMag > 1e-8 ? vlen(axv) / (vMag * vMag) : 0;
   const turnRateArcsecPerDay = turnRateRadPerDay * RAD_TO_ARCSEC;
 
   return {

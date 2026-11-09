@@ -124,4 +124,81 @@ describe("Sun's Curved Galactic Orbit (Phase 6.4)", () => {
     );
     expect(diffAu).toBeLessThan(0.01);
   });
+
+  describe('NFW Halo Galactic Potential (Sofue 2016 & Reid 2019, AUDIT-26)', () => {
+    it('calibrates NFW halo circular speed exactly to target vc at R0', () => {
+      // Sofue 2016: vc = 238 km/s at R0 = 8.0 kpc with NFW halo
+      const potNfw = new GalacticPotential(238, 8.0, {
+        haloProfile: 'nfw',
+        mDisk: 9.0e10,
+        rcHalo: 12.0,
+      });
+
+      const vcR0 = potNfw.circularSpeedKms(8.0);
+      expect(vcR0).toBeCloseTo(238, 5);
+
+      // Verify Reid 2019: vc = 240 km/s at R0 = 8.15 kpc with NFW halo
+      const potReid = new GalacticPotential(240, 8.15, {
+        haloProfile: 'nfw',
+        mDisk: 8.0e10,
+        rcHalo: 12.0,
+      });
+      const vcReid = potReid.circularSpeedKms(8.15);
+      expect(vcReid).toBeCloseTo(240, 5);
+    });
+
+    it('conserves energy and Lz with NFW halo over 500 Myr orbit', () => {
+      const pot = new GalacticPotential(238, 8.0, {
+        haloProfile: 'nfw',
+        mDisk: 9.0e10,
+        rcHalo: 12.0,
+      });
+      const s = pot.getInitialSunState();
+      const e0 = pot.getEnergy(s);
+      const lz0 = pot.getLz(s);
+
+      const dtMyr = 0.05;
+      const steps = Math.round(500 / dtMyr);
+
+      let maxEDev = 0;
+      let maxLzDev = 0;
+
+      for (let i = 0; i < steps; i++) {
+        pot.step(s, dtMyr);
+        const e = pot.getEnergy(s);
+        const lz = pot.getLz(s);
+
+        const de = Math.abs(e - e0) / Math.abs(e0);
+        const dlz = Math.abs(lz - lz0) / Math.abs(lz0);
+        if (de > maxEDev) maxEDev = de;
+        if (dlz > maxLzDev) maxLzDev = dlz;
+      }
+
+      expect(maxEDev).toBeLessThan(1e-4);
+      expect(maxLzDev).toBeLessThan(1e-12);
+    });
+
+    it('produces finite negative potential and inward radial acceleration everywhere', () => {
+      const pot = new GalacticPotential(238, 8.0, { haloProfile: 'nfw' });
+
+      // Core at r -> 0
+      const phiCore = pot.potential(0, 0, 0);
+      expect(Number.isFinite(phiCore)).toBe(true);
+      expect(phiCore).toBeLessThan(0);
+
+      // Inward acceleration at various radii
+      for (const r of [0.1, 1.0, 5.0, 8.0, 15.0, 50.0]) {
+        const [ax, ay, az] = pot.acceleration(r, 0, 0);
+        expect(ax).toBeLessThan(0); // Directed towards origin (x = 0)
+        expect(ay).toBe(0);
+        expect(az).toBe(0);
+        expect(Number.isFinite(ax)).toBe(true);
+
+        const phi = pot.potential(r, 0, 0);
+        expect(phi).toBeLessThan(0);
+        // Potential increases towards 0 as r -> inf
+        expect(phi).toBeGreaterThan(phiCore);
+      }
+    });
+  });
 });

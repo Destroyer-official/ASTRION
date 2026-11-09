@@ -13,6 +13,18 @@ export interface GalacticOrbitState {
   vz: number;
 }
 
+export interface GalacticPotentialOptions {
+  mBulge?: number;
+  aBulge?: number;
+  bBulge?: number;
+  mDisk?: number;
+  aDisk?: number;
+  bDisk?: number;
+  rcHalo?: number;
+  qHalo?: number;
+  haloProfile?: 'logarithmic' | 'nfw';
+}
+
 export class GalacticPotential {
   readonly mBulge: number; // M_sun
   readonly aBulge: number; // kpc
@@ -25,25 +37,19 @@ export class GalacticPotential {
   readonly rcHalo: number; // kpc
   readonly qHalo: number;
   readonly v0Halo2: number;
+  readonly haloProfile: 'logarithmic' | 'nfw';
+  readonly nfwGm0: number; // G * M_0 for NFW dark matter halo profile
   readonly vTargetKms: number;
   readonly r0Kpc: number;
 
   constructor(
     vTargetKms = LSR_SPEED_KMS,
     r0Kpc = 8.2,
-    opts?: {
-      mBulge?: number;
-      aBulge?: number;
-      bBulge?: number;
-      mDisk?: number;
-      aDisk?: number;
-      bDisk?: number;
-      rcHalo?: number;
-      qHalo?: number;
-    },
+    opts?: GalacticPotentialOptions,
   ) {
     this.vTargetKms = vTargetKms;
     this.r0Kpc = r0Kpc;
+    this.haloProfile = opts?.haloProfile ?? 'logarithmic';
 
     this.mBulge = opts?.mBulge ?? 1e10;
     this.aBulge = opts?.aBulge ?? 0.0;
@@ -60,6 +66,15 @@ export class GalacticPotential {
     const vcDisk2 = this.circSpeed2MN(this.mDisk, this.aDisk, this.bDisk, r0Kpc);
     const vcHalo2 = Math.max(0, vTargetKms * vTargetKms - vcBulge2 - vcDisk2);
     this.v0Halo2 = (vcHalo2 * (r0Kpc * r0Kpc + this.rcHalo * this.rcHalo)) / (r0Kpc * r0Kpc);
+
+    if (this.haloProfile === 'nfw') {
+      const rs = this.rcHalo;
+      const x0 = r0Kpc / rs;
+      const fNfw0 = Math.log(1 + x0) - x0 / (1 + x0);
+      this.nfwGm0 = fNfw0 > 1e-12 ? (vcHalo2 * r0Kpc) / fNfw0 : 0;
+    } else {
+      this.nfwGm0 = 0;
+    }
   }
 
   private circSpeed2MN(M: number, a: number, b: number, R: number): number {
@@ -77,7 +92,15 @@ export class GalacticPotential {
     const r = Math.max(R, 1e-3);
     const disk2 = this.circSpeed2MN(this.mDisk, this.aDisk, this.bDisk, r);
     const bulge2 = this.circSpeed2MN(this.mBulge, this.aBulge, this.bBulge, r);
-    const halo2 = (this.v0Halo2 * r * r) / (r * r + this.rcHalo * this.rcHalo);
+    let halo2: number;
+    if (this.haloProfile === 'nfw') {
+      const rs = this.rcHalo;
+      const x = r / rs;
+      const fNfw = Math.log(1 + x) - x / (1 + x);
+      halo2 = (this.nfwGm0 / r) * fNfw;
+    } else {
+      halo2 = (this.v0Halo2 * r * r) / (r * r + this.rcHalo * this.rcHalo);
+    }
     return Math.sqrt(Math.max(0, disk2 + bulge2 + halo2));
   }
 
@@ -103,11 +126,18 @@ export class GalacticPotential {
     const deltaD = Math.sqrt(R2 + (this.aDisk + zetaD) ** 2);
     const phiD = -(G_GALACTIC * this.mDisk) / deltaD;
 
-    // Halo
-    const phiH =
-      0.5 *
-      this.v0Halo2 *
-      Math.log(R2 + (z * z) / (this.qHalo * this.qHalo) + this.rcHalo * this.rcHalo);
+    // Halo (Logarithmic or NFW)
+    let phiH: number;
+    if (this.haloProfile === 'nfw') {
+      const r = Math.sqrt(R2 + z * z);
+      const rs = this.rcHalo;
+      phiH = r > 1e-6 ? -(this.nfwGm0 / r) * Math.log(1 + r / rs) : -(this.nfwGm0 / rs);
+    } else {
+      phiH =
+        0.5 *
+        this.v0Halo2 *
+        Math.log(R2 + (z * z) / (this.qHalo * this.qHalo) + this.rcHalo * this.rcHalo);
+    }
 
     return phiB + phiD + phiH;
   }
@@ -136,12 +166,24 @@ export class GalacticPotential {
     ay -= kD * y;
     az -= kD * z * (AD / zetaD);
 
-    // Halo
-    const denomH = R2 + (z * z) / (this.qHalo * this.qHalo) + this.rcHalo * this.rcHalo;
-    const kH = this.v0Halo2 / denomH;
-    ax -= kH * x;
-    ay -= kH * y;
-    az -= (kH * z) / (this.qHalo * this.qHalo);
+    // Halo (Logarithmic or NFW)
+    if (this.haloProfile === 'nfw') {
+      const r2 = R2 + z * z;
+      const r = Math.sqrt(r2);
+      const rs = this.rcHalo;
+      const xNorm = r / rs;
+      const fNfw = Math.log(1 + xNorm) - xNorm / (1 + xNorm);
+      const kH = r > 1e-6 ? (this.nfwGm0 * fNfw) / (r2 * r) : 0;
+      ax -= kH * x;
+      ay -= kH * y;
+      az -= kH * z;
+    } else {
+      const denomH = R2 + (z * z) / (this.qHalo * this.qHalo) + this.rcHalo * this.rcHalo;
+      const kH = this.v0Halo2 / denomH;
+      ax -= kH * x;
+      ay -= kH * y;
+      az -= (kH * z) / (this.qHalo * this.qHalo);
+    }
 
     return [ax, ay, az];
   }

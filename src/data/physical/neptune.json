@@ -43,11 +43,16 @@
   "flattening": 0.01708,
   "j2": 0.003411,
   "texture": "/textures/neptune.jpg",
+  "ring": {
+    "innerKm": 41900,
+    "outerKm": 62933
+  },
   "facts": {
     "Mass": "1.024 × 10²⁶ kg",
     "Equatorial Radius": "24,764 km",
     "Flattening": "0.01708",
     "Sidereal Rotation": "16h 6m 36s",
-    "Discovery": "1846 by Le Verrier / Galle"
+    "Discovery": "1846 by Le Verrier / Galle",
+    "Rings Extent": "41,900 to 62,933 km (NASA GSFC Ring Fact Sheet: Galle to Adams)"
   }
 }

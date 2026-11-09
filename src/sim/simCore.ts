@@ -52,6 +52,7 @@ export class SimCore {
         dt: msg.fixedDt ?? (msg.maxDt ?? DEFAULT_CONFIG.dt),
         gr: msg.relativity ?? false,
         sunJ2: msg.quadrupole ?? false,
+        lenseThirring: msg.lenseThirring ?? false,
       };
       this.fixedDt = msg.fixedDt;
 
@@ -168,6 +169,7 @@ export class SimCore {
         if (msg.quadrupole !== undefined) this.config.sunJ2 = msg.quadrupole;
         if (msg.harmonics !== undefined) this.config.harmonics = msg.harmonics;
         if (msg.srp !== undefined) this.config.srp = msg.srp;
+        if (msg.lenseThirring !== undefined) this.config.lenseThirring = msg.lenseThirring;
         if (msg.fixedDt !== undefined) {
           this.fixedDt = msg.fixedDt;
           this.config.dt = msg.fixedDt;

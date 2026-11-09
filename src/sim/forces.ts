@@ -2,6 +2,7 @@ import { newtonianGravity } from '@/physics/forces/gravity';
 import { sunGR } from '@/physics/forces/gr';
 import { EinsteinInfeldHoffmann } from '@/physics/forces/eih';
 import { oblateness } from '@/physics/forces/oblateness';
+import { LenseThirring } from '@/physics/forces/lenseThirring';
 import { poleEcliptic } from '@/physics/orientation';
 import { AU_KM } from '@/data/constants';
 import type { ForceModel } from '@/physics/types';
@@ -23,6 +24,10 @@ export function buildForces(ids: readonly string[], cfg: PhysicsConfig): ForceMo
 
   if (sun >= 0 && cfg.sunJ2) {
     f.push(oblateness(sun, SUN_J2, SUN_RADIUS_AU, () => SUN_POLE));
+  }
+
+  if (sun >= 0 && cfg.lenseThirring) {
+    f.push(new LenseThirring({ centralIndex: sun }));
   }
 
   return f;

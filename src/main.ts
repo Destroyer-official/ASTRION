@@ -516,7 +516,14 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     const galModel = GALAXY_MODELS.find((m) => m.id === modelId);
     const lsr = galModel?.lsrKms ?? 220;
     const r0 = galModel?.r0Kpc ?? 8.2;
-    galaxySim.setLsrSpeed(lsr, r0);
+    const isNfw = galModel?.details?.darkHaloProfile?.toLowerCase().includes('nfw') ?? false;
+    const haloProfile = isNfw ? 'nfw' : 'logarithmic';
+    galaxySim.setLsrSpeed(lsr, r0, {
+      haloProfile,
+      mDisk: galModel?.details?.diskMassMsun,
+      aDisk: galModel?.details?.diskScaleKpc,
+      rcHalo: galModel?.details?.darkHaloScaleKpc,
+    });
     lastGalacticOrbitPathTMyr = galaxySim.getState().tMyr;
     viewer.setGalaxyOrbitPath(galaxySim.generateOrbitPath(500, 0.1, 0.5));
     syncRotationCurve();
@@ -538,7 +545,7 @@ const panel = createPanel(document.getElementById('panel')!, store, {
     bodyIds: model.ids,
     bodyNames: model.names,
   }),
-  onSetTrajectoryOverlay: (points) => viewer.setTrajectoryOverlay(points),
+  onSetTrajectoryOverlay: (points, targetId, primaryId) => viewer.setTrajectoryOverlay(points, targetId, primaryId),
   onSetGravityPullOverlay: (pull) => viewer.setGravityPullOverlay(pull),
   onSetSolarWobbleOverlay: (wobble) => viewer.setSolarWobbleOverlay(wobble),
   onClearTrajectoryOverlays: () => viewer.clearTrajectoryOverlays(),

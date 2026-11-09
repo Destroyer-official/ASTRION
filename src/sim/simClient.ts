@@ -349,6 +349,7 @@ export class SimClient {
     quadrupole?: boolean;
     harmonics?: boolean;
     srp?: boolean;
+    lenseThirring?: boolean;
     fixedDt?: number;
   }): void {
     if (opts.config) this.config = { ...opts.config };
@@ -358,6 +359,7 @@ export class SimClient {
     if (opts.quadrupole !== undefined) this.config.sunJ2 = opts.quadrupole;
     if (opts.harmonics !== undefined) this.config.harmonics = opts.harmonics;
     if (opts.srp !== undefined) this.config.srp = opts.srp;
+    if (opts.lenseThirring !== undefined) this.config.lenseThirring = opts.lenseThirring;
     if (opts.fixedDt !== undefined) this.config.dt = opts.fixedDt;
     this.lastPhysics = { ...opts };
     this.send({ type: 'setPhysics', ...opts });
