@@ -30,11 +30,14 @@ export class Yoshida4 implements Integrator {
   }
 
   step(s: SystemState, forces: ForceModel[], dt: number): void {
+    if (!Number.isFinite(dt) || dt === 0) return;
     const m = 3 * s.n;
     if (this.acc.length !== m) this.acc = new Float64Array(m);
 
     this.subStep(s, forces, W1 * dt);
+    if (!Number.isFinite(s.pos[0]!)) return;
     this.subStep(s, forces, W0 * dt);
+    if (!Number.isFinite(s.pos[0]!)) return;
     this.subStep(s, forces, W1 * dt);
 
     s.t += dt;

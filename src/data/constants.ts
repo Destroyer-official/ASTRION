@@ -75,3 +75,20 @@ export const SUN_RADIUS_KM = 695_700;
  * 2024, arXiv:2409.12261): 4.2996e6 solar masses. Accessed 2026-11-05.
  */
 export const SGRA_MASS_SOLAR = 4.2996e6;
+
+/**
+ * NASA JPL Planetary and Lunar Ephemerides DE440 / DE441 validity boundaries
+ * (Park et al. 2021, The Astronomical Journal, 161:105, DOI: 10.3847/1538-3881/abd414).
+ * DE440 includes lunar core-mantle damping and is accurate across 1550 to 2650 CE.
+ * DE441 omits the damping term to prevent secular divergence over deep millennia.
+ */
+export const DE440_START_YEAR = 1550;
+export const DE440_END_YEAR = 2650;
+export const DE440_START_JD = 2287184.5; // 1549-Dec-21 00:00:00 TDB
+export const DE440_END_JD = 2688976.5; // 2650-Jan-22 00:00:00 TDB
+
+export const DE441_START_YEAR = -13200;
+export const DE441_END_YEAR = 17191;
+export const DE441_START_JD = -2608495.5; // -13200-Aug-15 00:00:00 TDB
+export const DE441_END_JD = 8003664.5; // 17191-Mar-15 00:00:00 TDB
+

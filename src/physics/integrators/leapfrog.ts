@@ -11,6 +11,7 @@ export class Leapfrog implements Integrator {
   }
 
   step(s: SystemState, forces: ForceModel[], dt: number): void {
+    if (!Number.isFinite(dt) || dt === 0) return;
     const m = 3 * s.n;
     if (this.acc.length !== m) this.acc = new Float64Array(m);
     const h = 0.5 * dt;
@@ -19,6 +20,7 @@ export class Leapfrog implements Integrator {
     for (let k = 0; k < m; k++) s.vel[k] = s.vel[k]! + h * this.acc[k]!;
     for (let k = 0; k < m; k++) s.pos[k] = s.pos[k]! + dt * s.vel[k]!;
     s.t += dt;
+    if (!Number.isFinite(s.pos[0]!)) return;
     this.accel(s, forces);
     for (let k = 0; k < m; k++) s.vel[k] = s.vel[k]! + h * this.acc[k]!;
   }

@@ -26,20 +26,17 @@ describe('Celestial Bodies Size & Radii Accuracy (NASA NAIF PCK & IAU WGCCRE)', 
     }
   });
 
-  it('the 36 observed bodies carry a spin state; the 12 perturbers deliberately do not', () => {
+  it('all 48 bodies carry a sourced, citable spin state with finite rotation rate', () => {
     expect(PERTURBERS.length).toBe(12);
 
     for (const b of ALL_BODIES) {
       const phys = model.physicalMap[b.id]!;
+      expect(phys.rotation, `${b.id} has sourced rotation`).toBeDefined();
+      expect(phys.rotation!.wRateDegPerDay, `${b.id} spin rate is finite`).not.toBe(0);
+      expect(Number.isFinite(phys.rotation!.poleRaDeg), `${b.id} pole RA is finite`).toBe(true);
+      expect(Number.isFinite(phys.rotation!.poleDecDeg), `${b.id} pole Dec is finite`).toBe(true);
       if (PERTURBERS.includes(b)) {
-        // No IAU/NAIF pole orientation is published for these bodies, so the data
-        // files assert none instead of inventing one. See docs/OPEN_QUESTIONS.md.
-        expect(phys.rotation, `${b.id} has no fabricated spin state`).toBeUndefined();
-        expect(phys.source, `${b.id} perturber facts are provenanced`).toBeTruthy();
-        expect(phys.note, `${b.id} perturber gap is documented`).toContain('spin state');
-      } else {
-        expect(phys.rotation, `${b.id} has sourced rotation`).toBeDefined();
-        expect(phys.rotation!.wRateDegPerDay, `${b.id} spin rate is finite`).not.toBe(0);
+        expect(phys.note, `${b.id} perturber pole is documented`).toContain('rotation pole sourced from');
       }
     }
   });

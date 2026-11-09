@@ -1,6 +1,12 @@
 {
   "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=3&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
-  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "note": "Gravitating perturber: rotation pole sourced from Viikinkoski et al. (2015) / DAMIT Model 786 (converted from J2000 ecliptic λ=105°, β=21°).",
+  "rotation": {
+    "poleRaDeg": 109.43,
+    "poleDecDeg": 43.43,
+    "w0Deg": 0.0,
+    "wRateDegPerDay": 1198.336
+  },
   "facts": {
     "Classification": "Main-belt Asteroid (S-type Tholen / Sk-type SMASS-II)",
     "System GM": "1.920570700202589 km³/s² (NAIF gm_de440.tpc)",
@@ -11,6 +17,6 @@
     "Geometric Albedo": "0.214 ± 0.026 (urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2012ApJ...759L...8M))",
     "Absolute Magnitude H": "5.19 (E2025N01)",
     "Discovery": "Discovered 1804-09-01 by Harding, K. at Lilienthal",
-    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+    "Spin Pole": "α=109.43°, δ=43.43° (Viikinkoski et al. 2015 / DAMIT Model 786, from λ=105°, β=21°)"
   }
 }

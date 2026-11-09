@@ -1,6 +1,12 @@
 {
   "source": "JPL Small-Body Database SBDB API, https://ssd-api.jpl.nasa.gov/sbdb.api?sstr=511&phys-par=1&discovery=1&full-prec=1 (values and per-field references copied verbatim, checked 2026-11-06)",
-  "note": "Gravitating perturber: rendered without a spin state because no IAU/NAIF pole orientation is published for this body (see docs/OPEN_QUESTIONS.md).",
+  "note": "Gravitating perturber: rotation pole sourced from Conrad et al. / DAMIT Model (converted from J2000 ecliptic λ=297°, β=26°).",
+  "rotation": {
+    "poleRaDeg": 294.17,
+    "poleDecDeg": 4.8,
+    "w0Deg": 0.0,
+    "wRateDegPerDay": 1684.309
+  },
   "facts": {
     "Classification": "Main-belt Asteroid (C-type)",
     "System GM": "3.8944831481705644 km³/s² (NAIF gm_de440.tpc)",
@@ -11,6 +17,6 @@
     "Geometric Albedo": "0.076 ± 0.007 (urn:nasa:pds:neowise_diameters_albedos::2.0[mainbelt] (http://adsabs.harvard.edu/abs/2014ApJ...791..121M))",
     "Absolute Magnitude H": "6.42 (MPO980529)",
     "Discovery": "Discovered 1903-05-30 by Dugan, R. S. at Heidelberg",
-    "Spin Pole": "Not modelled — SBDB/NAIF publish no ratified pole for this body, so no orientation is asserted."
+    "Spin Pole": "α=294.17°, δ=4.80° (Conrad et al. / DAMIT, from λ=297°, β=26°)"
   }
 }

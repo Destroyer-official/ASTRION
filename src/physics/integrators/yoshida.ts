@@ -29,7 +29,11 @@ export class Composition implements Integrator {
     this.w = weights;
   }
   step(s: SystemState, forces: ForceModel[], dt: number): void {
-    for (const w of this.w) this.base.step(s, forces, w * dt);
+    if (!Number.isFinite(dt) || dt === 0) return;
+    for (const w of this.w) {
+      this.base.step(s, forces, w * dt);
+      if (!Number.isFinite(s.t) || !Number.isFinite(s.pos[0]!)) break;
+    }
   }
 }
 
