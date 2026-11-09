@@ -651,7 +651,7 @@ export function createViewer(
       GX_SIM[0]!, GY_SIM[0]!, GZ_SIM[0]!, 0,
       GX_SIM[1]!, GY_SIM[1]!, GZ_SIM[1]!, 0,
       GX_SIM[2]!, GY_SIM[2]!, GZ_SIM[2]!, 0,
-      0,          0,          0,          1,
+      0, 0, 0, 1,
     );
 
     let mRotScene = mRotEcl;
@@ -661,7 +661,7 @@ export function createViewer(
         frameAxes[0]!, frameAxes[1]!, frameAxes[2]!, 0,
         frameAxes[3]!, frameAxes[4]!, frameAxes[5]!, 0,
         frameAxes[6]!, frameAxes[7]!, frameAxes[8]!, 0,
-        0,             0,             0,             1,
+        0, 0, 0, 1,
       );
       mRotScene = mFrame.clone().multiply(mRotEcl);
     }
@@ -1221,8 +1221,8 @@ export function createViewer(
     const pullBodyIdx = cachedGravityPull
       ? model.ids.indexOf(cachedGravityPull.targetId)
       : cachedTrajTargetId
-      ? model.ids.indexOf(cachedTrajTargetId)
-      : -1;
+        ? model.ids.indexOf(cachedTrajTargetId)
+        : -1;
     const bodySimPos: [number, number, number] | null =
       pullBodyIdx >= 0 && pullBodyIdx < model.ids.length
         ? [s.pos[3 * pullBodyIdx]!, s.pos[3 * pullBodyIdx + 1]!, s.pos[3 * pullBodyIdx + 2]!]
