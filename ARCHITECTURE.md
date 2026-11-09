@@ -41,11 +41,12 @@ code corrections, noted inline below and in each Phase section.
 - **Frames:** integrate barycentric ICRF (`CENTER=0`, `REF_PLANE=FRAME`,
   `OUT_UNITS=AU-D`, `TLIST=2451545.0`); derive heliocentric by subtraction;
   `transform(state, outPos, outVel)` into preallocated arrays is the right pattern.
-- **Rendering:** Three.js r186; `logarithmicDepthBuffer: true` (verified at
+- **Rendering:** Three.js r187; `logarithmicDepthBuffer: true` (verified at
   `src/render/viewer.ts:236`); linear `AU_TO_UNITS` distances, exaggerated
-  radii, camera-relative positions (float64 physics → float32 GPU). The exact camera
-  near/far values were documented inconsistently (AUDIT-29) and are not asserted
-  anywhere — treat that range as unverified.
+  radii, camera-relative positions (float64 physics → float32 GPU). Camera clipping planes
+  are configured in `src/render/viewer.ts:265` with `near = 1e-7` AU (~15 m for close moon flybys)
+  and `far = 5e6` AU (5 million AU for deep Oort cloud visualization), with `controls.minDistance = 1e-7` AU
+  and `controls.maxDistance = 500_000` AU (AUDIT-29 resolved).
 - **Tooling:** Vite 8 / Vitest 5 / TS 6 / Node ≥22.12; `@` alias in both
   `vite.config.ts` and `tsconfig`; `worker.format: 'es'` top-level;
   `strict + noUncheckedIndexedAccess` intentional (`!` on indexed reads).

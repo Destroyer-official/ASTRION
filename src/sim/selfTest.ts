@@ -93,3 +93,4 @@ export function runSelfTest(registry?: HealthRegistry): SelfTestResult {
     modules,
   };
 }
+

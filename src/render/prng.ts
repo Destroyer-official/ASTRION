@@ -12,3 +12,4 @@ export function createPrng(seed = 0x2f6e2b1): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+

@@ -80,12 +80,17 @@ describe('NASA SPICE truth (NAIF PCK snapshots)', () => {
     if (sun.initial.type !== 'vectors') throw new Error('sun has no vectors');
     const r = Math.hypot(...sun.initial.position);
     const v = Math.hypot(...sun.initial.velocity);
+    const rKm = Math.round(r * AU_KM);
+    const vMs = Number((auDayToKms(v) * 1000).toFixed(1));
     console.log(
-      `Sun SSB state: r=${r.toExponential(3)} AU (${Math.round(r * AU_KM)} km), ` +
-        `v=${v.toExponential(3)} AU/day (${(auDayToKms(v) * 1000).toFixed(1)} m/s)`,
+      `Sun SSB state: r=${r.toExponential(3)} AU (${rKm} km), ` +
+        `v=${v.toExponential(3)} AU/day (${vMs} m/s)`,
     );
     expect(r, 'Sun offset from barycenter').toBeGreaterThan(1e-4);
     expect(v, 'Sun speed around barycenter').toBeGreaterThan(1e-6);
+    // Explicit verification of solar wobble magnitude and velocity (AUDIT-21)
+    expect(rKm, 'Documented solar wobble magnitude at epoch JD 2461319.5').toBe(788469);
+    expect(vMs, 'Documented solar wobble velocity at epoch JD 2461319.5').toBe(11.4);
   });
 
   it('system state sits at the solar-system barycenter', () => {

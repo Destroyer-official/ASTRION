@@ -70,6 +70,14 @@ it('only console log sink writes directly to console', () => {
   }
 });
 
+it('all primary architectural modules expose public index.ts entry points', () => {
+  const modules = ['physics', 'frames', 'universe', 'data', 'sim', 'observability', 'physics/light'];
+  for (const mod of modules) {
+    const indexPath = join('src', mod, 'index.ts');
+    expect(statSync(indexPath).isFile(), `${mod}/index.ts must exist as public API barrel`).toBe(true);
+  }
+});
+
 it('physical constants have one data-layer definition', () => {
   const literal = /149_?597_?870\.7|299_?792\.458|132_?712_?440_?041\.279419|63_?241(?:\.077)?/;
   for (const file of walk('src')) {

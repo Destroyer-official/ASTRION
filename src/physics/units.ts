@@ -55,3 +55,4 @@ export const degToRadTyped = (deg: Degree): Radian => ((deg * Math.PI) / 180) as
 export const radToDegTyped = (rad: Radian): Degree => ((rad * 180) / Math.PI) as Degree;
 export const daysToSecondsTyped = (days: Day): Second => (days * DAY_S) as Second;
 export const secondsToDaysTyped = (sec: Second): Day => (sec / DAY_S) as Day;
+

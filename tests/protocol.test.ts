@@ -33,3 +33,4 @@ describe('Worker Protocol Runtime Validation (AUDIT-12)', () => {
     expect(validateToWorker({ type: 'load', gen: 0, t: 0, pos: [0, 0, 0], vel: [0, 0, 0] }).valid).toBe(false);
   });
 });
+
