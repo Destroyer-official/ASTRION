@@ -5,8 +5,8 @@ authors:
 title: "ASTRION: Flight-Grade Relativistic Astrodynamics & Multi-Scale Universe Simulation Engine"
 version: 1.0.0
 date-released: 2026-10-19
-url: "https://github.com/Destroyer-official/universe"
-repository-code: "https://github.com/Destroyer-official/universe"
+url: "https://github.com/Destroyer-official/astrion"
+repository-code: "https://github.com/Destroyer-official/astrion"
 keywords:
   - "universe"
   - "cosmology"
