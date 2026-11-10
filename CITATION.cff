@@ -2,12 +2,14 @@ cff-version: 1.2.0
 message: "If you use this software in academic research or technical simulations, please cite it as below."
 authors:
   - name: "ASTRION Project Contributors"
-title: "ASTRION: Astronomical State & Trajectory Reconstruction for Interplanetary & Orbital Navigation"
+title: "ASTRION: Flight-Grade Relativistic Astrodynamics & Multi-Scale Universe Simulation Engine"
 version: 1.0.0
 date-released: 2026-10-19
-url: "https://github.com/Destroyer-official/solar-system"
-repository-code: "https://github.com/Destroyer-official/solar-system"
+url: "https://github.com/Destroyer-official/universe"
+repository-code: "https://github.com/Destroyer-official/universe"
 keywords:
+  - "universe"
+  - "cosmology"
   - "astrodynamics"
   - "celestial mechanics"
   - "ephemeris"

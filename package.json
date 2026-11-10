@@ -1,6 +1,6 @@
 {
-  "name": "astrion",
-  "description": "ASTRION — Flight-Grade Relativistic Astrodynamics & Multi-Scale Universe Simulation Engine",
+  "name": "universe",
+  "description": "ASTRION — Flight-Grade Relativistic Astrodynamics, N-Body Multi-Scale Universe Simulation Engine & 3D Visualization Platform",
   "private": true,
   "version": "1.0.0",
   "type": "module",
