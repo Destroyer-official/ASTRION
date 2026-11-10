@@ -506,8 +506,8 @@ solar-system/
 
 ```bash
 # Clone the repository
-git clone https://github.com/Destroyer-official/astrion.git
-cd astrion
+git clone https://github.com/Destroyer-official/ASTRION.git
+cd ASTRION
 
 # Install dependencies
 npm install
@@ -583,6 +583,6 @@ If you utilize ASTRION in academic research, aerospace mission analysis, or orbi
   title = {ASTRION: Flight-Grade Relativistic Astrodynamics & Multi-Scale Universe Simulation Engine},
   year = {2026},
   publisher = {GitHub},
-  url = {https://github.com/Destroyer-official/astrion}
+  url = {https://github.com/Destroyer-official/ASTRION}
 }
 ```
