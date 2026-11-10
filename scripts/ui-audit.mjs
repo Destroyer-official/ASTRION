@@ -58,8 +58,19 @@ async function launch() {
   }
 }
 
+function isDriverNoise(entry) {
+  return /GL Driver Message|GPU stall|GL_CLOSE_PATH|SwiftShader/i.test(entry);
+}
+
 function isAppFailure(entry) {
+  if (isDriverNoise(entry)) return false;
   return entry.startsWith('error:') || entry.startsWith('pageerror:') || entry.startsWith('requestfailed:');
+}
+
+function isStartupFailure(entry) {
+  if (entry.startsWith('requestfailed')) return false;
+  if (isDriverNoise(entry)) return false;
+  return true;
 }
 
 function appFailuresSince(bucket, before) {
@@ -525,7 +536,7 @@ async function offlineBoot(browser) {
   await page.waitForSelector('canvas', { timeout: 20_000 });
   await page.waitForTimeout(2_000);
   await installProbe(page);
-  const errors = bucket.filter((entry) => !entry.startsWith('requestfailed'));
+  const errors = bucket.filter(isStartupFailure);
   check(externalRequests.length === 0, 'startup makes no external network requests', externalRequests.slice(0, 3).join(' | '));
   check(errors.length === 0, 'app boots with external network blocked', errors.slice(0, 3).join(' | '));
   await expectLive(page, 'external-network-isolated boot');
@@ -555,7 +566,7 @@ try {
     check(bootMs < 15_000, `${viewport.name}: app becomes visible within 15 s`, `${bootMs} ms`);
 
     await page.waitForTimeout(2_500);
-    const startupErrors = bucket.filter((entry) => !entry.startsWith('requestfailed'));
+    const startupErrors = bucket.filter(isStartupFailure);
     check(startupErrors.length === 0, `${viewport.name}: clean console during startup`, startupErrors.slice(0, 4).join(' | '));
 
     await auditViewport(page, viewport);
