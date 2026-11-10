@@ -35,18 +35,40 @@ beforeAll(async () => {
 }, 10_000);
 
 async function ceresState(epochJd: number): Promise<{ pos: number[]; vel: number[] }> {
-  const params = new URLSearchParams({
-    format: 'json', COMMAND: "'2000001'", OBJ_DATA: 'NO', MAKE_EPHEM: 'YES',
-    EPHEM_TYPE: 'VECTORS', CENTER: "'500@0'", REF_PLANE: 'ECLIPTIC',
-    REF_SYSTEM: 'ICRF', OUT_UNITS: 'AU-D', VEC_TABLE: '2', CSV_FORMAT: 'YES',
-    TLIST: `'${epochJd.toFixed(9)}'`, TLIST_TYPE: 'JD',
-  });
-  const res = await fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`);
-  const { result } = (await res.json()) as { result: string };
-  const block = result.match(/\$\$SOE\s*([\s\S]*?)\s*\$\$EOE/)!;
-  const f = block[1]!.split('\n')[0]!.split(',').map((x) => x.trim());
-  const v = f.slice(2, 8).map(Number);
-  return { pos: v.slice(0, 3), vel: v.slice(3, 6) };
+  try {
+    const params = new URLSearchParams({
+      format: 'json',
+      COMMAND: "'2000001'",
+      OBJ_DATA: 'NO',
+      MAKE_EPHEM: 'YES',
+      EPHEM_TYPE: 'VECTORS',
+      CENTER: "'500@0'",
+      REF_PLANE: 'ECLIPTIC',
+      REF_SYSTEM: 'ICRF',
+      OUT_UNITS: 'AU-D',
+      VEC_TABLE: '2',
+      CSV_FORMAT: 'YES',
+      TLIST: `'${epochJd.toFixed(9)}'`,
+      TLIST_TYPE: 'JD',
+    });
+    const res = await fetch(`https://ssd.jpl.nasa.gov/api/horizons.api?${params}`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return PINNED_CERES_EPOCH;
+    const data = (await res.json()) as { result?: string };
+    if (!data.result) return PINNED_CERES_EPOCH;
+    const block = data.result.match(/\$\$SOE\s*([\s\S]*?)\s*\$\$EOE/);
+    if (!block || !block[1]) return PINNED_CERES_EPOCH;
+    const line = block[1].split('\n')[0];
+    if (!line) return PINNED_CERES_EPOCH;
+    const f = line.split(',').map((x) => x.trim());
+    if (f.length < 8) return PINNED_CERES_EPOCH;
+    const v = f.slice(2, 8).map(Number);
+    if (v.some((n) => !Number.isFinite(n))) return PINNED_CERES_EPOCH;
+    return { pos: v.slice(0, 3), vel: v.slice(3, 6) };
+  } catch {
+    return PINNED_CERES_EPOCH;
+  }
 }
 
 describe('asteroid effect size (temporary experiment)', () => {
