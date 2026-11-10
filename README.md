@@ -46,10 +46,17 @@ graph TD
         R3["Photometric PBR Spheres, Atmospheric Scattering & Ring Systems"]:::render
     end
 
-    T0 --> S1 & S2
-    T1 & T2 --> S3
-    T3 & T4 --> S3
-    S1 & S2 & S3 & S4 & S5 --> VisualizationLayer
+    T0 --> S1
+    T0 --> S2
+    T1 --> S3
+    T2 --> S3
+    T3 --> S3
+    T4 --> S3
+    S1 --> VisualizationLayer
+    S2 --> VisualizationLayer
+    S3 --> VisualizationLayer
+    S4 --> VisualizationLayer
+    S5 --> VisualizationLayer
 ```
 
 ---
@@ -194,21 +201,21 @@ classDiagram
         +step(state, dt)
     }
     class SymplecticYoshida {
-        +order: 4 | 6 | 8
+        +int order
         +step(state, dt)
         -kickDriftKick()
     }
     class IAS15 {
-        +order: 15
-        +tolerance: 1e-15
+        +int order
+        +float tolerance
         +step(state, dt)
         -gaussRadauQuadrature()
         -adaptiveStepControl()
         -kahanCompensatedSum()
     }
     class RungeKutta89 {
-        +order: 8(9)
-        +stages: 13
+        +int order
+        +int stages
         +step(state, dt)
     }
     class HierarchicalSubcycling {
@@ -270,7 +277,9 @@ flowchart LR
     A["Spacecraft State (r, v, m)"] --> B["Solar Radiation Pressure (SRP)"]
     A --> C["Poynting-Robertson Drag"]
     A --> D["Atmospheric Aerodynamic Drag"]
-    B & C & D --> E["Total Non-Gravitational Acceleration a_ng"]
+    B --> E["Total Non-Gravitational Acceleration a_ng"]
+    C --> E
+    D --> E
     E --> F["IAS15 / RK8(9) Trajectory Propagation"]
     F --> G["B-Plane & RF Link Budget Telemetry"]
 ```
@@ -364,9 +373,16 @@ $$P_{\text{rx}}\text{ [dBm]} = P_{\text{tx}}\text{ [dBm]} + G_{\text{tx}}\text{ 
 ### 5.7 Relativistic Proper Time Dilation
 A clock carried by a spacecraft records proper time $\tau$ relative to coordinate time $t$ according to general relativistic metric contraction:
 $$\frac{d\tau}{dt} = \sqrt{-g_{00} - 2 g_{0i} \frac{v^i}{c} - g_{ij} \frac{v^i v^j}{c^2}}$$
+
 In weak-field post-Newtonian approximation:
 $$\frac{d\tau}{dt} = 1 - \frac{U(\mathbf{r})}{c^2} - \frac{v^2}{2 c^2} + \frac{U_{\text{geoid}}}{c^2}$$
-where $U(\mathbf{r}) = \sum_j \frac{G m_j}{\|\mathbf{r} - \mathbf{r}_j\|}$ is the local gravitational potential, $\frac{v^2}{2c^2}$ represents kinematic special relativistic time dilation, and $U_{\text{geoid}}$ references the clock to terrestrial standard geoid proper time.
+
+where:
+- Gravitational potential:
+  $$U(\mathbf{r}) = \sum_j \frac{G m_j}{\|\mathbf{r} - \mathbf{r}_j\|}$$
+- Kinematic special relativistic time dilation:
+  $$\Delta_{\text{SR}} = -\frac{v^2}{2 c^2}$$
+- Terrestrial reference geoid potential: $U_{\text{geoid}}$ references the clock to terrestrial standard geoid proper time.
 
 ---
 
@@ -376,10 +392,10 @@ where $U(\mathbf{r}) = \sum_j \frac{G m_j}{\|\mathbf{r} - \mathbf{r}_j\|}$ is th
 ASTRION maintains strict mathematical orthogonality across three primary coordinate frames:
 
 ```mermaid
-graph LR
-    BCRS["ICRF / BCRS (Barycentric Celestial)"] <-->|R_x(eps_0)| ECLIP["Heliocentric Ecliptic J2000"]
-    BCRS <-->|M_gal| GAL["Galactocentric (Sgr A* Centered)"]
-    ECLIP <-->|R_body(t)| BF["Planet Body-Fixed Frame"]
+flowchart LR
+    BCRS["ICRF / BCRS (Barycentric Celestial)"] <-->|"Rx(ε0)"| ECLIP["Heliocentric Ecliptic J2000"]
+    BCRS <-->|"M_gal"| GAL["Galactocentric (Sgr A* Centered)"]
+    ECLIP <-->|"R_body(t)"| BF["Planet Body-Fixed Frame"]
 ```
 
 1. **ICRF (International Celestial Reference Frame / BCRS):** Fixed to extragalactic quasars.
